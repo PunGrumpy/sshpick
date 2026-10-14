@@ -4,6 +4,7 @@
 //! owns raw mode and the alternate screen, and maps crossterm key events to `sshpick_core::Key`
 //! one to one.
 
+mod text;
 mod tui;
 
 pub use tui::{Screen, run};

@@ -1,0 +1,16 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: frame(&lines)
+---
+ 0|> type to filter                                                             5/5
+ 1|────────────────────────────────────────────────────────────────────────────────
+ 2|  ENV         HOST           WHAT
+ 3|▌ LAB         lab-a          LAB — personal VMs
+ 4|  LAB         lab-b          build box
+ 5|  NEW STAGING newstg-consul1 consul server 1 — mgmt
+ 6|  NEW STAGING newstg-consul2
+ 7|  NEW STAGING newstg-bastion bastion
+ 8|
+ 9|
+10|────────────────────────────────────────────────────────────────────────────────
+11| Enter ssh  Esc quit  Ctrl-U clear  ↑↓ move                             5 hosts

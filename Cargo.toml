@@ -26,6 +26,7 @@ sshpick-ui = { path = "crates/sshpick-ui" }
 
 crossterm = "0.29"
 glob = "0.3"
+insta = "1"
 # Without `unicode-segmentation`, nucleo matches chars, not grapheme heads: match indices are char
 # indices (fzf's rune semantics) and Thai combining marks stay matchable.
 nucleo-matcher = { version = "0.3.1", default-features = false, features = [
@@ -35,4 +36,5 @@ nucleo-matcher = { version = "0.3.1", default-features = false, features = [
 ratatui = { version = "0.30.2", default-features = false, features = [
   "crossterm",
 ] }
+test-case = "3"
 thiserror = "2"

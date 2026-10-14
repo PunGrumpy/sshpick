@@ -1,0 +1,24 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: frame(&lines)
+---
+ 0|> type to filter                     5/5
+ 1|────────────────────────────────────────
+ 2|  ENV         HOST           WHAT
+ 3|▌ LAB         lab-a          LAB — pers…
+ 4|  LAB         lab-b          build box
+ 5|  NEW STAGING newstg-consul1 consul ser…
+ 6|  NEW STAGING newstg-consul2
+ 7|  NEW STAGING newstg-bastion bastion
+ 8|
+ 9|
+10|
+11|
+12|
+13|─ ssh -G lab-a failed ──────────────────
+14|  word word word word word word word
+15|  word word word word word word word
+16|  word word word word word word word
+17|  word word word word word word word
+18|  word word word word word word word
+19| Enter ssh  Esc quit            5 hosts

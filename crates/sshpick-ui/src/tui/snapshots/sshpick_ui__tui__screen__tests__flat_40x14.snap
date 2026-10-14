@@ -1,0 +1,18 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: frame(&lines)
+---
+ 0|> type to filter                     2/2
+ 1|────────────────────────────────────────
+ 2|  HOST   WHAT
+ 3|▌ root-a reachable from anywhere
+ 4|  root-b
+ 5|
+ 6|
+ 7|─ ssh -G root-a ────────────────────────
+ 8|
+ 9|
+10|
+11|
+12|
+13| Enter ssh  Esc quit            2 hosts

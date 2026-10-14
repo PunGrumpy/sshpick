@@ -2,3 +2,5 @@ target/
 .DS_Store
 *.log
 rustc-ice-*.txt
+*.snap.new
+*.pending-snap

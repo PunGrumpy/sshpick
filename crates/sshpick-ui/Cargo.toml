@@ -14,3 +14,7 @@ workspace = true
 crossterm = { workspace = true }
 ratatui = { workspace = true }
 sshpick-core = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+test-case = { workspace = true }

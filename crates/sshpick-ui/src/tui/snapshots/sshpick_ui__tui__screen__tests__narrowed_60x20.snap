@@ -1,0 +1,24 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: frame(&lines)
+---
+ 0|> 'lab-b                                                 1/5
+ 1|────────────────────────────────────────────────────────────
+ 2|  ENV         HOST           WHAT
+ 3|▌ LAB         lab-b          build box
+ 4|
+ 5|
+ 6|
+ 7|
+ 8|
+ 9|
+10|
+11|
+12|
+13|─ ssh -G lab-b ─────────────────────────────────────────────
+14|
+15|
+16|
+17|
+18|
+19| Enter ssh  Esc quit  Ctrl-U clear  ↑↓ move         5 hosts
