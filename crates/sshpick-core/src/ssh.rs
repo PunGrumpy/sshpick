@@ -42,7 +42,7 @@ pub enum ResolveError {
 }
 
 impl Preview {
-    /// Read `ssh -G` output, keeping the shown keys. The binary's tests build a ready pane
+    /// Read `ssh -G` output, keeping the shown keys. The UI's tests build a ready pane
     /// from a fixture with it.
     pub fn parse(stdout: &str) -> Preview {
         parse_g(stdout)

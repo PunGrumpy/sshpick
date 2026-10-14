@@ -11,6 +11,5 @@ publish = false
 workspace = true
 
 [dependencies]
-crossterm = { workspace = true }
-ratatui = { workspace = true }
 sshpick-core = { workspace = true }
+sshpick-ui = { workspace = true }

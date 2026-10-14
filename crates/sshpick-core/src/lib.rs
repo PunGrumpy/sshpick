@@ -1,8 +1,8 @@
 //! sshpick's domain, with no terminal in it: which hosts `~/.ssh/config` defines, how a query
 //! ranks them, what each key does, and what `ssh` says about a host.
 //!
-//! This crate cannot name a terminal type because it does not depend on one. The `sshpick`
-//! binary owns the terminal (raw mode, drawing, reading keys) and nothing else.
+//! This crate cannot name a terminal type because it does not depend on one. `sshpick-ui` owns
+//! the terminal (raw mode, drawing, reading keys).
 //!
 //! The whole public surface, as the binary uses it:
 //!

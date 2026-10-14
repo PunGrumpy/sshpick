@@ -1,0 +1,16 @@
+[package]
+name = "sshpick-ui"
+description = "sshpick's terminal: the ratatui picker, raw-mode handling and key mapping"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+sshpick-core = { workspace = true }

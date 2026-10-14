@@ -4,7 +4,7 @@ use std::ops::Range;
 use crate::config::{Entry, Host};
 use crate::rank::{Match, Ranker};
 
-/// Query, matches, cursor and scroll for one session. The only owner of all four: the binary
+/// Query, matches, cursor and scroll for one session. The only owner of all four: the UI
 /// keeps no selection or table offset of its own and builds each frame from [`Picker::view`].
 pub struct Picker {
     ranker: Ranker,
@@ -13,7 +13,7 @@ pub struct Picker {
     scroll: usize,
 }
 
-/// A key with the terminal encoding stripped. The binary maps crossterm events to this one to
+/// A key with the terminal encoding stripped. `sshpick-ui` maps crossterm events to this one to
 /// one, with no policy; what each key does lives in [`Picker::handle`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
@@ -54,7 +54,7 @@ pub struct View<'a> {
 }
 
 /// One visible row. Each column is its text cut into `(text, matched)` runs, in order, so the
-/// binary can style matched characters without knowing how the haystack was laid out.
+/// UI can style matched characters without knowing how the haystack was laid out.
 #[derive(Debug)]
 pub struct Row<'a> {
     pub env: Vec<(&'a str, bool)>,

@@ -1,19 +1,10 @@
-mod ui;
-
 use std::ffi::OsString;
 use std::fmt::Display;
 use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
-use std::time::Duration;
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use ratatui::DefaultTerminal;
-use sshpick_core::{Entry, Host, Key, Loaded, Outcome, Picker, Previews, Warning};
-
-use crate::ui::Screen;
-
-const BUSY_POLL: Duration = Duration::from_millis(15);
-const IDLE_POLL: Duration = Duration::from_secs(3600);
+use sshpick_core::{Entry, Host, Loaded, Outcome, Picker, Previews, Warning};
+use sshpick_ui::Screen;
 
 const HELP: &str = concat!(
     "sshpick ",
@@ -165,7 +156,7 @@ fn pick(loaded: Loaded, query: &str) -> ExitCode {
         previews.prefetch(host);
     }
 
-    match run(&screen, &mut picker, &mut previews) {
+    match sshpick_ui::run(&screen, &mut picker, &mut previews) {
         Ok(Outcome::Pick(host)) => exec(&host),
         Ok(Outcome::Cancel) => Exit::Cancelled.into(),
         Ok(Outcome::NoMatch) => Exit::NoMatch.into(),
@@ -180,96 +171,6 @@ fn pick(loaded: Loaded, query: &str) -> ExitCode {
 fn report(warnings: &[Warning]) {
     for warning in warnings {
         eprintln!("sshpick: warning: {warning}");
-    }
-}
-
-struct Tty {
-    terminal: DefaultTerminal,
-    active: bool,
-}
-
-impl Tty {
-    fn enter() -> io::Result<Tty> {
-        match ratatui::try_init() {
-            Ok(terminal) => Ok(Tty {
-                terminal,
-                active: true,
-            }),
-            Err(error) => {
-                // A half-done init may have enabled raw mode before failing.
-                let _ = ratatui::try_restore();
-                Err(error)
-            }
-        }
-    }
-
-    fn leave(&mut self) -> io::Result<()> {
-        if !self.active {
-            return Ok(());
-        }
-        let cursor = self.terminal.show_cursor();
-        let restored = ratatui::try_restore();
-        self.active = false;
-        cursor.and(restored)
-    }
-}
-
-impl Drop for Tty {
-    fn drop(&mut self) {
-        let _ = self.leave();
-    }
-}
-
-fn run(screen: &Screen, picker: &mut Picker, previews: &mut Previews) -> io::Result<Outcome> {
-    let mut tty = Tty::enter()?;
-    let outcome = events(&mut tty, screen, picker, previews);
-    tty.leave()?;
-    outcome
-}
-
-fn events(
-    tty: &mut Tty,
-    screen: &Screen,
-    picker: &mut Picker,
-    previews: &mut Previews,
-) -> io::Result<Outcome> {
-    loop {
-        let selected = picker.selected().cloned();
-        let pane = selected.as_ref().map(|host| (host, previews.fetch(host)));
-        tty.terminal
-            .draw(|frame| screen.draw(frame, picker, pane))?;
-
-        let timeout = if previews.busy() {
-            BUSY_POLL
-        } else {
-            IDLE_POLL
-        };
-        if !event::poll(timeout)? {
-            continue;
-        }
-        if let Event::Key(event) = event::read()?
-            && let Some(outcome) = key(event).and_then(|key| picker.handle(key))
-        {
-            return Ok(outcome);
-        }
-    }
-}
-
-fn key(event: KeyEvent) -> Option<Key> {
-    if event.kind != KeyEventKind::Press {
-        return None;
-    }
-    let ctrl = event.modifiers.contains(KeyModifiers::CONTROL);
-    let alt = event.modifiers.contains(KeyModifiers::ALT);
-    match event.code {
-        KeyCode::Char(c) if ctrl => Some(Key::Ctrl(c.to_ascii_lowercase())),
-        KeyCode::Char(c) if !alt => Some(Key::Char(c)),
-        KeyCode::Enter => Some(Key::Enter),
-        KeyCode::Esc => Some(Key::Esc),
-        KeyCode::Backspace => Some(Key::Backspace),
-        KeyCode::Up => Some(Key::Up),
-        KeyCode::Down => Some(Key::Down),
-        _ => None,
     }
 }
 
@@ -389,19 +290,5 @@ mod tests {
             parse(&["--bogus", "-h"]),
             Command::Usage("--bogus".to_owned())
         );
-    }
-
-    #[test]
-    fn key_maps_without_policy() {
-        let press = |code, modifiers| key(KeyEvent::new(code, modifiers));
-        let ctrl = KeyModifiers::CONTROL;
-        assert_eq!(press(KeyCode::Char('p'), ctrl), Some(Key::Ctrl('p')));
-        assert_eq!(press(KeyCode::Char('J'), ctrl), Some(Key::Ctrl('j')));
-        assert_eq!(
-            press(KeyCode::Char('A'), KeyModifiers::SHIFT),
-            Some(Key::Char('A'))
-        );
-        assert_eq!(press(KeyCode::Char('x'), KeyModifiers::ALT), None);
-        assert_eq!(press(KeyCode::Left, KeyModifiers::NONE), None);
     }
 }
