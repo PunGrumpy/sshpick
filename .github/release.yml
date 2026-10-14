@@ -1,0 +1,31 @@
+# Used to auto generate sshpick release notes
+
+changelog:
+  exclude:
+    labels:
+      - "area: ci"
+      - "release-notes-ignore"
+  categories:
+    - title: Breaking Changes
+      labels:
+        - "breaking"
+    - title: Picker
+      labels:
+        - "area: tui"
+    - title: Command Line
+      labels:
+        - "area: cli"
+        - "area: ergonomics"
+    - title: Config
+      labels:
+        - "area: config"
+        - "area: ranking"
+    - title: Docs
+      labels:
+        - "area: docs"
+    - title: Dependencies
+      labels:
+        - "dependencies"
+    - title: Changelog
+      labels:
+        - "*"
