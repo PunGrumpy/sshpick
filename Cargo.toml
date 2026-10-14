@@ -1,0 +1,36 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/PunGrumpy/sshpick"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+expect_used = "deny"
+unwrap_used = "deny"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[workspace.dependencies]
+sshpick-core = { path = "crates/sshpick-core" }
+
+crossterm = "0.29"
+glob = "0.3"
+# Without `unicode-segmentation`, nucleo matches chars, not grapheme heads: match indices are char
+# indices (fzf's rune semantics) and Thai combining marks stay matchable.
+nucleo-matcher = { version = "0.3.1", default-features = false, features = [
+  "unicode-casefold",
+  "unicode-normalization",
+] }
+ratatui = { version = "0.30.2", default-features = false, features = [
+  "crossterm",
+] }

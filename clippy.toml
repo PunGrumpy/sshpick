@@ -1,0 +1,13 @@
+disallowed-types = [
+  { path = "std::collections::hash_map::DefaultHasher", reason = "its output changes across Rust releases; name a hasher" },
+]
+disallowed-methods = [
+  { path = "std::collections::VecDeque::new", reason = "allocates; use with_capacity" },
+  { path = "ratatui::init", reason = "panics on terminal errors; use ratatui::try_init" },
+  { path = "ratatui::init::init_with_options", reason = "panics on terminal errors; use try_init_with_options" },
+  { path = "ratatui::init::run", reason = "panics on terminal errors; use try_init and try_restore" },
+  { path = "ratatui::init::restore", reason = "swallows the error; use ratatui::try_restore" },
+]
+
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true

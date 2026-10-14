@@ -1,0 +1,6 @@
+[toolchain]
+# CI and rustup users get exactly this; Homebrew rust ignores the file. Bump it on purpose: a new
+# clippy adds lints, and `cargo lint` runs with -D warnings.
+channel = "1.99.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

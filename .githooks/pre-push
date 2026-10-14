@@ -1,0 +1,5 @@
+#!/bin/sh
+# Enabled by `make setup`. Fast checks only; CI runs the full `make quality`.
+set -eu
+cargo fmt --check
+taplo format --check

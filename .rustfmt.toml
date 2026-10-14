@@ -1,0 +1,5 @@
+# Keep in sync with .editorconfig. Stable keys only: the template's nightly keys warn on stable
+# and change nothing.
+max_width = 100
+tab_spaces = 4
+hard_tabs = false

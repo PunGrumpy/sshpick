@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Fixtures are byte-exact (one is CRLF on purpose): no line-ending normalization.
+crates/*/tests/fixtures/** -text

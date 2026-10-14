@@ -1,0 +1,17 @@
+[licenses]
+confidence-threshold = 0.93
+allow = ["Apache-2.0", "MIT", "MPL-2.0", "Unicode-3.0", "Zlib"]
+
+[bans]
+multiple-versions = "warn"
+deny = [
+  { crate = "tokio", reason = "no async runtime: one worker thread and std channels" },
+  { crate = "async-std", reason = "no async runtime: one worker thread and std channels" },
+  { crate = "clap", reason = "argv is two flags and a query, parsed by hand" },
+  { crate = "dirs", reason = "std::env::home_dir is enough", use-instead = "std::env::home_dir" },
+  { crate = "dirs-next", reason = "std::env::home_dir is enough", use-instead = "std::env::home_dir" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
