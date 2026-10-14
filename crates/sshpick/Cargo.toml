@@ -1,0 +1,16 @@
+[package]
+name = "sshpick"
+description = "Pick a host from ~/.ssh/config and ssh to it"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+crossterm = { workspace = true }
+ratatui = { workspace = true }
+sshpick-core = { workspace = true }

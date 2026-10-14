@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stands in for ssh on PATH: records how sshpick exec'd it.
+echo "ssh $*"
