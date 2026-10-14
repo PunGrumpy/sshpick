@@ -1,0 +1,204 @@
+# sshpick
+
+Pick a host from `~/.ssh/config` and ssh to it: a full-screen picker with fzf's keys and
+ranking, and a live `ssh -G` preview of where the host really resolves.
+
+    sshpick                 # every host
+    sshpick consul          # pre-filtered; exactly one match connects without opening the picker
+    sshpick new consul      # words are AND terms; fzf syntax: 'exact ^prefix suffix$ !not
+
+The picker after typing `consul`, at 80 columns. The prompt is the top row, with the count on
+its right. The best match is the first row under the header, and the `▌` row is the selection.
+From 100 columns the preview sits in a pane beside the list instead of under it.
+
+```text
+> consul                                                                    4/12
+────────────────────────────────────────────────────────────────────────────────
+  ENV     HOST          WHAT
+▌ STAGING stg-consul1   consul server 1
+  STAGING stg-consul2   consul server 2
+  STAGING stg-consul3   consul server 3
+  STAGING stg-consul-ui consul web UI tunnel: `ssh -f stg-consul-ui`, then open…
+─ ssh -G stg-consul1 ───────────────────────────────────────────────────────────
+  user          ubuntu
+  hostname      192.0.2.11
+  port          22
+  proxyjump     stg-bastion
+
+ Enter ssh  Esc quit  Ctrl-U clear  ↑↓ move                            12 hosts
+```
+
+## What it shows
+
+| Column | Where it comes from |
+|--------|---------------------|
+| ENV    | line 1 of each included file: `# OLD STAGING — anything` shows `OLD STAGING`; no label: the file name (`30-prod.conf` shows `prod`); hosts in `~/.ssh/config` itself: blank (the column hides when all are) |
+| HOST   | the first name on the `Host` line, the one you would type; `*`/`?` patterns and `!negations` are skipped; the other names are searchable but not shown |
+| WHAT   | the `#` comment on the line directly above `Host` |
+
+The preview runs `ssh -G -- <host>` and shows `user`, `hostname`, `port`, `remotecommand`,
+`proxyjump`, so `Match`, `ProxyJump` and `%` tokens show what ssh will actually do. A broken
+config shows ssh's own error there. Each host is resolved once per session.
+
+### Appearance
+
+The screen reads top-down. The first row is the prompt: `> `, the query, and on the right the
+count of matches out of all hosts (`5/29`). A dim rule, the header, then the list, best match
+first. A second dim rule closes the list, and the last row is the status bar.
+
+The selected row is an inverted bar with a `▌` marker. Matched characters are bold. ENV, WHAT,
+the header, the count, the rules and the preview keys are dim. Nothing else has a colour.
+
+At 100 columns or more the preview is a 40-column pane to the right of the list, behind a dim
+`│`. Its title, `ssh -G host`, sits on the header row, and the values start on the next row.
+Below 100 columns the preview is stacked under the list: the closing rule carries the title
+(`─ ssh -G host ─`) and five rows follow.
+
+When more rows match than fit, the closing rule says so on its right:
+`──── 17 more below ─`. When nothing matches, the first list row shows a dim `no match`.
+
+The last row is a status bar. It lists the main keys on the left. On the right it shows the
+host count. If the config has warnings, the count is followed by the number of warnings and
+the first one, cut to fit: `29 hosts · 2 warnings · <first warning>`. On a narrow terminal the
+hints drop from the right.
+
+An empty prompt shows a dim `type to filter`. A WHAT wider than its column ends in `…`. HOST
+and ENV are never cut.
+
+On a short terminal the picker gives the room to the list. Below 13 rows, at under 100
+columns, the stacked preview is not drawn. Below 7 rows, at any width, the header, both rules
+and the side pane go too, which leaves the prompt, the list and the status bar.
+
+The bar's colours follow the terminal theme. `SSHPICK_THEME=dark` or `light` overrides the
+detection, which otherwise reads `COLORFGBG` and falls back to dark. With `NO_COLOR` set,
+sshpick draws with reverse video, bold and dim only. `CLICOLOR_FORCE` turns colours back on.
+
+There is no animation, spinner or fade, by design. Each key press is one redraw. A preview
+that is still loading shows its title and an empty body.
+
+## Config conventions
+
+sshpick reads `~/.ssh/config` and follows its `Include` lines in the order ssh does. Two
+comment conventions fill the columns. Nothing else in the config needs to change.
+
+```text
+# STAGING — shared test environment (rotates quarterly)
+# jump host for the staging network
+Host stg-bastion
+  HostName 192.0.2.10
+
+# consul server 1
+Host stg-consul1 consul1.stg
+  HostName 192.0.2.11
+  ProxyJump stg-bastion
+```
+
+- Line 1 of an included file is the ENV label. Text from the first ` — `, ` - ` or ` (` on is
+  dropped, so this file's label is `STAGING`.
+- A comment directly above a `Host` line is its WHAT. A blank line or any other line in
+  between clears it. Here `stg-bastion` gets `jump host for the staging network`. A `Host`
+  on line 2 would get the label line as its WHAT too.
+- `stg-consul1` is the row. `consul1.stg` is searchable, so typing it finds the row.
+- `Host` follows ssh syntax: any case, tabs, `Host=x`, indentation. A name listed twice
+  makes one row.
+
+## Search
+
+Words are AND terms and use fzf's extended syntax with smart case (a capital makes that word
+case-sensitive).
+
+| Term     | Matches                  |
+|----------|--------------------------|
+| `consul` | fuzzy                    |
+| `'consul`| exact substring          |
+| `^stg`   | prefix                   |
+| `1$`     | suffix                   |
+| `!ui`    | rows without `ui`        |
+
+There is no `a | b` OR. The query is matched against ENV, HOST, WHAT and the other names on
+the `Host` line.
+
+An argument that starts with `-` is an option. To search for text that starts with `-`, put
+`--` before it: `sshpick -- -bastion`. Everything after `--` is query text.
+
+## Keys
+
+| Key                         | Effect                                                  |
+|-----------------------------|---------------------------------------------------------|
+| Enter                       | ssh to the selected host; with no match, exit 1         |
+| Esc, Ctrl-C, Ctrl-G, Ctrl-Q | quit, exit 130                                          |
+| Ctrl-D                      | quit when the query is empty                            |
+| Up, Ctrl-P, Ctrl-K          | next better match (up the list)                         |
+| Down, Ctrl-N, Ctrl-J        | next worse match (down the list)                        |
+| Backspace, Ctrl-H           | delete the last character                               |
+| Ctrl-U                      | clear the query                                         |
+| Ctrl-W                      | delete the last word                                    |
+
+The list is top-down with the best match first and the selection on it, like fzf's
+`--layout=reverse`. The text cursor is always at the end of the query.
+
+## Scripting
+
+    sshpick --list              # every host, one per line
+    sshpick --list new consul   # only the hosts matching the query
+    sshpick --list | fzf        # pipe the table to another tool
+
+`--list` needs no terminal. It prints the matching hosts as `ENV`, `HOST` and `WHAT`, separated
+by tabs, with no header and no styling. The order is the picker's list read top to bottom, best
+match first; with no query it is the order of the config. There are always three columns, so
+`cut -f2` gives the host names even when ENV is empty. Tabs inside a comment become spaces.
+Warnings go to stderr. The exit status is 1 when nothing matches.
+
+## Exit status
+
+| Status      | Meaning                                                                     |
+|-------------|-----------------------------------------------------------------------------|
+| 0           | `--list`, `--help` or `--version` succeeded                                 |
+| `ssh`'s own | after a pick (sshpick becomes `ssh`)                                        |
+| 1           | Enter with no match, or `--list` with no match                              |
+| 2           | config error, no hosts found, unknown option, or no terminal for the picker |
+| 127         | `ssh` could not be run                                                      |
+| 130         | cancelled                                                                   |
+
+## Install
+
+    make install            # cargo install --locked --path crates/sshpick --root ~/.local
+    ln -sfn ~/.local/bin/sshpick ~/.local/bin/nipa-ssh
+
+`~/.local/bin` must be on `PATH`. If `~/.local/bin/sshpick` is a symlink, `make install`
+removes it first. It leaves a regular file alone, because cargo replaces its own binary.
+
+## Migrating from the bash script
+
+The binary replaces the fzf-based bash script that used to live at the repo root. If
+`~/.local/bin/sshpick` (or a second name such as `nipa-ssh`) still points at that script:
+
+1. `make install` replaces the symlink with the binary.
+2. `ln -sfn ~/.local/bin/sshpick ~/.local/bin/nipa-ssh` repoints the second name.
+3. `sshpick --version` and `nipa-ssh --version` should both print a version.
+
+What differs from the script:
+
+- It reads `~/.ssh/config` and its `Include`s, not only `config.d/*.conf`. Hosts in the root
+  file get a blank ENV.
+- `Host` lines follow ssh syntax. The script missed `host`, `Host=x`, tabs and indented lines,
+  and printed `!negated` names as hosts.
+- All words on the command line are used (`sshpick new consul`). The script used the first.
+- CRLF files and a BOM are handled, and labels do not depend on the locale.
+- Other names on a `Host` line are searchable.
+- Columns are aligned and matches are highlighted. The preview shows ssh's error.
+
+## Development
+
+    make setup              # once per clone: enables the pre-push hook
+    make quality            # fmt, taplo, clippy (-D warnings), cargo-deny, tests; CI runs the same
+    make fix                # cargo fmt and taplo format
+
+Needs Rust 1.99 (`rust-toolchain.toml`), and `taplo` + `cargo-deny` for `make quality`
+(`brew install taplo cargo-deny`). Layout: `crates/sshpick-core` holds every rule and has no
+terminal dependency; `crates/sshpick` is the terminal and nothing else. Tests read
+`crates/*/tests/fixtures`, never your `~/.ssh`.
+
+## License
+
+MIT
