@@ -1,0 +1,39 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: HELP
+---
+sshpick 0.1.0
+Pick a host from ~/.ssh/config (and its Includes) and ssh to it.
+
+Usage:
+  sshpick [query...]
+  sshpick --list [query...]
+
+Arguments:
+  query            Seeds the filter; words are joined with spaces.
+                   fzf syntax: 'exact ^prefix suffix$ !not
+                   Exactly one match connects at once, without opening the picker.
+
+Options:
+  -l, --list       Print the matching hosts as ENV, HOST, WHAT (tab-separated) and exit
+  -h, --help       Show this help
+  -V, --version    Show the version
+  --               Everything after it is query text, even if it starts with -
+
+Keys:
+  type             filter               ↑↓ or Ctrl-P/Ctrl-N   move
+  Enter            ssh                  Esc or Ctrl-C         quit
+  Ctrl-U           clear the query      Ctrl-W                delete the last word
+
+Environment:
+  SSHPICK_THEME    dark or light; overrides the COLORFGBG detection
+  NO_COLOR         draw with reverse video, bold and dim only (CLICOLOR_FORCE re-enables)
+
+Exit status:
+  0 success (after a pick, ssh's own status)  1 no match
+  2 config, usage or terminal error           127 ssh not runnable    130 cancelled
+
+Examples:
+  sshpick                  Open the picker with every host
+  sshpick new consul       Open it filtered to hosts matching both words
+  sshpick --list | fzf     Pipe the host table to another tool

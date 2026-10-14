@@ -196,7 +196,8 @@ What differs from the script:
 
 Needs Rust 1.99 (`rust-toolchain.toml`), and `taplo` + `cargo-deny` for `make quality`
 (`brew install taplo cargo-deny`). Layout: `crates/sshpick-core` holds every rule and has no
-terminal dependency; `crates/sshpick` is the terminal and nothing else. Tests read
+terminal dependency; `crates/sshpick-ui` is the terminal and everything printed; `crates/sshpick-cli`
+is argv, the commands and the exit codes; `crates/sshpick` is the binary, a few lines. Tests read
 `crates/*/tests/fixtures`, never your `~/.ssh`.
 
 ## License

@@ -4,7 +4,7 @@
 //! This crate cannot name a terminal type because it does not depend on one. `sshpick-ui` owns
 //! the terminal (raw mode, drawing, reading keys).
 //!
-//! The whole public surface, as the binary uses it:
+//! The whole public surface, as `sshpick-cli` and `sshpick-ui` use it:
 //!
 //! ```no_run
 //! use sshpick_core::{Key, Outcome, Picker, Previews, Slot};

@@ -1,0 +1,20 @@
+[package]
+name = "sshpick-cli"
+description = "sshpick's command line: argv, help, commands, errors and exit codes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+sshpick-core = { workspace = true }
+sshpick-ui = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+test-case = { workspace = true }

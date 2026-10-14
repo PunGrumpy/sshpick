@@ -21,9 +21,11 @@ codegen-units = 1
 strip = true
 
 [workspace.dependencies]
+sshpick-cli = { path = "crates/sshpick-cli" }
 sshpick-core = { path = "crates/sshpick-core" }
 sshpick-ui = { path = "crates/sshpick-ui" }
 
+assert_cmd = "2"
 crossterm = "0.29"
 glob = "0.3"
 insta = "1"

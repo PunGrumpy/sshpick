@@ -11,5 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
-sshpick-core = { workspace = true }
-sshpick-ui = { workspace = true }
+sshpick-cli = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }

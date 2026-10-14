@@ -1,0 +1,27 @@
+# sshpick-cli
+
+## Purpose
+
+The command line of sshpick: it parses argv, runs the command, prints what went wrong and picks
+the exit code. The `sshpick` binary is one call into `sshpick_cli::main`. Rules live in
+`sshpick-core`; everything the user sees is drawn by `sshpick-ui`.
+
+## Architecture
+
+```
+sshpick-cli
+    ├── cli/ - argv in, exit code out
+    │   ├── args.rs - Command, UsageError, parse()
+    │   ├── help.rs - the help text
+    │   ├── error.rs - Error, the one exit_code() table, Exit
+    │   └── test.rs - argv tables, exit codes, the help snapshot
+    └── commands/ - one file per command, each with its own Error
+        ├── pick.rs - resolve to one host or open the picker, then exec ssh
+        └── list.rs - print the matching hosts as tab-separated rows
+```
+
+## Notes
+
+Cancel (130) and a quiet no-match (1) come back as `Ok(code)`, the way turbo returns
+`Ok(exit_code)`; every failure is an `Error` and `Error::exit_code` is the only place a code is
+chosen for one. Only the library prints, so the binary stays a few lines.

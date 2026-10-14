@@ -2,14 +2,17 @@
 
 ## Purpose
 
-The terminal for sshpick: raw mode and the alternate screen, drawing the picker with ratatui,
-and mapping crossterm key events to `sshpick_core::Key`. This is the only crate that names a
-ratatui or crossterm type. What a key does and which rows match live in `sshpick-core`.
+Everything sshpick shows: the colour decision for each output stream, console output, and the
+picker. The picker owns raw mode and the alternate screen, draws with ratatui and maps crossterm
+key events to `sshpick_core::Key`. This is the only crate that names a ratatui or crossterm type.
+What a key does and which rows match live in `sshpick-core`; what to say lives in `sshpick-cli`.
 
 ## Architecture
 
 ```
 sshpick-ui
+    ├── color.rs - ColorConfig: colour and attributes for one stream, from NO_COLOR, CLICOLOR_FORCE, TERM
+    ├── output.rs - Output: errors and warnings on stderr, built once per run and passed down
     ├── text.rs - display-width helpers: columns, fit, truncate_to_width, plural
     └── tui/ - the picker
         ├── app.rs - the event loop: draw, poll, hand a key to the Picker

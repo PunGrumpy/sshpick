@@ -29,7 +29,7 @@ pub enum Key {
     Down,
 }
 
-/// How a session ends. The binary maps each to an exit path; see its `Exit` codes.
+/// How a session ends. `sshpick-cli` maps each to an exit code.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     /// Enter on a match: restore the terminal, then exec `ssh -- <host>`.
