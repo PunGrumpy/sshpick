@@ -1,6 +1,4 @@
-use std::error::Error;
 use std::ffi::OsStr;
-use std::fmt;
 use std::io::{self, Read};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, Stdio};
@@ -27,16 +25,19 @@ const KEYS: [&str; 5] = ["user", "hostname", "port", "remotecommand", "proxyjump
 pub struct Preview(Vec<(&'static str, String)>);
 
 /// Why a preview is missing.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ResolveError {
     /// `ssh` could not be started (not on `PATH`, fork failed).
-    Spawn(io::Error),
+    #[error("cannot run ssh -G: {0}")]
+    Spawn(#[source] io::Error),
     /// No exit within [`TIMEOUT`]; the child was killed. The pane retries when the cursor comes
     /// back (load spikes pass; see `Previews::fetch`).
+    #[error("ssh -G gave no answer within {} s", TIMEOUT.as_secs())]
     Timeout,
     /// `ssh -G` exited non-zero (`code` is `None` if a signal killed it). `stderr` is what it
     /// said, minus the RequestTTY notice every call prints. One bad option anywhere in the config
     /// fails every host this way.
+    #[error("{}", exit_message(.code, .stderr))]
     Ssh { code: Option<i32>, stderr: String },
 }
 
@@ -53,28 +54,11 @@ impl Preview {
     }
 }
 
-impl fmt::Display for ResolveError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ResolveError::Spawn(error) => write!(f, "cannot run ssh -G: {error}"),
-            ResolveError::Timeout => {
-                write!(f, "ssh -G gave no answer within {} s", TIMEOUT.as_secs())
-            }
-            ResolveError::Ssh { stderr, .. } if !stderr.is_empty() => f.write_str(stderr),
-            ResolveError::Ssh {
-                code: Some(code), ..
-            } => write!(f, "ssh -G exited with {code}"),
-            ResolveError::Ssh { code: None, .. } => write!(f, "ssh -G was killed by a signal"),
-        }
-    }
-}
-
-impl Error for ResolveError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            ResolveError::Spawn(error) => Some(error),
-            ResolveError::Timeout | ResolveError::Ssh { .. } => None,
-        }
+fn exit_message(code: &Option<i32>, stderr: &str) -> String {
+    match code {
+        _ if !stderr.is_empty() => stderr.to_owned(),
+        Some(code) => format!("ssh -G exited with {code}"),
+        None => "ssh -G was killed by a signal".to_owned(),
     }
 }
 
@@ -263,6 +247,8 @@ mod tests {
         .unwrap_err();
         assert!(matches!(error, ResolveError::Spawn(_)), "{error:?}");
         assert!(error.to_string().starts_with("cannot run ssh -G: "));
+        assert!(std::error::Error::source(&error).is_some());
+        assert!(std::error::Error::source(&ResolveError::Timeout).is_none());
     }
 
     #[test]
@@ -276,6 +262,15 @@ mod tests {
             stderr: String::new(),
         };
         assert_eq!(silent.to_string(), "ssh -G exited with 255");
+        let loud = ResolveError::Ssh {
+            code: Some(255),
+            stderr: "Bad port".to_owned(),
+        };
+        assert_eq!(
+            loud.to_string(),
+            "Bad port",
+            "stderr wins over the exit code"
+        );
         let killed = ResolveError::Ssh {
             code: None,
             stderr: String::new(),

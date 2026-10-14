@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::error::Error;
 use std::ffi::OsString;
 use std::fmt;
 use std::fs;
@@ -43,23 +42,28 @@ pub struct Loaded {
 }
 
 /// `~/.ssh/config` itself could not be read: the one fatal config error (exit 2).
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("cannot read {}: {source}", .path.display())]
 pub struct LoadError {
     path: PathBuf,
     source: io::Error,
 }
 
 /// A problem below the root file. The walk skips the file or argument and goes on.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Warning {
     /// A file an `Include` matched could not be read.
+    #[error("{}: skipped, {source}", .path.display())]
     Unreadable { path: PathBuf, source: io::Error },
     /// An `Include` chain went past ssh's depth limit (ssh: "Too many recursive configuration
     /// includes").
+    #[error("{}: skipped, Include nested deeper than {MAX_DEPTH} levels", .path.display())]
     TooDeep { path: PathBuf },
     /// A file includes itself through its own chain. Skipped, so a cyclic glob cannot fan out.
+    #[error("{}: skipped, include cycle", .path.display())]
     Cycle { path: PathBuf },
     /// An `Include` argument could not be expanded: an unset `${VAR}` or an invalid glob.
+    #[error("Include {arg}: skipped, {reason}")]
     BadInclude { arg: String, reason: String },
 }
 
@@ -86,37 +90,6 @@ impl Host {
 impl fmt::Display for Host {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
-    }
-}
-
-impl fmt::Display for LoadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "cannot read {}: {}", self.path.display(), self.source)
-    }
-}
-
-impl Error for LoadError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.source)
-    }
-}
-
-impl fmt::Display for Warning {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Warning::Unreadable { path, source } => {
-                write!(f, "{}: skipped, {source}", path.display())
-            }
-            Warning::TooDeep { path } => write!(
-                f,
-                "{}: skipped, Include nested deeper than {MAX_DEPTH} levels",
-                path.display()
-            ),
-            Warning::Cycle { path } => write!(f, "{}: skipped, include cycle", path.display()),
-            Warning::BadInclude { arg, reason } => {
-                write!(f, "Include {arg}: skipped, {reason}")
-            }
-        }
     }
 }
 
@@ -516,6 +489,21 @@ mod tests {
             unreadable.to_string(),
             "/h/.ssh/a.conf: skipped, permission denied"
         );
+    }
+
+    #[test]
+    fn a_load_error_names_the_file_and_keeps_the_io_error_as_its_source() {
+        let source = io::Error::from(io::ErrorKind::NotFound);
+        let error = LoadError {
+            path: PathBuf::from("/h/.ssh/config"),
+            source,
+        };
+        assert_eq!(
+            error.to_string(),
+            "cannot read /h/.ssh/config: entity not found"
+        );
+        let cause = std::error::Error::source(&error).map(ToString::to_string);
+        assert_eq!(cause.as_deref(), Some("entity not found"));
     }
 
     #[test]

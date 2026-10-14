@@ -34,3 +34,4 @@ nucleo-matcher = { version = "0.3.1", default-features = false, features = [
 ratatui = { version = "0.30.2", default-features = false, features = [
   "crossterm",
 ] }
+thiserror = "2"
