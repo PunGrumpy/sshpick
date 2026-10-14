@@ -41,3 +41,24 @@ fn unreadable_config_exits_two() {
         .assert()
         .code(2);
 }
+
+#[test]
+fn a_host_named_like_a_command_is_reached_with_pick_or_double_dash() {
+    for args in [&["pick", "list"][..], &["--", "list"][..]] {
+        sshpick("words")
+            .args(args)
+            .assert()
+            .code(0)
+            .stdout("ssh -- list\n");
+    }
+}
+
+#[test]
+fn a_command_word_later_in_the_query_is_part_of_the_query() {
+    sshpick("words")
+        .args(["web", "list"])
+        .assert()
+        .code(2)
+        .stdout("")
+        .stderr("sshpick: needs an interactive terminal; use --list to print the hosts\n");
+}

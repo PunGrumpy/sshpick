@@ -1,6 +1,6 @@
 ---
 source: crates/sshpick-cli/src/cli/test.rs
-expression: "UsageError(\"--bogus\".to_owned()).to_string()"
+expression: "UsageError::Option(\"--bogus\".to_owned()).to_string()"
 ---
 unknown option '--bogus'
 Run 'sshpick --help' for usage.

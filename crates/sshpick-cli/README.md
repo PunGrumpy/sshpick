@@ -11,16 +11,21 @@ the exit code. The `sshpick` binary is one call into `sshpick_cli::main`. Rules 
 ```
 sshpick-cli
     ├── cli/ - argv in, exit code out
-    │   ├── args.rs - Command, UsageError, parse()
-    │   ├── help.rs - the help text
+    │   ├── spec.rs - the command table: commands, options, examples, the text of every help page
+    │   ├── args.rs - Args, Command, UsageError, parse(): routing over the table
+    │   ├── help.rs - render(): a help page as a pure function of the table, the width and colour
     │   ├── error.rs - Error, the one exit_code() table, Exit
-    │   └── test.rs - argv tables, exit codes, the help snapshot
+    │   └── test.rs - argv tables, exit codes, help snapshots
     └── commands/ - one file per command, each with its own Error
         ├── pick.rs - resolve to one host or open the picker, then exec ssh
-        └── list.rs - print the matching hosts as tab-separated rows
+        └── list.rs - a table on a terminal, tab-separated rows on a pipe
 ```
 
 ## Notes
+
+Add a command or flag to `cli/spec.rs` first: parsing, `--help`, the root command list and
+`sshpick help <command>` all read it. The first positional word selects a command when it names
+one (`pick`, `list`, `ls`, `help`); anything else is `pick`'s query, and `--` ends options.
 
 Cancel (130) and a quiet no-match (1) come back as `Ok(code)`, the way turbo returns
 `Ok(exit_code)`; every failure is an `Error` and `Error::exit_code` is the only place a code is

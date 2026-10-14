@@ -6,6 +6,8 @@ ranking, and a live `ssh -G` preview of where the host really resolves.
     sshpick                 # every host
     sshpick consul          # pre-filtered; exactly one match connects without opening the picker
     sshpick new consul      # words are AND terms; fzf syntax: 'exact ^prefix suffix$ !not
+    sshpick ls consul       # the matching hosts: a table on a terminal, tab-separated in a pipe
+    sshpick help ls         # help for one command
 
 The picker after typing `consul`, at 80 columns. The prompt is the top row, with the count on
 its right. The best match is the first row under the header, and the `▌` row is the selection.
@@ -69,9 +71,9 @@ On a short terminal the picker gives the room to the list. Below 13 rows, at und
 columns, the stacked preview is not drawn. Below 7 rows, at any width, the header, both rules
 and the side pane go too, which leaves the prompt, the list and the status bar.
 
-The bar's colours follow the terminal theme. `SSHPICK_THEME=dark` or `light` overrides the
-detection, which otherwise reads `COLORFGBG` and falls back to dark. With `NO_COLOR` set,
-sshpick draws with reverse video, bold and dim only. `CLICOLOR_FORCE` turns colours back on.
+In the picker the bar's colours follow the terminal theme. `SSHPICK_THEME=dark` or `light` overrides the
+detection, which otherwise reads `COLORFGBG` and falls back to dark. With `NO_COLOR` set, the
+picker draws with reverse video, bold and dim only. `CLICOLOR_FORCE` turns colours back on.
 
 There is no animation, spinner or fade, by design. Each key press is one redraw. A preview
 that is still loading shows its title and an empty body.
@@ -121,6 +123,21 @@ the `Host` line.
 An argument that starts with `-` is an option. To search for text that starts with `-`, put
 `--` before it: `sshpick -- -bastion`. Everything after `--` is query text.
 
+## Commands
+
+| Command                  | What it does                                                      |
+|--------------------------|-------------------------------------------------------------------|
+| `pick [query ...]`       | The default. Connect when one host matches, else open the picker  |
+| `list`, `ls [query ...]` | Print the hosts that match, best first                            |
+| `help [command]`         | Show help for a command; `sshpick help ls` is `sshpick ls --help` |
+
+`pick`, `list`, `ls` and `help` are command words when they come first. Any other first word is
+query text, so `sshpick consul` still searches. A host named exactly like a command word is
+reached with `sshpick pick list` or `sshpick -- list`. `-h` and `--help` work anywhere and win
+over every other error. `--version` and `-V` print the version; `-v` is the same flag.
+
+Options go anywhere before a bare `--`. `--no-color` is the same as `NO_COLOR=1`.
+
 ## Keys
 
 | Key                         | Effect                                                  |
@@ -139,24 +156,38 @@ The list is top-down with the best match first and the selection on it, like fzf
 
 ## Scripting
 
-    sshpick --list              # every host, one per line
-    sshpick --list new consul   # only the hosts matching the query
-    sshpick --list | fzf        # pipe the table to another tool
+    sshpick ls                  # every host, one per line
+    sshpick ls new consul       # only the hosts matching the query
+    sshpick ls | cut -f2        # just the host names
+    sshpick --list | fzf        # the older spelling, still works
 
-`--list` needs no terminal. It prints the matching hosts as `ENV`, `HOST` and `WHAT`, separated
-by tabs, with no header and no styling. The order is the picker's list read top to bottom, best
-match first; with no query it is the order of the config. There are always three columns, so
-`cut -f2` gives the host names even when ENV is empty. Tabs inside a comment become spaces.
-Warnings go to stderr. The exit status is 1 when nothing matches.
+On a terminal `ls` prints an aligned table with a dim header, the way the picker draws its rows,
+and a line on stderr such as `> 4 of 12 hosts match "consul"`. ENV is left out when no host has
+one, and WHAT is cut with `…` to the width of the terminal.
+
+When stdout is not a terminal `ls` prints the matching hosts as `ENV`, `HOST` and `WHAT`,
+separated by tabs, with no header and no styling. The order is the picker's list read top to
+bottom, best match first; with no query it is the order of the config. There are always three
+columns, so `cut -f2` gives the host names even when ENV is empty. Tabs inside a comment become
+spaces. Warnings go to stderr. The exit status is 1 when nothing matches.
+
+`--list` and `-l` stay as hidden spellings of `ls` that always print the tab-separated rows,
+even on a terminal, so `sshpick --list | fzf` keeps working.
+
+Only results go to stdout. Help and `--version` also go to stdout; warnings, errors and the `>`
+line go to stderr. A pipe gets no escape bytes unless `CLICOLOR_FORCE` is set. Colour is decided
+per stream: `--no-color` or a non-empty `NO_COLOR` removes colour but keeps bold and dim on a
+terminal, `CLICOLOR_FORCE` (set, not empty, not `0`) keeps colour in a pipe, and `TERM=dumb`
+turns it off.
 
 ## Exit status
 
 | Status      | Meaning                                                                     |
 |-------------|-----------------------------------------------------------------------------|
-| 0           | `--list`, `--help` or `--version` succeeded                                 |
+| 0           | `ls`, `--help` or `--version` succeeded                                     |
 | `ssh`'s own | after a pick (sshpick becomes `ssh`)                                        |
-| 1           | Enter with no match, or `--list` with no match                              |
-| 2           | config error, no hosts found, unknown option, or no terminal for the picker |
+| 1           | Enter with no match, or `ls` with no match                                  |
+| 2           | config error, no hosts found, unknown option or command, or no terminal     |
 | 127         | `ssh` could not be run                                                      |
 | 130         | cancelled                                                                   |
 
@@ -196,9 +227,10 @@ What differs from the script:
 
 Needs Rust 1.99 (`rust-toolchain.toml`), and `taplo` + `cargo-deny` for `make quality`
 (`brew install taplo cargo-deny`). Layout: `crates/sshpick-core` holds every rule and has no
-terminal dependency; `crates/sshpick-ui` is the terminal and everything printed; `crates/sshpick-cli`
-is argv, the commands and the exit codes; `crates/sshpick` is the binary, a few lines. Tests read
-`crates/*/tests/fixtures`, never your `~/.ssh`.
+terminal dependency; `crates/sshpick-ui` is the terminal and everything printed;
+`crates/sshpick-cli` is argv, the commands and the exit codes; `crates/sshpick` is the binary, a
+few lines. Tests read `crates/*/tests/fixtures`, never your `~/.ssh`. Help and frame tests are
+insta snapshots; after a change run `INSTA_UPDATE=always cargo test` and read the `.snap` diffs.
 
 ## License
 

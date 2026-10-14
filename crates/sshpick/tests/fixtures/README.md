@@ -5,6 +5,8 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
 - `ui/.ssh/`: three labelled hosts per environment file, for the `--list` tests. `sshpick-ui`
   keeps its own copy for the frame tests.
 - `flat/.ssh/config`: hosts in the root file only, so the ENV column hides.
+- `words/.ssh/config`: hosts named `list` and `web`, so `pick list` and `-- list` can be shown to
+  reach a host whose name is also a command.
 - `empty/.ssh/config`: no literal host (only `Host *`), so `sshpick` has nothing to pick.
 - `tabs/.ssh/config`: a tab inside the WHAT comment, so `--list` must still print three columns.
 - `bin/ssh`: stands in for `ssh` on `PATH` and prints how it was called.

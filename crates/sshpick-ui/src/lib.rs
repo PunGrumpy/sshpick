@@ -6,6 +6,7 @@
 //! one to one. `sshpick-cli` decides what to say and calls [`Output`] to say it.
 
 mod color;
+pub mod listing;
 mod output;
 mod text;
 mod tui;

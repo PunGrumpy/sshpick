@@ -34,12 +34,44 @@ impl ColorConfig {
         }
     }
 
+    /// A stream with no styling at all, such as a pipe.
+    pub const fn none() -> ColorConfig {
+        ColorConfig {
+            color: false,
+            attributes: false,
+        }
+    }
+
     pub fn color(self) -> bool {
         self.color
     }
 
     pub fn attributes(self) -> bool {
         self.attributes
+    }
+
+    pub fn bold(self, text: &str) -> String {
+        self.paint(self.attributes, "1", "22", text)
+    }
+
+    pub fn dim(self, text: &str) -> String {
+        self.paint(self.attributes, "2", "22", text)
+    }
+
+    pub fn cyan(self, text: &str) -> String {
+        self.paint(self.color, "36", "39", text)
+    }
+
+    pub fn gray(self, text: &str) -> String {
+        self.paint(self.color, "90", "39", text)
+    }
+
+    fn paint(self, enabled: bool, on: &str, off: &str, text: &str) -> String {
+        if enabled && !text.is_empty() {
+            format!("\x1b[{on}m{text}\x1b[{off}m")
+        } else {
+            text.to_owned()
+        }
     }
 }
 
@@ -78,5 +110,30 @@ mod tests {
     ) {
         let config = ColorConfig::new(is_terminal, no_color_flag, &vars(set));
         assert_eq!((config.color(), config.attributes()), (color, attributes));
+    }
+
+    #[test]
+    fn styles_wrap_the_text_only_where_the_stream_allows_them() {
+        let all = ColorConfig::new(true, false, &vars(&[]));
+        assert_eq!(all.bold("a"), "\x1b[1ma\x1b[22m");
+        assert_eq!(all.dim("a"), "\x1b[2ma\x1b[22m");
+        assert_eq!(all.cyan("a"), "\x1b[36ma\x1b[39m");
+        assert_eq!(all.gray("a"), "\x1b[90ma\x1b[39m");
+        assert_eq!(all.dim(""), "", "nothing to style, nothing to wrap");
+
+        let no_hue = ColorConfig::new(true, true, &vars(&[]));
+        assert_eq!(no_hue.bold("a"), "\x1b[1ma\x1b[22m");
+        assert_eq!(no_hue.cyan("a"), "a");
+        assert_eq!(no_hue.gray("a"), "a");
+
+        let pipe = ColorConfig::new(false, false, &vars(&[]));
+        for text in [
+            pipe.bold("a"),
+            pipe.dim("a"),
+            pipe.cyan("a"),
+            pipe.gray("a"),
+        ] {
+            assert_eq!(text, "a");
+        }
     }
 }

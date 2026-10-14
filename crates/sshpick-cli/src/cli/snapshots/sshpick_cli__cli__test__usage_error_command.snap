@@ -1,0 +1,6 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: "UsageError::Command(\"lst\".to_owned()).to_string()"
+---
+unknown command 'lst'
+Run 'sshpick --help' for usage.

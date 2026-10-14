@@ -12,16 +12,36 @@ pub(crate) enum Error {
     Write(#[source] io::Error),
 }
 
-pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
+pub(crate) fn run(base: &CommandBase, query: &str, machine: bool) -> Result<u8, cli::Error> {
     let loaded = base.load()?;
     base.warn_all(&loaded.warnings);
+    let total = loaded.entries.len();
     let picker = Picker::new(loaded.entries, query);
     let rows = picker.listing();
+    let output = base.output;
+    if !machine {
+        output.log(&summary(rows.len(), total, query));
+    }
     if rows.is_empty() {
         return Ok(Exit::NoMatch.code());
     }
-    write_rows(base.output.result(), &rows).map_err(Error::Write)?;
+    if machine || !output.human() {
+        write_rows(output.result(), &rows)
+    } else {
+        let table = sshpick_ui::listing::hosts(&rows, output.columns(), output.stdout_colors());
+        output.result().write_all(table.as_bytes())
+    }
+    .map_err(Error::Write)?;
     Ok(Exit::Success.code())
+}
+
+fn summary(matched: usize, total: usize, query: &str) -> String {
+    let hosts = if total == 1 { "host" } else { "hosts" };
+    if query.trim().is_empty() {
+        return format!("{total} {hosts}");
+    }
+    let verb = if matched == 1 { "matches" } else { "match" };
+    format!("{matched} of {total} {hosts} {verb} \"{query}\"")
 }
 
 fn write_rows(out: impl Write, rows: &[&Entry]) -> io::Result<()> {
@@ -41,6 +61,15 @@ fn field(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_summary_counts_matches_against_all_hosts() {
+        assert_eq!(summary(12, 12, ""), "12 hosts");
+        assert_eq!(summary(1, 1, "  "), "1 host");
+        assert_eq!(summary(4, 12, "consul"), "4 of 12 hosts match \"consul\"");
+        assert_eq!(summary(1, 12, "a b"), "1 of 12 hosts matches \"a b\"");
+        assert_eq!(summary(0, 12, "zzz"), "0 of 12 hosts match \"zzz\"");
+    }
 
     #[test]
     fn a_tab_in_a_comment_becomes_a_space() {

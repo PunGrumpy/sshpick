@@ -1,0 +1,21 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ sshpick help [command]
+
+  Show help for a command.
+
+  Global Options:
+
+  -h,  --help      Output usage information
+       --no-color  No color mode (default off)
+  -V,  --version   Output the version number
+
+
+  Examples:
+
+  - Show the usage information for the command `list`
+
+    $ sshpick help list

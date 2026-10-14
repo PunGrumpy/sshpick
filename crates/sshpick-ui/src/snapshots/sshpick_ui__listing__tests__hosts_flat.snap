@@ -1,0 +1,7 @@
+---
+source: crates/sshpick-ui/src/listing.rs
+expression: "table(\"flat\", \"\", 80)"
+---
+  HOST    WHAT
+  root-a  reachable from anywhere
+  root-b

@@ -11,9 +11,11 @@ What a key does and which rows match live in `sshpick-core`; what to say lives i
 
 ```
 sshpick-ui
-    ├── color.rs - ColorConfig: colour and attributes for one stream, from NO_COLOR, CLICOLOR_FORCE, TERM
+    ├── color.rs - ColorConfig: colour and attributes for one stream, from --no-color, NO_COLOR,
+    │   CLICOLOR_FORCE and TERM, plus bold, dim, cyan and gray
     ├── output.rs - Output: results on a stdout that forgives a closed pipe, errors and warnings on
     │   stderr; built once per run and passed down
+    ├── listing.rs - the host table `sshpick ls` prints on a terminal
     ├── text.rs - display-width helpers: columns, fit, truncate_to_width, plural
     └── tui/ - the picker
         ├── app.rs - the event loop: draw, poll, hand a key to the Picker

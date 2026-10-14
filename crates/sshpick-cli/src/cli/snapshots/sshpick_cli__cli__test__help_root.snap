@@ -1,0 +1,60 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: "help::render(None, 80, PLAIN)"
+---
+sshpick 0.1.0
+
+  ▌ sshpick [options] [command | query ...]
+
+  For picker help, run `sshpick pick --help`
+
+  Commands:
+
+    pick       Pick a host and ssh to it (default)
+    help       Show help for a command
+    ls | list  List the hosts that match a query
+
+
+  Global Options:
+
+  -h,  --help      Output usage information
+       --no-color  No color mode (default off)
+  -V,  --version   Output the version number
+
+
+  Environment:
+
+  NO_COLOR        No color; bold, dim and reverse video stay on a terminal
+  CLICOLOR_FORCE  Keep color when output is not a terminal
+
+
+  Exit Status:
+
+  0    Success; after a pick, ssh's own status
+  1    No host matches
+  2    Usage or config error, or no terminal for the picker
+  127  ssh could not be run
+  130  Cancelled
+
+
+  Examples:
+
+  - Open the picker with every host
+
+    $ sshpick
+
+  - Open it filtered to hosts matching both words
+
+    $ sshpick new consul
+
+  - Print the matching host names for a script
+
+    $ sshpick ls new consul | cut -f2
+
+  - Search for a word that is also a command name
+
+    $ sshpick pick list
+
+  Documentation:
+
+    https://github.com/PunGrumpy/sshpick#readme

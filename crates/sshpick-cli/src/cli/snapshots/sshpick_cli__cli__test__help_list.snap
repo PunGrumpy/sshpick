@@ -1,0 +1,33 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ sshpick list [query ...]
+
+  List the hosts that match a query.
+
+  Global Options:
+
+  -h,  --help      Output usage information
+       --no-color  No color mode (default off)
+  -V,  --version   Output the version number
+
+
+  Examples:
+
+  - List every host
+
+    $ sshpick list
+
+  - List the hosts matching both words
+
+    $ sshpick list new consul
+
+  - Pipe the host table to another tool
+
+    $ sshpick ls | fzf
+
+  - Print only the host names
+
+    $ sshpick ls | cut -f2
