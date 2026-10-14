@@ -1,0 +1,4 @@
+#!/bin/sh
+[ "$1" = "-G" ] && [ "$2" = "--" ] || { echo "usage: ssh -G -- host" >&2; exit 64; }
+echo "Pseudo-terminal will not be allocated because stdin is not a terminal." >&2
+printf 'host %s\nuser ubuntu\nhostname 192.0.2.10\nport 22\naddressfamily any\nproxyjump new-bastion\n' "$3"

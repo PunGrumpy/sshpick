@@ -1,0 +1,5 @@
+#!/bin/sh
+echo "Pseudo-terminal will not be allocated because stdin is not a terminal." >&2
+echo "/home/me/.ssh/config.d/bad.conf line 2: Invalid ProxyJump \"x:%p\"" >&2
+echo "/home/me/.ssh/config: terminating, 1 bad configuration options" >&2
+exit 255
