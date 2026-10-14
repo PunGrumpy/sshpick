@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::io::Write;
 
 use sshpick_ui::Output;
 
@@ -27,15 +28,17 @@ pub(crate) fn run(argv: impl IntoIterator<Item = OsString>) -> u8 {
 
 fn dispatch(argv: impl IntoIterator<Item = OsString>, output: &Output) -> Result<u8, Error> {
     match args::parse(argv)? {
-        Command::Help => {
-            print!("{HELP}");
-            Ok(Exit::Success.code())
-        }
-        Command::Version => {
-            println!("sshpick {}", env!("CARGO_PKG_VERSION"));
-            Ok(Exit::Success.code())
-        }
+        Command::Help => print(output, HELP),
+        Command::Version => print(output, concat!("sshpick ", env!("CARGO_PKG_VERSION"), "\n")),
         Command::List(query) => list::run(&CommandBase::new(output)?, &query),
         Command::Pick(query) => pick::run(&CommandBase::new(output)?, &query),
     }
+}
+
+fn print(output: &Output, text: &str) -> Result<u8, Error> {
+    let mut out = output.result();
+    out.write_all(text.as_bytes())
+        .and_then(|()| out.flush())
+        .map_err(Error::Stdout)?;
+    Ok(Exit::Success.code())
 }

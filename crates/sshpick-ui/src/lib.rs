@@ -11,5 +11,5 @@ mod text;
 mod tui;
 
 pub use color::ColorConfig;
-pub use output::Output;
+pub use output::{Output, Stdout};
 pub use tui::{Screen, run};

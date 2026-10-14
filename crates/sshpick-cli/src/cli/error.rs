@@ -1,3 +1,5 @@
+use std::io;
+
 use super::args::UsageError;
 use crate::commands::{list, pick};
 
@@ -26,6 +28,8 @@ pub(crate) enum Error {
     Pick(#[from] pick::Error),
     #[error(transparent)]
     List(#[from] list::Error),
+    #[error("cannot write to stdout: {0}")]
+    Stdout(#[source] io::Error),
     #[error("cannot find the home directory")]
     NoHome,
     #[error(
@@ -43,6 +47,7 @@ impl Error {
             | Error::Load(_)
             | Error::Pick(_)
             | Error::List(_)
+            | Error::Stdout(_)
             | Error::NoHome
             | Error::NoHosts => Exit::Error,
         }

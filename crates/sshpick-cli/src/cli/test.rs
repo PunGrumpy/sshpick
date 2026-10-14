@@ -49,6 +49,7 @@ fn argv_is_read_left_to_right_up_to_a_double_dash(args: &[&str]) -> Result<Comma
 }
 
 #[test_case(Error::Usage(UsageError("--x".to_owned())), 2; "usage")]
+#[test_case(Error::Stdout(io::Error::other("x")), 2; "stdout")]
 #[test_case(Error::NoHome, 2; "no home")]
 #[test_case(Error::NoHosts, 2; "no hosts")]
 #[test_case(Error::List(list::Error::Write(io::Error::other("x"))), 2; "list write")]

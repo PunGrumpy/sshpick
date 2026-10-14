@@ -24,4 +24,5 @@ sshpick-cli
 
 Cancel (130) and a quiet no-match (1) come back as `Ok(code)`, the way turbo returns
 `Ok(exit_code)`; every failure is an `Error` and `Error::exit_code` is the only place a code is
-chosen for one. Only the library prints, so the binary stays a few lines.
+chosen for one. Only the library prints, so the binary stays a few lines. Results go through
+`Output::result()`, which treats a closed pipe as success, so `sshpick --help | head -1` exits 0.

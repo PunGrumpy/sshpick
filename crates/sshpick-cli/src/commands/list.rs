@@ -20,15 +20,12 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     if rows.is_empty() {
         return Ok(Exit::NoMatch.code());
     }
-    match write_rows(&rows) {
-        Ok(()) => Ok(Exit::Success.code()),
-        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(Exit::Success.code()),
-        Err(error) => Err(Error::Write(error).into()),
-    }
+    write_rows(base.output.result(), &rows).map_err(Error::Write)?;
+    Ok(Exit::Success.code())
 }
 
-fn write_rows(rows: &[&Entry]) -> io::Result<()> {
-    let mut out = io::BufWriter::new(io::stdout().lock());
+fn write_rows(out: impl Write, rows: &[&Entry]) -> io::Result<()> {
+    let mut out = io::BufWriter::new(out);
     for entry in rows {
         let (env, what) = (field(&entry.env), field(&entry.what));
         writeln!(out, "{env}\t{}\t{what}", entry.host)?;
