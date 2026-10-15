@@ -5,6 +5,7 @@ use sshpick_core::{Entry, Picker, Warning};
 
 use super::bar::{Bar, RULE, bar_style, rule};
 use super::pane::{self, Pane};
+use super::popup::popup;
 use super::size::{SIDE_PANE_WIDTH, STACKED_ROWS, Tier, tier};
 use super::table::{HostTable, prompt_row};
 
@@ -12,6 +13,7 @@ use super::table::{HostTable, prompt_row};
 pub struct Screen {
     table: HostTable,
     bar: Bar,
+    warnings: Vec<String>,
 }
 
 impl Screen {
@@ -24,6 +26,7 @@ impl Screen {
         Screen {
             table: HostTable::new(entries),
             bar: Bar::styled(warnings, bar),
+            warnings: warnings.iter().map(ToString::to_string).collect(),
         }
     }
 
@@ -79,6 +82,9 @@ impl Screen {
             pane::stacked(frame, stacked_area, pane);
         }
         self.bar.status(frame, status, view.total);
+        if picker.help_open() {
+            popup(frame, &self.warnings);
+        }
     }
 }
 

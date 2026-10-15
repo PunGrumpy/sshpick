@@ -10,11 +10,16 @@ expression: "page(topic, 80)"
 
   Keys:
 
-  Enter                     ssh to the selected host
-  Esc, Ctrl-C               quit (exit 130)
-  Up, Down, Ctrl-P, Ctrl-N  move
-  Ctrl-U                    clear the query
-  Ctrl-W                    delete the last word
+  Enter                        ssh to the selected host
+  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes this help first
+  Up, Ctrl-P, Ctrl-K           select the previous host (up the list)
+  Down, Ctrl-N, Ctrl-J         select the next host (down the list)
+  type                         filter; 'exact ^prefix suffix$ !not
+  Backspace, Ctrl-H            delete the last character
+  Ctrl-U                       clear the filter
+  Ctrl-W                       delete the last word
+  Ctrl-D                       quit when the filter is empty
+  ?, F1                        toggle this help (? only on an empty filter)
 
 
   Global Options:

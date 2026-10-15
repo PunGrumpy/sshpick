@@ -1,0 +1,28 @@
+---
+source: crates/sshpick-ui/src/tui/popup.rs
+expression: frame(&lines)
+---
+ 0|> type to filter                                                             5/5
+ 1|────────────────────────────────────────────────────────────────────────────────
+ 2|  ENV         HOST           WHAT
+ 3|▌ LAB         lab-a          LAB — personal VMs
+ 4|  LAB         lab-b          build box
+ 5| ┌ Keybinds ──────────────────────────────────────────────────────────────────┐
+ 6| │                                                                            │
+ 7| │ Enter                       - ssh to the selected host                     │
+ 8| │ Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first  │
+ 9| │ Up, Ctrl-P, Ctrl-K          - select the previous host (up the list)       │
+10| │ Down, Ctrl-N, Ctrl-J        - select the next host (down the list)         │
+11| │ type                        - filter; 'exact ^prefix suffix$ !not          │
+12| │ Backspace, Ctrl-H           - delete the last character                    │
+13| │ Ctrl-U                      - clear the filter                             │
+14| │ Ctrl-W                      - delete the last word                         │
+15| │ Ctrl-D                      - quit when the filter is empty                │
+16| │ ?, F1                       - toggle this help (? only on an empty filter) │
+17|─│                                                                            │─
+18| └────────────────────────────────────────────────────────────────────────────┘
+19|  hostname      10.11.212.191
+20|  port          22
+21|  proxyjump     newstg-bastion
+22|
+23| Enter ssh  Esc quit  Ctrl-U clear  ↑↓ move                             5 hosts

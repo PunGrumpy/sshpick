@@ -24,6 +24,7 @@ sshpick-ui
         ├── size.rs - Tier: what the terminal's size leaves room for
         ├── table.rs - the prompt row, the header and the host rows
         ├── pane.rs - the ssh -G preview, beside the list or stacked under it
+        ├── popup.rs - the key help over the middle of the frame: rows from BINDINGS, then the warnings
         ├── bar.rs - the status bar, the rules and the theme (the look the restyle replaces)
         ├── style.rs - DIM, MATCHED, and runs of matched text as styled spans
         ├── terminal.rs - Tty: enter, leave, and a Drop guard that restores the terminal

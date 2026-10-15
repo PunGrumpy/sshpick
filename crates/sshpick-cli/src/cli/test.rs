@@ -476,3 +476,16 @@ fn colour_is_only_in_the_labels() {
     assert!(text.contains("\x1b[1mFix:\x1b[22m add `Host` lines"));
     assert!(text.contains("\x1b[1mLearn More:\x1b[22m https://"));
 }
+
+#[test]
+fn the_picker_page_lists_the_keys_the_picker_acts_on() {
+    let text = page("pick", 100);
+    for binding in sshpick_core::BINDINGS {
+        let listed = text
+            .lines()
+            .any(|line| line.contains(binding.keys) && line.contains(binding.does));
+        assert!(listed, "pick --help lacks: {binding:?}");
+    }
+    assert!(text.contains("?, F1"));
+    assert!(!page("list", 100).contains("Keys:"));
+}

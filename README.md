@@ -9,6 +9,8 @@ ranking, and a live `ssh -G` preview of where the host really resolves.
     sshpick ls consul       # the matching hosts: a table on a terminal, tab-separated in a pipe
     sshpick help ls         # help for one command
 
+Press `?` on an empty filter, or `F1`, for the key list.
+
 The picker after typing `consul`, at 80 columns. The prompt is the top row, with the count on
 its right. The best match is the first row under the header, and the `▌` row is the selection.
 From 100 columns the preview sits in a pane beside the list instead of under it.
@@ -149,19 +151,22 @@ Options go anywhere before a bare `--`:
 
 ## Keys
 
-| Key                         | Effect                                                  |
-|-----------------------------|---------------------------------------------------------|
-| Enter                       | ssh to the selected host; with no match, exit 1         |
-| Esc, Ctrl-C, Ctrl-G, Ctrl-Q | quit, exit 130                                          |
-| Ctrl-D                      | quit when the query is empty                            |
-| Up, Ctrl-P, Ctrl-K          | next better match (up the list)                         |
-| Down, Ctrl-N, Ctrl-J        | next worse match (down the list)                        |
-| Backspace, Ctrl-H           | delete the last character                               |
-| Ctrl-U                      | clear the query                                         |
-| Ctrl-W                      | delete the last word                                    |
+| Key                         | Effect                                       |
+|-----------------------------|----------------------------------------------|
+| Enter                       | ssh to the selected host                     |
+| Esc, Ctrl-C, Ctrl-G, Ctrl-Q | quit (exit 130); Esc closes this help first  |
+| Up, Ctrl-P, Ctrl-K          | select the previous host (up the list)       |
+| Down, Ctrl-N, Ctrl-J        | select the next host (down the list)         |
+| type                        | filter; 'exact ^prefix suffix$ !not          |
+| Backspace, Ctrl-H           | delete the last character                    |
+| Ctrl-U                      | clear the filter                             |
+| Ctrl-W                      | delete the last word                         |
+| Ctrl-D                      | quit when the filter is empty                |
+| ?, F1                       | toggle this help (? only on an empty filter) |
 
-The list is top-down with the best match first and the selection on it, like fzf's
-`--layout=reverse`. The text cursor is always at the end of the query.
+The help is a popup over the list. It does not take over the keyboard: typing, moving and Enter
+still work while it is open. The list is top-down with the best match first and the selection on
+it, like fzf's `--layout=reverse`. The text cursor is always at the end of the query.
 
 ## Inspect
 

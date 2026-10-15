@@ -2,6 +2,7 @@ mod app;
 mod bar;
 mod input;
 mod pane;
+mod popup;
 mod screen;
 mod size;
 mod style;

@@ -1,6 +1,8 @@
 //! The command table. Parsing, `--help`, the root command list and the typo candidates all read
 //! these constants, so a command or flag added here shows up everywhere at once.
 
+use sshpick_core::{BINDINGS, Binding};
+
 pub(crate) const URL: &str = "https://github.com/PunGrumpy/sshpick#readme";
 
 pub(crate) type Row = (&'static str, &'static str);
@@ -13,7 +15,7 @@ pub(crate) struct CommandSpec {
     pub(crate) description: &'static str,
     pub(crate) arguments: &'static [Argument],
     pub(crate) options: &'static [OptionSpec],
-    pub(crate) keys: &'static [Row],
+    pub(crate) keys: &'static [Binding],
     pub(crate) examples: &'static [Example],
 }
 
@@ -56,13 +58,7 @@ pub(crate) const PICK: CommandSpec = CommandSpec {
         multiple: true,
     }],
     options: &[],
-    keys: &[
-        ("Enter", "ssh to the selected host"),
-        ("Esc, Ctrl-C", "quit (exit 130)"),
-        ("Up, Down, Ctrl-P, Ctrl-N", "move"),
-        ("Ctrl-U", "clear the query"),
-        ("Ctrl-W", "delete the last word"),
-    ],
+    keys: BINDINGS,
     examples: &[
         Example {
             name: "Open the picker with every host",

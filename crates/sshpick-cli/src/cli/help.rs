@@ -75,7 +75,8 @@ impl Page {
             lines.extend(self.options("Options", spec.options));
         }
         if !spec.keys.is_empty() {
-            lines.extend(self.rows("Keys", spec.keys));
+            let keys: Vec<Row> = spec.keys.iter().map(|b| (b.keys, b.does)).collect();
+            lines.extend(self.rows("Keys", &keys));
         }
         lines.extend(self.options("Global Options", GLOBAL));
         lines.extend(self.examples(spec.examples));

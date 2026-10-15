@@ -15,6 +15,7 @@ pub(super) fn key(event: KeyEvent) -> Option<Key> {
         KeyCode::Backspace => Some(Key::Backspace),
         KeyCode::Up => Some(Key::Up),
         KeyCode::Down => Some(Key::Down),
+        KeyCode::F(n) => Some(Key::F(n)),
         _ => None,
     }
 }
@@ -35,5 +36,7 @@ mod tests {
         );
         assert_eq!(press(KeyCode::Char('x'), KeyModifiers::ALT), None);
         assert_eq!(press(KeyCode::Left, KeyModifiers::NONE), None);
+        assert_eq!(press(KeyCode::F(1), KeyModifiers::NONE), Some(Key::F(1)));
+        assert_eq!(press(KeyCode::F(12), KeyModifiers::SHIFT), Some(Key::F(12)));
     }
 }

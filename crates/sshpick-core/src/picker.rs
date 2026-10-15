@@ -11,6 +11,7 @@ pub struct Picker {
     query: String,
     matches: Matches,
     scroll: usize,
+    help: bool,
 }
 
 /// A key with the terminal encoding stripped. `sshpick-ui` maps crossterm events to this one to
@@ -27,6 +28,8 @@ pub enum Key {
     Backspace,
     Up,
     Down,
+    /// A function key: `F(1)` is F1. Only F1 does anything.
+    F(u8),
 }
 
 /// How a session ends. `sshpick-cli` maps each to an exit code.
@@ -93,6 +96,7 @@ impl Picker {
             query: query.to_owned(),
             matches,
             scroll: 0,
+            help: false,
         }
     }
 
@@ -124,12 +128,19 @@ impl Picker {
             .collect()
     }
 
-    /// Apply one key. `Some` ends the session. The bindings are fzf's defaults:
+    /// Whether the key help is showing. It is non-modal: every other key still acts.
+    pub fn help_open(&self) -> bool {
+        self.help
+    }
+
+    /// Apply one key. `Some` ends the session. The bindings are fzf's defaults, plus the help;
+    /// [`BINDINGS`](crate::BINDINGS) lists them for people and a test keeps the two in step:
     ///
     /// | Key                                   | Effect                                     |
     /// |---------------------------------------|--------------------------------------------|
     /// | Enter                                 | `Pick(selected)`, or `NoMatch`             |
-    /// | Esc, Ctrl-C, Ctrl-G, Ctrl-Q           | `Cancel`                                   |
+    /// | Esc                                   | closes the help if it is open, else `Cancel` |
+    /// | Ctrl-C, Ctrl-G, Ctrl-Q                | `Cancel`                                   |
     /// | Ctrl-D                                | `Cancel` on an empty query, else nothing   |
     /// | Up, Ctrl-P, Ctrl-K                    | cursor to the next better match (up the list) |
     /// | Down, Ctrl-N, Ctrl-J                  | cursor to the next worse match (down the list) |
@@ -137,6 +148,7 @@ impl Picker {
     /// | Backspace, Ctrl-H                     | delete the last char                       |
     /// | Ctrl-U                                | clear the query                            |
     /// | Ctrl-W                                | delete the last word                       |
+    /// | F1, `?` on an empty query             | show or hide the help                      |
     ///
     /// The query cursor is always at the end; there is no Left/Right editing.
     pub fn handle(&mut self, key: Key) -> Option<Outcome> {
@@ -147,17 +159,20 @@ impl Picker {
                     None => Outcome::NoMatch,
                 });
             }
+            Key::Esc if self.help => self.help = false,
             Key::Esc | Key::Ctrl('c' | 'g' | 'q') => return Some(Outcome::Cancel),
             Key::Ctrl('d') if self.query.is_empty() => return Some(Outcome::Cancel),
             Key::Up | Key::Ctrl('p' | 'k') => self.matches.toward_better(),
             Key::Down | Key::Ctrl('n' | 'j') => self.matches.toward_worse(),
+            Key::F(1) => self.help = !self.help,
+            Key::Char('?') if self.query.is_empty() => self.help = !self.help,
             Key::Char(c) => self.edit(|query| query.push(c)),
             Key::Backspace | Key::Ctrl('h') => self.edit(|query| {
                 query.pop();
             }),
             Key::Ctrl('u') => self.edit(String::clear),
             Key::Ctrl('w') => self.edit(delete_word),
-            Key::Ctrl(_) => {}
+            Key::Ctrl(_) | Key::F(_) => {}
         }
         None
     }
@@ -525,6 +540,77 @@ mod tests {
             assert!(!listed.is_empty(), "{query:?}");
             assert_eq!(drawn, listed, "{query:?}");
         }
+    }
+
+    #[test]
+    fn f1_toggles_the_help_and_question_mark_does_only_on_an_empty_query() {
+        let mut picker = picker(&["a", "b"]);
+        assert!(!picker.help_open());
+        assert_eq!(picker.handle(Key::F(1)), None);
+        assert!(picker.help_open());
+        picker.handle(Key::F(1));
+        assert!(!picker.help_open());
+
+        picker.handle(Key::Char('?'));
+        assert!(picker.help_open(), "? on an empty query opens it");
+        picker.handle(Key::Char('?'));
+        assert!(!picker.help_open(), "and closes it");
+        assert_eq!(picker.view(1).query, "", "? is not typed on an empty query");
+
+        type_text(&mut picker, "a");
+        picker.handle(Key::Char('?'));
+        assert!(!picker.help_open());
+        assert_eq!(picker.view(1).query, "a?", "with a query, ? is a character");
+        picker.handle(Key::F(1));
+        assert!(picker.help_open(), "F1 works whatever the query");
+    }
+
+    #[test]
+    fn other_function_keys_do_nothing() {
+        let mut picker = picker(&["a", "b"]);
+        for n in (2..=12).chain([0]) {
+            assert_eq!(picker.handle(Key::F(n)), None);
+        }
+        assert!(!picker.help_open());
+        assert_eq!(selected(&picker), "a");
+    }
+
+    #[test]
+    fn esc_closes_the_help_before_it_cancels() {
+        let mut picker = picker(&["a", "b"]);
+        picker.handle(Key::F(1));
+        assert_eq!(picker.handle(Key::Esc), None);
+        assert!(!picker.help_open());
+        assert_eq!(picker.handle(Key::Esc), Some(Outcome::Cancel));
+    }
+
+    #[test]
+    fn the_cancel_chords_quit_even_with_the_help_open() {
+        for key in [
+            Key::Ctrl('c'),
+            Key::Ctrl('g'),
+            Key::Ctrl('q'),
+            Key::Ctrl('d'),
+        ] {
+            let mut picker = picker(&["a"]);
+            picker.handle(Key::F(1));
+            assert_eq!(picker.handle(key), Some(Outcome::Cancel), "{key:?}");
+        }
+    }
+
+    #[test]
+    fn the_help_is_not_modal() {
+        let mut picker = picker(&["a-1", "a-2", "b"]);
+        picker.handle(Key::F(1));
+        type_text(&mut picker, "a");
+        assert!(picker.help_open(), "typing keeps it open");
+        picker.handle(Key::Down);
+        assert_eq!(selected(&picker), "a-2", "so do the arrows");
+        assert_eq!(
+            picker.handle(Key::Enter),
+            Some(Outcome::Pick(Host::literal("a-2").unwrap())),
+            "and Enter still picks"
+        );
     }
 
     #[test]
