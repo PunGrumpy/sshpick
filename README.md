@@ -278,19 +278,19 @@ order:
 ## Install
 
     make install            # cargo install --locked --path crates/sshpick --root ~/.local
-    ln -sfn ~/.local/bin/sshpick ~/.local/bin/nipa-ssh
 
-`~/.local/bin` must be on `PATH`. If `~/.local/bin/sshpick` is a symlink, `make install`
+This installs two names for the same program, `sshpick` and the short `sp`. Help and errors
+always say `sshpick`. `~/.local/bin` must be on `PATH`. If `~/.local/bin/sshpick` is a symlink, `make install`
 removes it first. It leaves a regular file alone, because cargo replaces its own binary.
 
 ## Migrating from the bash script
 
 The binary replaces the fzf-based bash script that used to live at the repo root. If
-`~/.local/bin/sshpick` (or a second name such as `nipa-ssh`) still points at that script:
+`~/.local/bin/sshpick` still points at that script:
 
-1. `make install` replaces the symlink with the binary.
-2. `ln -sfn ~/.local/bin/sshpick ~/.local/bin/nipa-ssh` repoints the second name.
-3. `sshpick --version` and `nipa-ssh --version` should both print a version.
+1. `make install` replaces the symlink with the binary and adds `sp`.
+2. Remove any other name you linked to the script.
+3. `sshpick --version` and `sp --version` should both print a version.
 
 What differs from the script:
 

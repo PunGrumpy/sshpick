@@ -16,7 +16,8 @@
 - Argv, help, errors, exit codes and what each command does go in `crates/sshpick-cli`: `cli/` for
   parsing and errors, `commands/` for one file per command with its own `Error`. An exit code is
   chosen in `cli::Error::exit_code` and nowhere else.
-- `crates/sshpick/src/main.rs` stays a few lines. New logic goes to `sshpick_cli::main`.
+- `crates/sshpick/src/main.rs` and `src/bin/sp.rs` stay a few lines. New logic goes to
+  `sshpick_cli::main`.
 - Only `sshpick_core::ssh` runs `ssh`. Pass a `Host`, never a string from the user.
 - A new crate needs its own dependency footprint or a second consumer, a `README.md` (Purpose,
   Architecture, Notes) and `[lints] workspace = true`.

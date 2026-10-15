@@ -16,12 +16,16 @@ pub fn sshpick(home: &str) -> Command {
 
 /// The same command as a `std` one, for a test that wires up stdout itself.
 pub fn plain(home: &str) -> process::Command {
+    isolated(env!("CARGO_BIN_EXE_sshpick"), home)
+}
+
+pub fn isolated(program: &str, home: &str) -> process::Command {
     let path = format!(
         "{}:{}",
         fixtures().join("bin").display(),
         std::env::var("PATH").unwrap_or_default()
     );
-    let mut command = process::Command::new(env!("CARGO_BIN_EXE_sshpick"));
+    let mut command = process::Command::new(program);
     command.env("HOME", fixtures().join(home)).env("PATH", path);
     for name in ["NO_COLOR", "CLICOLOR_FORCE", "COLUMNS", "TERM"] {
         command.env_remove(name);

@@ -3,7 +3,8 @@ mod common;
 use std::io;
 use std::process::{Output, Stdio};
 
-use common::{plain, sshpick, stderr};
+use assert_cmd::Command;
+use common::{isolated, plain, sshpick, stderr};
 use insta::assert_snapshot;
 
 fn with_stdout_closed(home: &str, args: &[&str]) -> io::Result<Output> {
@@ -15,6 +16,29 @@ fn with_stdout_closed(home: &str, args: &[&str]) -> io::Result<Output> {
         .stdout(writer)
         .stderr(Stdio::piped())
         .output()
+}
+
+fn sp(home: &str) -> Command {
+    Command::from_std(isolated(env!("CARGO_BIN_EXE_sp"), home))
+}
+
+#[test]
+fn sp_is_the_same_program_under_a_short_name() {
+    for args in [
+        &["--version"][..],
+        &["ls"],
+        &["ls", "--json"],
+        &["inspect", "stg-consul1"],
+    ] {
+        let long = sshpick("inspect").args(args).assert().success();
+        let short = sp("inspect").args(args).assert().success();
+        assert_eq!(
+            short.get_output().stdout,
+            long.get_output().stdout,
+            "sp {args:?} prints what sshpick does"
+        );
+    }
+    sp("inspect").arg("--bogus").assert().code(2).stdout("");
 }
 
 #[test]
