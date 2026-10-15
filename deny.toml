@@ -10,6 +10,13 @@ deny = [
   { crate = "clap", reason = "the CLI is table-driven on purpose: argv, help and errors all read sshpick-cli/src/cli/spec.rs, and clap's own help and error rendering is not the layout we want" },
   { crate = "dirs", reason = "std::env::home_dir is enough", use-instead = "std::env::home_dir" },
   { crate = "dirs-next", reason = "std::env::home_dir is enough", use-instead = "std::env::home_dir" },
+  { crate = "ratatui", wrappers = [
+    "sshpick-ui",
+  ], reason = "sshpick-core must not name a terminal type; only sshpick-ui draws the picker" },
+  { crate = "crossterm", wrappers = [
+    "sshpick-ui",
+    "ratatui-crossterm",
+  ], reason = "sshpick-core must not name a terminal type; only sshpick-ui reads keys and owns raw mode" },
 ]
 
 [sources]
