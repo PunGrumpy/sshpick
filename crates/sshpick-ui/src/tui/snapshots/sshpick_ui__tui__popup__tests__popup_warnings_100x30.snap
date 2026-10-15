@@ -12,8 +12,8 @@ expression: frame(&lines)
  7|           │                                                                            │
  8|           │ Enter                       - ssh to the selected host                     │
  9|           │ Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first  │
-10|           │ Up, Ctrl-P, Ctrl-K          - select the previous host (up the list)       │
-11|           │ Down, Ctrl-N, Ctrl-J        - select the next host (down the list)         │
+10|           │ Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last  │
+11|           │ Down, Ctrl-N, Ctrl-J        - select the next host; wraps to the first     │
 12|           │ type                        - filter; 'exact ^prefix suffix$ !not          │
 13|           │ Backspace, Ctrl-H           - delete the last character                    │
 14|           │ Ctrl-U                      - clear the filter                             │

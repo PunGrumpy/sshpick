@@ -12,8 +12,8 @@ expression: "page(topic, 80)"
 
   Enter                        ssh to the selected host
   Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes this help first
-  Up, Ctrl-P, Ctrl-K           select the previous host (up the list)
-  Down, Ctrl-N, Ctrl-J         select the next host (down the list)
+  Up, Ctrl-P, Ctrl-K           select the previous host; wraps to the last
+  Down, Ctrl-N, Ctrl-J         select the next host; wraps to the first
   type                         filter; 'exact ^prefix suffix$ !not
   Backspace, Ctrl-H            delete the last character
   Ctrl-U                       clear the filter

@@ -240,9 +240,14 @@ impl Matches {
             current,
             worse,
         } = self
-            && let Some(next) = worse.pop()
         {
-            better.push(mem::replace(current, next));
+            if let Some(next) = worse.pop() {
+                better.push(mem::replace(current, next));
+            } else if !better.is_empty() {
+                let last = mem::replace(current, better.remove(0));
+                worse.push(last);
+                worse.extend(better.drain(..).rev());
+            }
         }
     }
 
@@ -252,9 +257,14 @@ impl Matches {
             current,
             worse,
         } = self
-            && let Some(previous) = better.pop()
         {
-            worse.push(mem::replace(current, previous));
+            if let Some(previous) = better.pop() {
+                worse.push(mem::replace(current, previous));
+            } else if !worse.is_empty() {
+                let first = mem::replace(current, worse.remove(0));
+                better.push(first);
+                better.extend(worse.drain(..).rev());
+            }
         }
     }
 
@@ -408,25 +418,69 @@ mod tests {
     fn down_moves_to_a_worse_match_and_up_to_a_better_one() {
         let mut picker = picker(&["a", "b", "c"]);
         assert_eq!(drawn(&mut picker, 5), (strings(&["a", "b", "c"]), Some(0)));
-        picker.handle(Key::Up);
-        assert_eq!(selected(&picker), "a", "nothing is better than the best");
-        for want in ["b", "c", "c"] {
+        for want in ["b", "c"] {
             picker.handle(Key::Down);
             assert_eq!(selected(&picker), want);
         }
         assert_eq!(drawn(&mut picker, 5).1, Some(2));
-        for want in ["b", "a", "a"] {
+        picker.handle(Key::Up);
+        assert_eq!(selected(&picker), "b");
+        for key in [
+            Key::Ctrl('n'),
+            Key::Ctrl('p'),
+            Key::Ctrl('j'),
+            Key::Ctrl('k'),
+        ] {
+            picker.handle(key);
+        }
+        assert_eq!(selected(&picker), "b");
+    }
+
+    #[test]
+    fn moving_past_either_end_wraps_and_keeps_the_order() {
+        let mut picker = picker(&["a", "b", "c", "d"]);
+        picker.handle(Key::Up);
+        assert_eq!(
+            selected(&picker),
+            "d",
+            "up from the best wraps to the worst"
+        );
+        assert_eq!(
+            drawn(&mut picker, 2),
+            (strings(&["c", "d"]), Some(1)),
+            "the window follows the wrap to the bottom"
+        );
+        assert_eq!(picker.view(2).below, 0);
+        picker.handle(Key::Down);
+        assert_eq!(
+            selected(&picker),
+            "a",
+            "down from the worst wraps to the best"
+        );
+        assert_eq!(drawn(&mut picker, 2), (strings(&["a", "b"]), Some(0)));
+        for want in ["b", "c", "d", "a"] {
+            picker.handle(Key::Down);
+            assert_eq!(selected(&picker), want);
+        }
+        for want in ["d", "c", "b", "a", "d"] {
             picker.handle(Key::Up);
             assert_eq!(selected(&picker), want);
         }
-        for key in [Key::Ctrl('n'), Key::Ctrl('j')] {
+        assert_eq!(drawn(&mut picker, 9).0, strings(&["a", "b", "c", "d"]));
+    }
+
+    #[test]
+    fn one_match_and_no_match_stay_put() {
+        let mut picker = picker(&["a"]);
+        for key in [Key::Up, Key::Down] {
+            picker.handle(key);
+            assert_eq!(selected(&picker), "a");
+        }
+        type_text(&mut picker, "zzz");
+        for key in [Key::Up, Key::Down] {
             picker.handle(key);
         }
-        assert_eq!(selected(&picker), "c");
-        for key in [Key::Ctrl('p'), Key::Ctrl('k')] {
-            picker.handle(key);
-        }
-        assert_eq!(selected(&picker), "a");
+        assert_eq!(drawn(&mut picker, 5), (Vec::new(), None));
     }
 
     #[test]

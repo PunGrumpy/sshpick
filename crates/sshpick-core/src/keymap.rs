@@ -20,11 +20,11 @@ pub const BINDINGS: &[Binding] = &[
     },
     Binding {
         keys: "Up, Ctrl-P, Ctrl-K",
-        does: "select the previous host (up the list)",
+        does: "select the previous host; wraps to the last",
     },
     Binding {
         keys: "Down, Ctrl-N, Ctrl-J",
-        does: "select the next host (down the list)",
+        does: "select the next host; wraps to the first",
     },
     Binding {
         keys: "type",
