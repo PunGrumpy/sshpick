@@ -136,7 +136,14 @@ query text, so `sshpick consul` still searches. A host named exactly like a comm
 reached with `sshpick pick list` or `sshpick -- list`. `-h` and `--help` work anywhere and win
 over every other error. `--version` and `-V` print the version; `-v` is the same flag.
 
-Options go anywhere before a bare `--`. `--no-color` is the same as `NO_COLOR=1`.
+Options go anywhere before a bare `--`:
+
+| Option              | Effect                                                                 |
+|---------------------|------------------------------------------------------------------------|
+| `-h`, `--help`      | Show help; wins over every other error                                 |
+| `-V`, `--version`   | Print the version (when no command is named)                           |
+| `--no-color`        | Same as `NO_COLOR=1`                                                   |
+| `--non-interactive` | Never open the picker: one match connects, none exits 1, several exit 2 |
 
 ## Keys
 
@@ -175,7 +182,15 @@ spaces. Warnings go to stderr. The exit status is 1 when nothing matches.
 even on a terminal, so `sshpick --list | fzf` keeps working.
 
 Only results go to stdout. Help and `--version` also go to stdout; warnings, errors and the `>`
-line go to stderr. A pipe gets no escape bytes unless `CLICOLOR_FORCE` is set. Colour is decided
+line go to stderr. An error is an `Error:` line, then a `Fix:` line when there is a next step and
+a `Learn More:` line when the docs help; a warning is a `! message` line:
+
+    $ sshpick consul < /dev/null
+    Error: 4 hosts match "consul", and the picker needs an interactive terminal
+    Fix: narrow the query to one host, or list them with `sshpick ls consul`.
+
+A near-miss gets one suggestion, only when it is a single edit from a command or option:
+`sshpick help lst` says ``did you mean `sshpick help list`?``. A pipe gets no escape bytes unless `CLICOLOR_FORCE` is set. Colour is decided
 per stream: `--no-color` or a non-empty `NO_COLOR` removes colour but keeps bold and dim on a
 terminal, `CLICOLOR_FORCE` (set, not empty, not `0`) keeps colour in a pipe, and `TERM=dumb`
 turns it off.
@@ -186,8 +201,9 @@ turns it off.
 |-------------|-----------------------------------------------------------------------------|
 | 0           | `ls`, `--help` or `--version` succeeded                                     |
 | `ssh`'s own | after a pick (sshpick becomes `ssh`)                                        |
-| 1           | Enter with no match, or `ls` with no match                                  |
-| 2           | config error, no hosts found, unknown option or command, or no terminal     |
+| 1           | Enter with no match, or no match without the picker (`ls`, no terminal)     |
+| 2           | config error, no hosts found, unknown option or command, or several matches |
+|             | where the picker cannot open (no terminal, `--non-interactive`)             |
 | 127         | `ssh` could not be run                                                      |
 | 130         | cancelled                                                                   |
 

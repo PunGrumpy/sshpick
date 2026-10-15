@@ -3,7 +3,8 @@ mod common;
 use std::io;
 use std::process::{Output, Stdio};
 
-use common::{plain, sshpick};
+use common::{plain, sshpick, stderr};
+use insta::assert_snapshot;
 
 fn with_stdout_closed(home: &str, args: &[&str]) -> io::Result<Output> {
     let (reader, writer) = io::pipe()?;
@@ -23,13 +24,17 @@ fn version_and_help_exit_zero() {
 }
 
 #[test]
-fn an_unknown_option_exits_two_with_a_hint() {
-    sshpick("home")
-        .arg("--bogus")
+fn an_unknown_option_exits_two_and_names_what_is_accepted() {
+    let out = sshpick("home").arg("--bogus").assert().code(2).stdout("");
+    assert_snapshot!("unknown_option", stderr(&out));
+    let out = sshpick("home").arg("--lst").assert().code(2).stdout("");
+    assert_snapshot!("unknown_option_with_a_suggestion", stderr(&out));
+    let out = sshpick("home")
+        .args(["list", "--lsit"])
         .assert()
         .code(2)
-        .stdout("")
-        .stderr("sshpick: unknown option '--bogus'\nRun 'sshpick --help' for usage.\n");
+        .stdout("");
+    assert_snapshot!("unknown_option_for_a_command", stderr(&out));
 }
 
 #[test]
@@ -73,13 +78,13 @@ fn help_wins_over_an_unknown_option() {
 }
 
 #[test]
-fn help_for_an_unknown_command_exits_two() {
-    sshpick("home")
+fn help_for_an_unknown_command_exits_two_and_suggests_one_edit() {
+    let out = sshpick("home")
         .args(["help", "lst"])
         .assert()
         .code(2)
-        .stdout("")
-        .stderr("sshpick: unknown command 'lst'\nRun 'sshpick --help' for usage.\n");
+        .stdout("");
+    assert_snapshot!("unknown_command", stderr(&out));
 }
 
 #[test]

@@ -9,7 +9,8 @@ use crate::commands::{CommandBase, list, pick};
 mod args;
 mod error;
 mod help;
-mod spec;
+pub(crate) mod spec;
+pub(crate) mod suggest;
 #[cfg(test)]
 mod test;
 
@@ -21,14 +22,16 @@ pub(crate) fn run(argv: impl IntoIterator<Item = OsString>) -> u8 {
     match dispatch(argv, &output) {
         Ok(code) => code,
         Err(error) => {
-            output.error(&error);
+            output.error(&error, error.fix().as_deref(), error.docs());
             error.exit_code()
         }
     }
 }
 
 fn dispatch(argv: Vec<OsString>, output: &Output) -> Result<u8, Error> {
-    match args::parse(argv)?.command {
+    let args = args::parse(argv)?;
+    let non_interactive = args.global.non_interactive;
+    match args.command {
         Command::Help { topic } => {
             let spec = topic.and_then(spec::command);
             print(
@@ -37,8 +40,10 @@ fn dispatch(argv: Vec<OsString>, output: &Output) -> Result<u8, Error> {
             )
         }
         Command::Version => print(output, concat!("sshpick ", env!("CARGO_PKG_VERSION"), "\n")),
-        Command::List { query, machine } => list::run(&CommandBase::new(output)?, &query, machine),
-        Command::Pick { query } => pick::run(&CommandBase::new(output)?, &query),
+        Command::List { query, machine } => {
+            list::run(&CommandBase::new(output, non_interactive)?, &query, machine)
+        }
+        Command::Pick { query } => pick::run(&CommandBase::new(output, non_interactive)?, &query),
     }
 }
 

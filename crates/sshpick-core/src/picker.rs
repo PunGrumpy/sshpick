@@ -40,6 +40,16 @@ pub enum Outcome {
     NoMatch,
 }
 
+/// What a query settles by itself; see [`Picker::resolve`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum Resolution<'a> {
+    /// Exactly one host matches: connect to it.
+    One(&'a Host),
+    NoMatch,
+    /// This many hosts match: someone has to choose.
+    Many(usize),
+}
+
 /// Everything one frame shows from the picker.
 #[derive(Debug)]
 pub struct View<'a> {
@@ -86,17 +96,14 @@ impl Picker {
         }
     }
 
-    /// fzf `--select-1`: the host when exactly one entry matches, so the caller can exec before
-    /// touching the terminal. Applies to any query, the empty one included (a one-host config).
-    /// Zero matches is `None`: the UI opens, as fzf does.
-    pub fn only_match(&self) -> Option<&Host> {
-        match &self.matches {
-            Matches::Some {
-                better,
-                current,
-                worse,
-            } if better.is_empty() && worse.is_empty() => Some(&self.ranker.entry(current).host),
-            Matches::None | Matches::Some { .. } => None,
+    /// What the query settles before any terminal is touched: fzf's `--select-1` when exactly one
+    /// entry matches, applied to any query, the empty one included (a one-host config). Zero or
+    /// several matches need the picker, or an error when there is no picker to open.
+    pub fn resolve(&self) -> Resolution<'_> {
+        match (&self.matches, self.matches.len()) {
+            (Matches::Some { current, .. }, 1) => Resolution::One(&self.ranker.entry(current).host),
+            (Matches::Some { .. }, count) => Resolution::Many(count),
+            (Matches::None, _) => Resolution::NoMatch,
         }
     }
 
@@ -448,17 +455,29 @@ mod tests {
     }
 
     #[test]
-    fn only_match_needs_exactly_one_match() {
-        let only = |hosts: &[&str], query: &str| {
-            Picker::new(entries(hosts), query)
-                .only_match()
-                .map(|host| host.to_string())
-        };
-        assert_eq!(only(&["a"], ""), Some("a".to_owned()));
-        assert_eq!(only(&["a", "b"], ""), None);
-        assert_eq!(only(&["a", "b"], "b"), Some("b".to_owned()));
-        assert_eq!(only(&["a", "b"], "zz"), None);
-        assert_eq!(only(&[], ""), None);
+    fn resolve_settles_a_query_without_the_picker() {
+        let resolved =
+            |hosts: &[&str], query: &str| match Picker::new(entries(hosts), query).resolve() {
+                Resolution::One(host) => format!("one {host}"),
+                Resolution::NoMatch => "none".to_owned(),
+                Resolution::Many(count) => format!("many {count}"),
+            };
+        assert_eq!(resolved(&["a"], ""), "one a", "a one-host config");
+        assert_eq!(resolved(&["a", "b"], ""), "many 2");
+        assert_eq!(resolved(&["a", "b"], "b"), "one b");
+        assert_eq!(resolved(&["a", "b"], "zz"), "none");
+        assert_eq!(resolved(&[], ""), "none");
+        assert_eq!(resolved(&["web1", "web2", "db"], "web"), "many 2");
+    }
+
+    #[test]
+    fn resolve_counts_matches_whatever_the_cursor_did() {
+        let mut picker = picker(&["a", "b", "c"]);
+        picker.handle(Key::Down);
+        picker.handle(Key::Down);
+        assert!(matches!(picker.resolve(), Resolution::Many(3)));
+        type_text(&mut picker, "c");
+        assert!(matches!(picker.resolve(), Resolution::One(host) if host.as_str() == "c"));
     }
 
     #[test]

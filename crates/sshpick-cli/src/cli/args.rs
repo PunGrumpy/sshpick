@@ -11,6 +11,7 @@ pub(crate) struct Args {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub(crate) struct GlobalArgs {
     pub(crate) no_color: bool,
+    pub(crate) non_interactive: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -32,9 +33,13 @@ pub(crate) enum Command {
 
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub(crate) enum UsageError {
-    #[error("unknown option '{0}'\nRun 'sshpick --help' for usage.")]
-    Option(String),
-    #[error("unknown command '{0}'\nRun 'sshpick --help' for usage.")]
+    #[error("unknown option \"{option}\"")]
+    Option {
+        option: String,
+        /// The command the option followed, so the fix lists what that command accepts.
+        command: Option<&'static str>,
+    },
+    #[error("unknown command \"{0}\"")]
     Command(String),
 }
 
@@ -44,6 +49,7 @@ struct Flags {
     version: bool,
     list: bool,
     no_color: bool,
+    non_interactive: bool,
 }
 
 /// True when `--no-color` appears before a bare `--`, so a usage error can honour it before the
@@ -77,6 +83,7 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<Args, Us
             Some("version") => flags.version = true,
             Some("list") => flags.list = true,
             Some("no-color") => flags.no_color = true,
+            Some("non-interactive") => flags.non_interactive = true,
             _ => {
                 unknown.get_or_insert(arg);
             }
@@ -92,13 +99,17 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<Args, Us
 
     let global = GlobalArgs {
         no_color: flags.no_color,
+        non_interactive: flags.non_interactive,
     };
     let command = if flags.help {
         Command::Help {
             topic: named.map(|spec| spec.name),
         }
     } else if let Some(option) = unknown {
-        return Err(UsageError::Option(option));
+        return Err(UsageError::Option {
+            option,
+            command: named.map(|spec| spec.name),
+        });
     } else if flags.version && named.is_none() {
         Command::Version
     } else {

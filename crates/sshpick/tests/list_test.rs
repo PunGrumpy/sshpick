@@ -1,21 +1,17 @@
 mod common;
 
-use common::sshpick;
+use common::{sshpick, stderr};
 
 #[test]
 fn list_prints_every_host_as_tsv_in_file_order() {
-    sshpick("ui")
-        .arg("--list")
-        .assert()
-        .code(0)
-        .stdout(
-            "LAB\tlab-a\tLAB — personal VMs\n\
-             LAB\tlab-b\tbuild box\n\
-             NEW STAGING\tnewstg-consul1\tconsul server 1 — mgmt\n\
-             NEW STAGING\tnewstg-consul2\t\n\
-             NEW STAGING\tnewstg-bastion\tbastion\n",
-        )
-        .stderr("");
+    let out = sshpick("ui").arg("--list").assert().code(0).stdout(
+        "LAB\tlab-a\tLAB — personal VMs\n\
+         LAB\tlab-b\tbuild box\n\
+         NEW STAGING\tnewstg-consul1\tconsul server 1 — mgmt\n\
+         NEW STAGING\tnewstg-consul2\t\n\
+         NEW STAGING\tnewstg-bastion\tbastion\n",
+    );
+    assert_eq!(stderr(&out), "");
 }
 
 #[test]

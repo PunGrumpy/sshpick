@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process;
 
 use assert_cmd::Command;
+use assert_cmd::assert::Assert;
 
 pub fn fixtures() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
@@ -31,4 +32,11 @@ pub fn plain(home: &str) -> process::Command {
         }
     }
     command
+}
+
+/// What the command wrote to stderr, with the fixture directory replaced so a snapshot does not
+/// depend on where the repository is checked out.
+pub fn stderr(assert: &Assert) -> String {
+    let text = String::from_utf8_lossy(&assert.get_output().stderr).into_owned();
+    text.replace(&fixtures().display().to_string(), "<fixtures>")
 }

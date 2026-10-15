@@ -62,6 +62,14 @@ impl ColorConfig {
         self.paint(self.color, "36", "39", text)
     }
 
+    pub fn red(self, text: &str) -> String {
+        self.paint(self.color, "31", "39", text)
+    }
+
+    pub fn yellow(self, text: &str) -> String {
+        self.paint(self.color, "33", "39", text)
+    }
+
     pub fn gray(self, text: &str) -> String {
         self.paint(self.color, "90", "39", text)
     }
@@ -119,12 +127,15 @@ mod tests {
         assert_eq!(all.dim("a"), "\x1b[2ma\x1b[22m");
         assert_eq!(all.cyan("a"), "\x1b[36ma\x1b[39m");
         assert_eq!(all.gray("a"), "\x1b[90ma\x1b[39m");
+        assert_eq!(all.red("a"), "\x1b[31ma\x1b[39m");
+        assert_eq!(all.yellow("a"), "\x1b[33ma\x1b[39m");
         assert_eq!(all.dim(""), "", "nothing to style, nothing to wrap");
 
         let no_hue = ColorConfig::new(true, true, &vars(&[]));
         assert_eq!(no_hue.bold("a"), "\x1b[1ma\x1b[22m");
         assert_eq!(no_hue.cyan("a"), "a");
         assert_eq!(no_hue.gray("a"), "a");
+        assert_eq!(no_hue.red("a"), "a");
 
         let pipe = ColorConfig::new(false, false, &vars(&[]));
         for text in [

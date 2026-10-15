@@ -7,6 +7,7 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
 - `flat/.ssh/config`: hosts in the root file only, so the ENV column hides.
 - `words/.ssh/config`: hosts named `list` and `web`, so `pick list` and `-- list` can be shown to
   reach a host whose name is also a command.
+- `cycle/.ssh/config`: one host and an `Include` of itself, so the run has one warning to show.
 - `empty/.ssh/config`: no literal host (only `Host *`), so `sshpick` has nothing to pick.
 - `tabs/.ssh/config`: a tab inside the WHAT comment, so `--list` must still print three columns.
 - `bin/ssh`: stands in for `ssh` on `PATH` and prints how it was called.

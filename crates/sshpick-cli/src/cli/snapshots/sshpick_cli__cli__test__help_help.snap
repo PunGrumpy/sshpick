@@ -9,9 +9,11 @@ expression: "page(topic, 80)"
 
   Global Options:
 
-  -h,  --help      Output usage information
-       --no-color  No color mode (default off)
-  -V,  --version   Output the version number
+  -h,  --help             Output usage information
+       --no-color         No color mode (default off)
+       --non-interactive  Never open the picker; connect only when exactly one
+                          host matches
+  -V,  --version          Output the version number
 
 
   Examples:

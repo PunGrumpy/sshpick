@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/usage_test.rs
+expression: stderr(&out)
+---
+Error: unknown command "lst"
+Fix: did you mean `sshpick help list`? See all commands with `sshpick --help`.

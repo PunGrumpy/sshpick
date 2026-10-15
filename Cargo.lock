@@ -809,6 +809,7 @@ name = "sshpick"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "insta",
  "sshpick-cli",
 ]
 

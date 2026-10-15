@@ -31,6 +31,21 @@
 - Tests that run the binary live in `crates/sshpick/tests` and use `assert_cmd` with the fake
   `ssh` from `tests/fixtures/bin` first on `PATH`.
 
+## Output
+
+- Results go to stdout. Hints, warnings and errors go to stderr. A pipe gets the result and nothing
+  else.
+- An error is `Error:`, then `Fix:` when there is a concrete next step, then `Learn More:`. A
+  warning is `! message`. There is no `sshpick:` prefix.
+- Colour is decided per stream in `sshpick-ui`'s `ColorConfig`. A stream that is not a terminal
+  gets no escape bytes unless `CLICOLOR_FORCE` is set.
+- Never prompt under `--non-interactive`. The picker is the only prompt.
+- Command names, flags, exit codes, environment variables and TSV columns are a contract. Change
+  one only with a test and a README line.
+- Add a command or flag to `cli/spec.rs` first. Parsing, help and suggestions follow from it.
+- A typo suggestion needs exactly one single-edit candidate (`cli/suggest.rs`). No similarity
+  scores.
+
 ## PR title format
 
 PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/). See

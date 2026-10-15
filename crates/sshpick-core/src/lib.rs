@@ -7,16 +7,16 @@
 //! The whole public surface, as `sshpick-cli` and `sshpick-ui` use it:
 //!
 //! ```no_run
-//! use sshpick_core::{Key, Outcome, Picker, Previews, Slot};
+//! use sshpick_core::{Key, Outcome, Picker, Previews, Resolution, Slot};
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! # let home = std::path::PathBuf::from("/home/me");
 //! let loaded = sshpick_core::load(&home)?; // ~/.ssh/config + Includes, in ssh's order
 //! for warning in &loaded.warnings {
-//!     eprintln!("sshpick: warning: {warning}");
+//!     eprintln!("! {warning}");
 //! }
 //! let mut picker = Picker::new(loaded.entries, "new consul"); // argv joined
-//! if let Some(host) = picker.only_match() {
+//! if let Resolution::One(host) = picker.resolve() {
 //!     let err = sshpick_core::exec(host); // fzf --select-1; returns only on failure
 //!     return Err(err.into());
 //! }
@@ -49,6 +49,6 @@ mod rank;
 mod ssh;
 
 pub use config::{Entry, Host, LoadError, Loaded, Warning, load};
-pub use picker::{Key, Outcome, Picker, Row, View};
+pub use picker::{Key, Outcome, Picker, Resolution, Row, View};
 pub use preview::{Previews, Slot};
 pub use ssh::{Preview, ResolveError, exec};

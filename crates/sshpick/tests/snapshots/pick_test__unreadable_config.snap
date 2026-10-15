@@ -1,0 +1,5 @@
+---
+source: crates/sshpick/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: cannot read /nonexistent-home/.ssh/config: No such file or directory (os error 2)

@@ -154,6 +154,12 @@ pub(crate) const GLOBAL: &[OptionSpec] = &[
         description: Some("No color mode (default off)"),
     },
     OptionSpec {
+        long: "non-interactive",
+        short: None,
+        aliases: &[],
+        description: Some("Never open the picker; connect only when exactly one host matches"),
+    },
+    OptionSpec {
         long: "version",
         short: Some('V'),
         aliases: &["-v"],
@@ -191,7 +197,10 @@ pub(crate) const ENVIRONMENT: &[Row] = &[
 pub(crate) const EXIT_STATUS: &[Row] = &[
     ("0", "Success; after a pick, ssh's own status"),
     ("1", "No host matches"),
-    ("2", "Usage or config error, or no terminal for the picker"),
+    (
+        "2",
+        "Usage or config error; several matches where one is needed",
+    ),
     ("127", "ssh could not be run"),
     ("130", "Cancelled"),
 ];
@@ -221,4 +230,30 @@ pub(crate) fn command(word: &str) -> Option<&'static CommandSpec> {
 
 pub(crate) fn option(token: &str) -> Option<&'static OptionSpec> {
     GLOBAL.iter().find(|spec| spec.matches(token))
+}
+
+/// Every spelling of every command paired with the name it stands for, for typo suggestions.
+pub(crate) fn command_words() -> Vec<(&'static str, &'static str)> {
+    COMMANDS
+        .iter()
+        .flat_map(|spec| {
+            spec.aliases
+                .iter()
+                .copied()
+                .chain([spec.name])
+                .map(|word| (word, spec.name))
+        })
+        .collect()
+}
+
+/// The options a command accepts, its own first and then the global ones, hidden ones included.
+pub(crate) fn options_of(command: Option<&str>) -> Vec<&'static OptionSpec> {
+    let own = command
+        .and_then(command_by_name)
+        .map_or(&[][..], |spec| spec.options);
+    own.iter().chain(GLOBAL).collect()
+}
+
+fn command_by_name(name: &str) -> Option<&'static CommandSpec> {
+    COMMANDS.iter().copied().find(|spec| spec.name == name)
 }

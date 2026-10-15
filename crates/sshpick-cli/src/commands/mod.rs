@@ -11,12 +11,17 @@ pub(crate) mod pick;
 pub(crate) struct CommandBase<'a> {
     home: PathBuf,
     output: &'a Output,
+    non_interactive: bool,
 }
 
 impl<'a> CommandBase<'a> {
-    pub(crate) fn new(output: &'a Output) -> Result<CommandBase<'a>, Error> {
+    pub(crate) fn new(output: &'a Output, non_interactive: bool) -> Result<CommandBase<'a>, Error> {
         let home = std::env::home_dir().ok_or(Error::NoHome)?;
-        Ok(CommandBase { home, output })
+        Ok(CommandBase {
+            home,
+            output,
+            non_interactive,
+        })
     }
 
     pub(crate) fn load(&self) -> Result<Loaded, Error> {

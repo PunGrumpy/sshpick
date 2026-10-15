@@ -14,10 +14,11 @@ sshpick-cli
     │   ├── spec.rs - the command table: commands, options, examples, the text of every help page
     │   ├── args.rs - Args, Command, UsageError, parse(): routing over the table
     │   ├── help.rs - render(): a help page as a pure function of the table, the width and colour
-    │   ├── error.rs - Error, the one exit_code() table, Exit
+    │   ├── suggest.rs - closest(): a typo suggestion only for a unique single edit
+    │   ├── error.rs - Error, the one exit_code() table, fix() and docs() for the Fix and Learn More lines, Exit
     │   └── test.rs - argv tables, exit codes, help snapshots
     └── commands/ - one file per command, each with its own Error
-        ├── pick.rs - resolve to one host or open the picker, then exec ssh
+        ├── pick.rs - settle the query with Picker::resolve, or open the picker, then exec ssh
         └── list.rs - a table on a terminal, tab-separated rows on a pipe
 ```
 

@@ -39,7 +39,14 @@ fn help_for(topic: Option<&'static str>) -> Result<Command, UsageError> {
 }
 
 fn unknown_option(option: &str) -> Result<Command, UsageError> {
-    Err(UsageError::Option(option.to_owned()))
+    unknown_option_of(None, option)
+}
+
+fn unknown_option_of(command: Option<&'static str>, option: &str) -> Result<Command, UsageError> {
+    Err(UsageError::Option {
+        option: option.to_owned(),
+        command,
+    })
 }
 
 fn unknown_command(word: &str) -> Result<Command, UsageError> {
@@ -87,15 +94,27 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["-lh"] => unknown_option("-lh"); "clustered short options are unknown")]
 #[test_case(&["-l", "-x"] => unknown_option("-x"); "an unknown option after -l")]
 #[test_case(&["--bogus", "-x"] => unknown_option("--bogus"); "the first unknown option is named")]
-#[test_case(&["ls", "--json"] => unknown_option("--json"); "json is not an option yet")]
+#[test_case(&["ls", "--json"] => unknown_option_of(Some("list"), "--json"); "json is not an option yet")]
+#[test_case(&["pick", "--bogus"] => unknown_option_of(Some("pick"), "--bogus"); "the command is remembered")]
 #[test_case(&["--version"] => Ok(Command::Version); "long version")]
 #[test_case(&["-V"] => Ok(Command::Version); "short version")]
 #[test_case(&["-v"] => Ok(Command::Version); "hidden lowercase version")]
 #[test_case(&["db", "-V"] => Ok(Command::Version); "version after a query word")]
 #[test_case(&["ls", "-V"] => list_for("", false); "version is ignored when a command is named")]
 #[test_case(&["--no-color", "db"] => pick_for("db"); "no-color is a flag, not a word")]
+#[test_case(&["--non-interactive", "db"] => pick_for("db"); "non-interactive is a flag, not a word")]
 fn argv_selects_a_command(args: &[&str]) -> Result<Command, UsageError> {
     command(args)
+}
+
+#[test]
+fn global_flags_are_read_wherever_they_stand() {
+    let global = |args: &[&str]| parse(argv(args)).unwrap().global;
+    assert!(global(&["--non-interactive"]).non_interactive);
+    assert!(global(&["ls", "--non-interactive"]).non_interactive);
+    assert!(!global(&["--", "--non-interactive"]).non_interactive);
+    assert!(!global(&["db"]).non_interactive);
+    assert!(global(&["db", "--no-color"]).no_color);
 }
 
 #[test]
@@ -123,12 +142,14 @@ fn the_table_has_no_two_commands_with_the_same_name() {
     assert!(spec::command("lst").is_none());
 }
 
-#[test_case(Error::Usage(UsageError::Option("--x".to_owned())), 2; "usage")]
+#[test_case(Error::Usage(UsageError::Command("x".to_owned())), 2; "unknown command")]
+#[test_case(Error::Usage(UsageError::Option { option: "--x".to_owned(), command: None }), 2; "usage")]
+#[test_case(Error::Pick(no_match("x")), 1; "no match")]
+#[test_case(Error::Pick(several(4, pick::Refusal::NoTerminal)), 2; "several matches")]
 #[test_case(Error::Stdout(io::Error::other("x")), 2; "stdout")]
 #[test_case(Error::NoHome, 2; "no home")]
 #[test_case(Error::NoHosts, 2; "no hosts")]
 #[test_case(Error::List(list::Error::Write(io::Error::other("x"))), 2; "list write")]
-#[test_case(Error::Pick(pick::Error::NoTerminal), 2; "no terminal")]
 #[test_case(Error::Pick(pick::Error::Previews(io::Error::other("x"))), 2; "previews")]
 #[test_case(Error::Pick(pick::Error::Terminal(io::Error::other("x"))), 2; "terminal")]
 #[test_case(Error::Pick(pick::Error::Exec(io::Error::other("x"))), 127; "exec failed")]
@@ -273,14 +294,99 @@ fn a_stream_without_colour_gets_no_escape_bytes() {
     }
 }
 
+fn no_match(query: &str) -> pick::Error {
+    pick::Error::NoMatch {
+        query: query.to_owned(),
+        did_you_mean: None,
+    }
+}
+
+fn several(count: usize, refusal: pick::Refusal) -> pick::Error {
+    pick::Error::Several {
+        count,
+        query: "consul".to_owned(),
+        refusal,
+    }
+}
+
+fn shown(error: &Error) -> String {
+    sshpick_ui::error_text(PLAIN, error, error.fix().as_deref(), error.docs())
+}
+
 #[test]
-fn a_usage_error_names_what_was_not_understood_and_points_at_help() {
-    assert_snapshot!(
-        "usage_error_option",
-        UsageError::Option("--bogus".to_owned()).to_string()
-    );
-    assert_snapshot!(
-        "usage_error_command",
-        UsageError::Command("lst".to_owned()).to_string()
-    );
+fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
+    let option = |option: &str, command| {
+        Error::Usage(UsageError::Option {
+            option: option.to_owned(),
+            command,
+        })
+    };
+    let load = sshpick_core::load(std::path::Path::new("/nonexistent-home")).unwrap_err();
+    let errors = [
+        ("sshpick --lst", option("--lst", None)),
+        ("sshpick list --lsit", option("--lsit", Some("list"))),
+        ("sshpick --bogus", option("--bogus", None)),
+        (
+            "sshpick help lst",
+            Error::Usage(UsageError::Command("lst".to_owned())),
+        ),
+        (
+            "sshpick help bogus",
+            Error::Usage(UsageError::Command("bogus".to_owned())),
+        ),
+        (
+            "sshpick consul < /dev/null",
+            Error::Pick(several(4, pick::Refusal::NoTerminal)),
+        ),
+        (
+            "sshpick --non-interactive",
+            Error::Pick(pick::Error::Several {
+                count: 12,
+                query: String::new(),
+                refusal: pick::Refusal::NonInteractive,
+            }),
+        ),
+        (
+            "sshpick lst new < /dev/null",
+            Error::Pick(pick::Error::NoMatch {
+                query: "lst new".to_owned(),
+                did_you_mean: Some("list new".to_owned()),
+            }),
+        ),
+        ("sshpick nope < /dev/null", Error::Pick(no_match("nope"))),
+        ("sshpick  # no Host lines", Error::NoHosts),
+        ("sshpick  # no ~/.ssh/config", Error::Load(load)),
+        ("sshpick  # no HOME", Error::NoHome),
+        (
+            "sshpick stg-consul1  # no ssh",
+            Error::Pick(pick::Error::Exec(io::Error::from_raw_os_error(2))),
+        ),
+        (
+            "sshpick stg-consul1  # ssh refused",
+            Error::Pick(pick::Error::Exec(io::Error::from_raw_os_error(13))),
+        ),
+        (
+            "sshpick ls  # stdout is full",
+            Error::List(list::Error::Write(io::Error::from_raw_os_error(28))),
+        ),
+    ];
+    let mut text = String::new();
+    for (command, error) in &errors {
+        let block = shown(error);
+        assert!(!block.contains("sshpick:"), "{block}");
+        assert!(block.starts_with("Error: "), "{block}");
+        text.push_str(&format!("$ {command}\n{block}\n"));
+    }
+    assert_snapshot!("errors", text);
+}
+
+#[test]
+fn colour_is_only_in_the_labels() {
+    let colors = ColorConfig::new(true, false, &|_| None);
+    let error = Error::NoHosts;
+    let text = sshpick_ui::error_text(colors, &error, error.fix().as_deref(), error.docs());
+    assert_eq!(strip_escapes(&text), shown(&error));
+    assert!(text.starts_with("\x1b[31mError:\x1b[39m no hosts found"));
+    assert!(text.contains("\x1b[1mFix:\x1b[22m add `Host` lines"));
+    assert!(text.contains("\x1b[1mLearn More:\x1b[22m https://"));
 }

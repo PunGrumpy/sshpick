@@ -17,9 +17,11 @@ sshpick 0.1.0
 
   Global Options:
 
-  -h,  --help      Output usage information
-       --no-color  No color mode (default off)
-  -V,  --version   Output the version number
+  -h,  --help             Output usage information
+       --no-color         No color mode (default off)
+       --non-interactive  Never open the picker; connect only when exactly one
+                          host matches
+  -V,  --version          Output the version number
 
 
   Environment:
@@ -32,7 +34,7 @@ sshpick 0.1.0
 
   0    Success; after a pick, ssh's own status
   1    No host matches
-  2    Usage or config error, or no terminal for the picker
+  2    Usage or config error; several matches where one is needed
   127  ssh could not be run
   130  Cancelled
 

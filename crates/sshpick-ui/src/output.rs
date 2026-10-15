@@ -62,13 +62,33 @@ impl Output {
         }
     }
 
-    pub fn error(&self, error: &dyn Display) {
-        eprintln!("sshpick: {error}");
+    /// `Error: <why>`, then `Fix:` and `Learn More:` when there is something to say. Nothing
+    /// carries the program's name: the label already says who spoke.
+    pub fn error(&self, why: &dyn Display, fix: Option<&str>, docs: Option<&str>) {
+        eprint!("{}", error_text(self.stderr, why, fix, docs));
     }
 
+    /// `! <warning>`, for a problem that cost something but did not stop the run.
     pub fn warn(&self, warning: &dyn Display) {
-        eprintln!("sshpick: warning: {warning}");
+        eprintln!("{} {warning}", self.stderr.yellow("!"));
     }
+}
+
+/// The text of [`Output::error`], one line per part, each ending in a newline.
+pub fn error_text(
+    colors: ColorConfig,
+    why: &dyn Display,
+    fix: Option<&str>,
+    docs: Option<&str>,
+) -> String {
+    let mut text = format!("{} {why}\n", colors.red("Error:"));
+    if let Some(fix) = fix {
+        text.push_str(&format!("{} {fix}\n", colors.bold("Fix:")));
+    }
+    if let Some(docs) = docs {
+        text.push_str(&format!("{} {docs}\n", colors.bold("Learn More:")));
+    }
+    text
 }
 
 fn columns(human: bool, var: &dyn Fn(&str) -> Option<OsString>) -> usize {
@@ -131,6 +151,24 @@ mod tests {
                 .find(|(key, _)| *key == name)
                 .map(|(_, value)| OsString::from(value))
         }
+    }
+
+    #[test]
+    fn an_error_is_a_why_then_an_optional_fix_and_docs() {
+        let plain = ColorConfig::none();
+        assert_eq!(
+            error_text(plain, &"no host matches", None, None),
+            "Error: no host matches\n"
+        );
+        assert_eq!(
+            error_text(plain, &"why", Some("do this"), Some("https://x.test")),
+            "Error: why\nFix: do this\nLearn More: https://x.test\n"
+        );
+        let colors = ColorConfig::new(true, false, &vars(&[]));
+        assert_eq!(
+            error_text(colors, &"why", Some("do this"), Some("u")),
+            "\x1b[31mError:\x1b[39m why\n\x1b[1mFix:\x1b[22m do this\n\x1b[1mLearn More:\x1b[22m u\n"
+        );
     }
 
     #[test]
