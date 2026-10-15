@@ -37,7 +37,6 @@ pub(crate) enum Error {
     #[error("no host matches \"{query}\"")]
     NoMatch {
         query: String,
-        /// The command the first word looks like, with the rest of the query after it.
         did_you_mean: Option<String>,
     },
     #[error("cannot write to stdout: {0}")]
@@ -49,7 +48,6 @@ pub(crate) enum Error {
 }
 
 impl Error {
-    /// The one table from an error to an exit status.
     pub(crate) fn exit_code(&self) -> u8 {
         match self {
             Error::NoMatch { .. } => Exit::NoMatch,
@@ -66,7 +64,6 @@ impl Error {
         .code()
     }
 
-    /// The one thing to try next, when there is a concrete one.
     pub(crate) fn fix(&self) -> Option<String> {
         match self {
             Error::Usage(UsageError::Option { option, command }) => {

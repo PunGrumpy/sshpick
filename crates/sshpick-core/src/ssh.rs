@@ -19,15 +19,12 @@ pub(crate) const TIMEOUT: Duration = Duration::from_secs(2);
 const KEYS: [&str; 5] = ["user", "hostname", "port", "remotecommand", "proxyjump"];
 
 /// Where `ssh -G` says a host resolves: the shown keys in ssh's output order (user, hostname,
-/// port, remotecommand, proxyjump). A key ssh does not print is absent; `RemoteCommand none`
-/// prints nothing.
+/// port, remotecommand, proxyjump). A key ssh does not print is absent.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Preview(Vec<(&'static str, String)>);
 
-/// Why a preview is missing.
 #[derive(Debug, thiserror::Error)]
 pub enum ResolveError {
-    /// `ssh` could not be started (not on `PATH`, fork failed).
     #[error("cannot run ssh -G: {0}")]
     Spawn(#[source] io::Error),
     /// No exit within [`TIMEOUT`]; the child was killed. The pane retries when the cursor comes
@@ -35,20 +32,16 @@ pub enum ResolveError {
     #[error("ssh -G gave no answer within {} s", TIMEOUT.as_secs())]
     Timeout,
     /// `ssh -G` exited non-zero (`code` is `None` if a signal killed it). `stderr` is what it
-    /// said, minus the RequestTTY notice every call prints. One bad option anywhere in the config
-    /// fails every host this way.
+    /// said. One bad option anywhere in the config fails every host this way.
     #[error("{}", exit_message(.code, .stderr))]
     Ssh { code: Option<i32>, stderr: String },
 }
 
 impl Preview {
-    /// Read `ssh -G` output, keeping the shown keys. The UI's tests build a ready pane
-    /// from a fixture with it.
     pub fn parse(stdout: &str) -> Preview {
         parse_g(stdout)
     }
 
-    /// `(key, value)` pairs, drawn as `key value`.
     pub fn lines(&self) -> impl Iterator<Item = (&'static str, &str)> {
         self.0.iter().map(|(key, value)| (*key, value.as_str()))
     }
@@ -62,7 +55,7 @@ fn exit_message(code: &Option<i32>, stderr: &str) -> String {
     }
 }
 
-/// The argv of the connection: `ssh -- <host>`. `exec` runs it, and `inspect` shows it.
+/// The argv of the connection: `ssh -- <host>`.
 pub fn command(host: &Host) -> [&str; 3] {
     [SSH, "--", host.as_str()]
 }
@@ -76,7 +69,6 @@ pub fn exec(host: &Host) -> io::Error {
     Command::new(program).args([dashes, name]).exec()
 }
 
-/// Ask `ssh -G` where `host` resolves, giving up after two seconds.
 pub fn resolve(host: &Host) -> Result<Preview, ResolveError> {
     resolve_with(OsStr::new(SSH), host, TIMEOUT)
 }

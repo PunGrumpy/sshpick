@@ -48,12 +48,23 @@ fn rows_follow_ssh_read_order() {
 }
 
 #[test]
-fn self_include_warns_and_keeps_rows() {
+fn a_self_including_glob_warns_once_and_does_not_fan_out() {
     let loaded = load(&fixture_dir("home")).unwrap();
-    assert!(matches!(
-        loaded.warnings.as_slice(),
-        [Warning::Cycle { path }] if path.ends_with("config.d/9-late.conf")
-    ));
+    let [warning] = loaded.warnings.as_slice() else {
+        panic!("one warning, not {:?}", loaded.warnings);
+    };
+    assert!(
+        matches!(warning, Warning::Cycle { path } if path.ends_with("config.d/9-late.conf")),
+        "the cycle names the file that includes itself: {warning:?}"
+    );
+    assert!(
+        warning
+            .to_string()
+            .ends_with("config.d/9-late.conf: skipped, include cycle"),
+        "the warning says what was skipped and why: {warning}"
+    );
+    let late = loaded.entries.iter().filter(|e| e.host.as_str() == "late");
+    assert_eq!(late.count(), 1, "the cyclic file contributes its host once");
 }
 
 #[test]

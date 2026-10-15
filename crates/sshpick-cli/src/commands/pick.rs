@@ -23,7 +23,6 @@ pub(crate) enum Error {
     Exec(#[source] io::Error),
 }
 
-/// Why the picker was not opened to settle several matches.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Refusal {
     NoTerminal,

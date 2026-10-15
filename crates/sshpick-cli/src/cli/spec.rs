@@ -1,6 +1,3 @@
-//! The command table. Parsing, `--help`, the root command list and the typo candidates all read
-//! these constants, so a command or flag added here shows up everywhere at once.
-
 use sshpick_core::{BINDINGS, Binding};
 
 pub(crate) const URL: &str = "https://github.com/PunGrumpy/sshpick#readme";
@@ -267,17 +264,14 @@ impl OptionSpec {
     }
 }
 
-/// A command by name or alias.
 pub(crate) fn command(word: &str) -> Option<&'static CommandSpec> {
     COMMANDS.iter().copied().find(|spec| spec.matches(word))
 }
 
-/// A global option by any spelling.
 pub(crate) fn option(token: &str) -> Option<&'static OptionSpec> {
     GLOBAL.iter().find(|spec| spec.matches(token))
 }
 
-/// An option that belongs to some command, such as `--json`.
 pub(crate) fn command_option(token: &str) -> Option<&'static OptionSpec> {
     COMMANDS
         .iter()
@@ -299,7 +293,7 @@ pub(crate) fn command_words() -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
-/// The options a command accepts, its own first and then the global ones, hidden ones included.
+/// Includes hidden options.
 pub(crate) fn options_of(command: Option<&str>) -> Vec<&'static OptionSpec> {
     let own = command
         .and_then(command_by_name)

@@ -16,7 +16,6 @@ const ESC_HINT: &str = "Esc - Quit";
 
 pub(super) type Pane<'a> = Option<(&'a Host, &'a Slot)>;
 
-/// `host > ssh -G`, with a `»` while ssh has not answered and `failed` when it did not.
 pub(super) fn title(host: &Host, slot: &Slot) -> String {
     let status = match slot {
         Slot::Waiting => " »",
@@ -30,7 +29,6 @@ fn heading(host: &Host, slot: &Slot) -> Line<'static> {
     Line::styled(format!(" {} ", title(host, slot)), DIM)
 }
 
-/// The preview under the list: a dim title row, then five rows of body.
 pub(super) fn stacked(frame: &mut Frame, area: Rect, pane: Pane<'_>) {
     let Some((host, slot)) = pane else {
         return;
@@ -43,9 +41,6 @@ pub(super) fn stacked(frame: &mut Frame, area: Rect, pane: Pane<'_>) {
     slot_body(frame, body, slot, None);
 }
 
-/// The preview beside the list: a borderless block whose dim title is the host and whose dim
-/// footer is what Enter and Esc do. With no selection the title and body are gone and the
-/// footer stays.
 pub(super) fn side(frame: &mut Frame, area: Rect, pane: Pane<'_>, matched: usize) {
     let mut block = Block::new().title_bottom(footer(matched, usize::from(area.width)));
     if let Some((host, slot)) = pane {
@@ -59,8 +54,6 @@ pub(super) fn side(frame: &mut Frame, area: Rect, pane: Pane<'_>, matched: usize
     }
 }
 
-/// `   Enter - ssh   Esc - Quit`, without Enter when nothing matches, and with hints dropped from
-/// the right until it fits.
 fn footer(matched: usize, width: usize) -> Line<'static> {
     let hints: Vec<&str> = [(matched > 0).then_some(ENTER_HINT), Some(ESC_HINT)]
         .into_iter()

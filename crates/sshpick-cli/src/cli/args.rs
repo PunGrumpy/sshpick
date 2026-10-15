@@ -6,7 +6,6 @@ use super::spec::{self, CommandSpec};
 pub(crate) struct Args {
     pub(crate) global: GlobalArgs,
     pub(crate) command: Command,
-    /// The command word as typed (`ls`, not `list`); `None` for `pick` by default and `--list`.
     pub(crate) typed: Option<String>,
 }
 
@@ -31,7 +30,6 @@ pub(crate) enum Command {
         query: String,
         json: bool,
     },
-    /// Help for one command, or for the root when `topic` is `None`.
     Help {
         topic: Option<&'static str>,
     },
@@ -43,7 +41,6 @@ pub(crate) enum UsageError {
     #[error("unknown option \"{option}\"")]
     Option {
         option: String,
-        /// The command the option followed, so the fix lists what that command accepts.
         command: Option<&'static str>,
     },
     #[error("unknown command \"{0}\"")]

@@ -8,7 +8,6 @@ use std::time::Duration;
 use crate::config::Host;
 use crate::ssh::{self, Preview, ResolveError, SSH, TIMEOUT};
 
-/// The preview cache and the worker that fills it. One per session; the only owner of slots.
 #[derive(Debug)]
 pub struct Previews {
     requests: Sender<Host>,
@@ -17,11 +16,8 @@ pub struct Previews {
     shown: Option<Host>,
 }
 
-/// What the pane shows for a host.
 #[derive(Debug)]
 pub enum Slot {
-    /// Asked, not answered. The pane shows the host's title over an empty body, never another
-    /// host's lines.
     Waiting,
     Ready(Preview),
     /// Kept for the session (a broken config would otherwise spawn a failing `ssh` per key),
@@ -76,13 +72,10 @@ impl Previews {
             })
     }
 
-    /// Ask the worker for `host` without reading the answer, so its `ssh -G` runs while the
-    /// caller is still busy (the first frame, terminal setup).
     pub fn prefetch(&mut self, host: &Host) {
         self.fetch(host);
     }
 
-    /// True while some request is unanswered.
     pub fn busy(&self) -> bool {
         self.slots
             .values()

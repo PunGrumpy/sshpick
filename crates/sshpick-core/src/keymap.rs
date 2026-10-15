@@ -1,14 +1,9 @@
-/// One row of the key table: what to press, and what it does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Binding {
-    /// The keys that do it, separated by `, `.
     pub keys: &'static str,
     pub does: &'static str,
 }
 
-/// Every key [`Picker::handle`](crate::Picker::handle) acts on. The popup, `sshpick pick --help`
-/// and the README table all read this one list, and the tests below fail when a key does
-/// something that has no row or a row names a key that does nothing.
 pub const BINDINGS: &[Binding] = &[
     Binding {
         keys: "Enter",
@@ -75,7 +70,6 @@ mod tests {
         picker
     }
 
-    /// How a key is written in the table.
     fn name(key: Key) -> String {
         match key {
             Key::Char('?') => "?".to_owned(),
@@ -90,8 +84,6 @@ mod tests {
         }
     }
 
-    /// Whether the key does anything to a picker with a query, with an empty one, or with its
-    /// help open.
     fn acts(key: Key) -> bool {
         ["", "a", "zz"].into_iter().any(|query| {
             [false, true].into_iter().any(|help| {

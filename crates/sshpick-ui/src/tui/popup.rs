@@ -10,13 +10,11 @@ use crate::text::{columns, fit, plural};
 const TITLE: &str = " Keybinds ";
 const DASH: &str = " - ";
 const WARNINGS_TITLE: &str = "Warnings";
-// A border and a row of padding on each side.
-const FRAME_COLUMNS: u16 = 4;
-const FRAME_ROWS: u16 = 4;
+const BORDER: u16 = 1;
+const PADDING: u16 = 1;
+const FRAME_COLUMNS: u16 = 2 * (BORDER + PADDING);
+const FRAME_ROWS: u16 = 2 * (BORDER + PADDING);
 
-/// The key table over the middle of the frame, with the config warnings under it. It is cleared
-/// first, so the list underneath does not show through. When the frame is too short for every
-/// row the bottom edge says how many are missing.
 pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
     let area = frame.area();
     let keys = BINDINGS
@@ -89,7 +87,9 @@ pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
     let hidden = lines.len().saturating_sub(room);
     lines.truncate(room);
 
-    let mut block = Block::bordered().title(TITLE).padding(Padding::uniform(1));
+    let mut block = Block::bordered()
+        .title(TITLE)
+        .padding(Padding::uniform(PADDING));
     if hidden > 0 {
         let (count, noun) = if hidden_binds > 0 {
             (hidden_binds, "bind")

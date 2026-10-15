@@ -16,7 +16,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
-# Every check is a Makefile target, so CI, `make quality` and the pre-push hook cannot drift.
 jobs:
   quality:
     name: Quality

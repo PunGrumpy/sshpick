@@ -57,7 +57,7 @@ mod tests {
     ];
 
     #[test]
-    fn comment_labels_match_the_prototype_sed() {
+    fn the_label_is_the_comment_up_to_the_first_dash_or_paren() {
         for (line, want) in CASES {
             assert_eq!(env_label(Path::new("10-x.conf"), line), want, "{line:?}");
         }

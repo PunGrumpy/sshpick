@@ -19,7 +19,6 @@ pub(crate) struct Request<'a> {
     pub(crate) query: &'a str,
     pub(crate) json: bool,
     pub(crate) machine: bool,
-    /// The command word as typed, when there was one.
     pub(crate) typed: Option<&'a str>,
 }
 
@@ -115,14 +114,13 @@ fn summary(matched: usize, total: usize, query: &str) -> String {
 fn write_rows(out: impl Write, rows: &[&Entry]) -> io::Result<()> {
     let mut out = io::BufWriter::new(out);
     for entry in rows {
-        let (env, what) = (field(&entry.env), field(&entry.what));
+        let (env, what) = (tsv_cell(&entry.env), tsv_cell(&entry.what));
         writeln!(out, "{env}\t{}\t{what}", entry.host)?;
     }
     out.flush()
 }
 
-/// A tab inside a comment would add a column and break `cut -f2`.
-fn field(text: &str) -> String {
+fn tsv_cell(text: &str) -> String {
     text.replace('\t', " ")
 }
 
@@ -141,8 +139,8 @@ mod tests {
 
     #[test]
     fn a_tab_in_a_comment_becomes_a_space() {
-        assert_eq!(field("one\ttwo"), "one two");
-        assert_eq!(field("plain"), "plain");
+        assert_eq!(tsv_cell("one\ttwo"), "one two");
+        assert_eq!(tsv_cell("plain"), "plain");
     }
 
     #[test]

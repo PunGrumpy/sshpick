@@ -4,13 +4,13 @@ use std::io;
 use std::process::{Output, Stdio};
 
 use assert_cmd::Command;
-use common::{isolated, plain, sshpick, stderr};
+use common::{isolated, sshpick, sshpick_std, stderr};
 use insta::assert_snapshot;
 
 fn with_stdout_closed(home: &str, args: &[&str]) -> io::Result<Output> {
     let (reader, writer) = io::pipe()?;
     drop(reader);
-    plain(home)
+    sshpick_std(home)
         .args(args)
         .stdin(Stdio::null())
         .stdout(writer)

@@ -5,7 +5,9 @@ use sshpick_core::{Entry, Picker, Warning};
 
 use super::pane::{self, Pane};
 use super::popup::popup;
-use super::size::{PANE_LEFT_PADDING, PANE_WIDTH, STACKED_ROWS, Tier, tier};
+use super::size::{
+    PANE_LEFT_PADDING, PANE_WIDTH, STACKED_BODY_ROWS, STACKED_TITLE_ROWS, Tier, tier,
+};
 use super::table::{FOOTER_ROWS, HostTable, footer, prompt_row};
 
 #[derive(Debug)]
@@ -22,8 +24,6 @@ impl Screen {
         }
     }
 
-    /// One frame. The one border is the right edge of the list, beside the preview; everything
-    /// else is told apart by `DIM`, `BOLD` and `REVERSED`, so there is no colour to switch off.
     pub fn draw(&self, frame: &mut Frame, picker: &mut Picker, pane: Pane<'_>) {
         let area = frame.area();
         let tier = tier(area);
@@ -51,7 +51,7 @@ impl Screen {
             Constraint::Length(u16::from(framed)),
             Constraint::Fill(1),
             Constraint::Length(if tier == Tier::Stacked {
-                STACKED_ROWS + 1
+                STACKED_BODY_ROWS + STACKED_TITLE_ROWS
             } else {
                 0
             }),

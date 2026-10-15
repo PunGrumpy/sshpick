@@ -1,6 +1,5 @@
 use std::ffi::OsString;
 
-/// What one output stream may carry: colours, and the bold, dim and reverse attributes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ColorConfig {
     color: bool,
@@ -15,8 +14,8 @@ impl ColorConfig {
     /// 3. `TERM=dumb`: no colour.
     /// 4. Colour exactly when the stream is a terminal.
     ///
-    /// Bold, dim and reverse stay on a terminal even with no hue. A pipe gets no escape bytes at
-    /// all unless `CLICOLOR_FORCE` asked for them.
+    /// Bold, dim and reverse stay on a terminal with no hue, except under `TERM=dumb`. A pipe gets
+    /// no escape bytes unless `CLICOLOR_FORCE` asked for them.
     pub fn new(
         is_terminal: bool,
         no_color_flag: bool,
@@ -34,7 +33,6 @@ impl ColorConfig {
         }
     }
 
-    /// A stream with no styling at all, such as a pipe.
     pub const fn none() -> ColorConfig {
         ColorConfig {
             color: false,

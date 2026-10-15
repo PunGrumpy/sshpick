@@ -1,6 +1,4 @@
 #!/bin/sh
-# Stands in for ssh on PATH. `ssh -G -- host` answers the way ssh does; anything else records how
-# sshpick exec'd it.
 if [ "$1" = "-G" ]; then
   if [ "$3" = "stg-broken" ]; then
     echo "Pseudo-terminal will not be allocated because stdin is not a terminal." >&2

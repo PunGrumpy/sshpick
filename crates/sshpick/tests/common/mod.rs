@@ -11,11 +11,10 @@ pub fn fixtures() -> PathBuf {
 /// `sshpick` run against a fixture home, with the fake `ssh` first on `PATH` and none of the
 /// caller's colour, width or sshpick settings, so a test sees only what it sets.
 pub fn sshpick(home: &str) -> Command {
-    Command::from_std(plain(home))
+    Command::from_std(sshpick_std(home))
 }
 
-/// The same command as a `std` one, for a test that wires up stdout itself.
-pub fn plain(home: &str) -> process::Command {
+pub fn sshpick_std(home: &str) -> process::Command {
     isolated(env!("CARGO_BIN_EXE_sshpick"), home)
 }
 

@@ -4,8 +4,6 @@ use std::io::{self, IsTerminal, StdoutLock, Write};
 
 use crate::color::ColorConfig;
 
-/// Everything sshpick says outside the picker. One value is built per run and passed down, so
-/// no module reaches for a global.
 #[derive(Debug)]
 pub struct Output {
     stdout: ColorConfig,
@@ -62,13 +60,12 @@ impl Output {
         }
     }
 
-    /// `Error: <why>`, then `Fix:` and `Learn More:` when there is something to say. Nothing
-    /// carries the program's name: the label already says who spoke.
+    /// `Error: <why>`, then `Fix:` and `Learn More:` when there is something to say.
     pub fn error(&self, why: &dyn Display, fix: Option<&str>, docs: Option<&str>) {
         eprint!("{}", error_text(self.stderr, why, fix, docs));
     }
 
-    /// `! <warning>`, for a problem that cost something but did not stop the run.
+    /// `! <warning>`.
     pub fn warn(&self, warning: &dyn Display) {
         eprintln!("{} {warning}", self.stderr.yellow("!"));
     }

@@ -9,7 +9,6 @@ use super::{CommandBase, HostView, did_you_mean, write_json};
 use crate::cli;
 use crate::cli::Exit;
 
-/// How many names a fix lists before it says `and N more`.
 const LISTED: usize = 5;
 
 #[derive(Debug, thiserror::Error)]
@@ -62,7 +61,7 @@ struct View<'a> {
     command: [&'a str; 3],
 }
 
-/// ssh's own key names; a key ssh did not print is left out.
+/// ssh's own key names.
 #[derive(Serialize)]
 struct Resolved<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -94,8 +93,6 @@ impl<'a> Resolved<'a> {
     }
 }
 
-/// A dry run of `pick`: the one host the query matches, what ssh says about it, and the command
-/// that would connect.
 pub(crate) fn run(
     base: &CommandBase,
     query: &str,
@@ -152,7 +149,6 @@ pub(crate) fn run(
     Ok(Exit::Success.code())
 }
 
-/// `General`, `Resolved` and `Command` blocks, each key padded to the longest in its block.
 fn render(entry: &Entry, preview: &Preview, command: &[&str], colors: ColorConfig) -> String {
     let names = entry.names().collect::<Vec<_>>().join(", ");
     let general: Vec<(&str, &str)> = [

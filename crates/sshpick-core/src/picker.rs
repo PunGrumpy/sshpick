@@ -4,8 +4,6 @@ use std::ops::Range;
 use crate::config::{Entry, Host};
 use crate::rank::{Match, Ranker};
 
-/// Query, matches, cursor and scroll for one session. The only owner of all four: the UI
-/// keeps no selection or table offset of its own and builds each frame from [`Picker::view`].
 pub struct Picker {
     ranker: Ranker,
     query: String,
@@ -14,8 +12,6 @@ pub struct Picker {
     help: bool,
 }
 
-/// A key with the terminal encoding stripped. `sshpick-ui` maps crossterm events to this one to
-/// one, with no policy; what each key does lives in [`Picker::handle`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     /// A printable character, typed or pasted (Shift folded in).
@@ -28,32 +24,23 @@ pub enum Key {
     Backspace,
     Up,
     Down,
-    /// A function key: `F(1)` is F1. Only F1 does anything.
     F(u8),
 }
 
-/// How a session ends. `sshpick-cli` maps each to an exit code.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
-    /// Enter on a match: restore the terminal, then exec `ssh -- <host>`.
     Pick(Host),
-    /// Esc, Ctrl-C, Ctrl-G, Ctrl-Q, or Ctrl-D on an empty query: exit 130, as fzf.
     Cancel,
-    /// Enter with nothing matched: exit 1, as fzf.
     NoMatch,
 }
 
-/// What a query settles by itself; see [`Picker::resolve`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum Resolution<'a> {
-    /// Exactly one host matches: connect to it.
     One(&'a Host),
     NoMatch,
-    /// This many hosts match: someone has to choose.
     Many(usize),
 }
 
-/// Everything one frame shows from the picker.
 #[derive(Debug)]
 pub struct View<'a> {
     pub query: &'a str,
@@ -62,7 +49,6 @@ pub struct View<'a> {
     /// The rows that fit, top to bottom as drawn: the best visible match first (fzf's
     /// `--layout=reverse`). Exactly one is `selected` unless nothing matched.
     pub rows: Vec<Row<'a>>,
-    /// Matches past the last visible row, the "N more below" count.
     pub below: usize,
 }
 
@@ -87,7 +73,6 @@ enum Matches {
 }
 
 impl Picker {
-    /// Rank `entries` against `query` (argv joined by spaces), cursor on the best match.
     pub fn new(entries: Vec<Entry>, query: &str) -> Picker {
         let mut ranker = Ranker::new(entries);
         let matches = Matches::best_first(ranker.rank(query));
@@ -101,8 +86,7 @@ impl Picker {
     }
 
     /// What the query settles before any terminal is touched: fzf's `--select-1` when exactly one
-    /// entry matches, applied to any query, the empty one included (a one-host config). Zero or
-    /// several matches need the picker, or an error when there is no picker to open.
+    /// entry matches, applied to any query, the empty one included (a one-host config).
     pub fn resolve(&self) -> Resolution<'_> {
         match (&self.matches, self.matches.len()) {
             (Matches::Some { current, .. }, 1) => Resolution::One(&self.ranker.entry(current).host),
@@ -111,7 +95,6 @@ impl Picker {
         }
     }
 
-    /// The host under the cursor, `None` when nothing matches. The preview pane follows it.
     pub fn selected(&self) -> Option<&Host> {
         match &self.matches {
             Matches::Some { current, .. } => Some(&self.ranker.entry(current).host),
@@ -120,7 +103,7 @@ impl Picker {
     }
 
     /// Every match, best first, in the order [`Picker::view`] draws them top to bottom. The cursor
-    /// and scroll do not move it; an empty query keeps file order. This is what `--list` prints.
+    /// and scroll do not move it; an empty query keeps file order.
     pub fn listing(&self) -> Vec<&Entry> {
         self.matches
             .ranked()
@@ -128,29 +111,11 @@ impl Picker {
             .collect()
     }
 
-    /// Whether the key help is showing. It is non-modal: every other key still acts.
     pub fn help_open(&self) -> bool {
         self.help
     }
 
-    /// Apply one key. `Some` ends the session. The bindings are fzf's defaults, plus the help;
-    /// [`BINDINGS`](crate::BINDINGS) lists them for people and a test keeps the two in step:
-    ///
-    /// | Key                                   | Effect                                     |
-    /// |---------------------------------------|--------------------------------------------|
-    /// | Enter                                 | `Pick(selected)`, or `NoMatch`             |
-    /// | Esc                                   | closes the help if it is open, else `Cancel` |
-    /// | Ctrl-C, Ctrl-G, Ctrl-Q                | `Cancel`                                   |
-    /// | Ctrl-D                                | `Cancel` on an empty query, else nothing   |
-    /// | Up, Ctrl-P, Ctrl-K                    | cursor to the next better match (up the list) |
-    /// | Down, Ctrl-N, Ctrl-J                  | cursor to the next worse match (down the list) |
-    /// | printable                             | append to the query                        |
-    /// | Backspace, Ctrl-H                     | delete the last char                       |
-    /// | Ctrl-U                                | clear the query                            |
-    /// | Ctrl-W                                | delete the last word                       |
-    /// | F1, `?` on an empty query             | show or hide the help                      |
-    ///
-    /// The query cursor is always at the end; there is no Left/Right editing.
+    /// Apply one key. `Some` ends the session.
     pub fn handle(&mut self, key: Key) -> Option<Outcome> {
         match key {
             Key::Enter => {

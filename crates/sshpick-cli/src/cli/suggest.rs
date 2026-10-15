@@ -3,8 +3,7 @@ const MIN_LENGTH: usize = 3;
 /// The one candidate that `input` is a single edit away from, or `None`. A candidate is a
 /// `(word, answer)` pair: aliases share an answer, so `lst` suggests `list` even though `ls` is
 /// one edit away too. Leading dashes are ignored on both sides, a word that is already a
-/// candidate is never corrected, and nothing under three characters is guessed at. There is no
-/// similarity score to fall back on: staying silent beats `bogus` becoming `logs`.
+/// candidate is never corrected, and nothing under three characters is guessed at.
 pub(crate) fn closest<'a>(input: &str, candidates: &[(&str, &'a str)]) -> Option<&'a str> {
     let input: Vec<char> = input.trim_start_matches('-').chars().collect();
     if input.len() < MIN_LENGTH {
@@ -26,7 +25,6 @@ pub(crate) fn closest<'a>(input: &str, candidates: &[(&str, &'a str)]) -> Option
     found
 }
 
-/// One substitution, one insertion, one deletion or one swap of neighbours.
 fn one_edit_apart(a: &[char], b: &[char]) -> bool {
     match a.len().abs_diff(b.len()) {
         0 => {

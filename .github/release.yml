@@ -1,5 +1,3 @@
-# Used to auto generate sshpick release notes
-
 changelog:
   exclude:
     labels:
