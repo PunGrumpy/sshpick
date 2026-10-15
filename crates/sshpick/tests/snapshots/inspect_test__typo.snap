@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: no host matches "inspekt stg-consul1 zzz"
+Fix: did you mean `sshpick inspect stg-consul1 zzz`?

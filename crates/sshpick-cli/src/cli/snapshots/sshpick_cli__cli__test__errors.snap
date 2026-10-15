@@ -8,7 +8,7 @@ Fix: sshpick accepts --help, --no-color, --non-interactive, --version. Did you m
 
 $ sshpick list --lsit
 Error: unknown option "--lsit"
-Fix: sshpick list accepts --help, --no-color, --non-interactive, --version. Did you mean --list?
+Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version. Did you mean --list?
 
 $ sshpick --bogus
 Error: unknown option "--bogus"
@@ -37,6 +37,28 @@ Fix: did you mean `sshpick list new`?
 $ sshpick nope < /dev/null
 Error: no host matches "nope"
 Fix: list every host with `sshpick ls`.
+
+$ sshpick inspekt stg-consul1 < /dev/null
+Error: no host matches "inspekt stg-consul1"
+Fix: did you mean `sshpick inspect stg-consul1`?
+
+$ sshpick inspect
+Error: sshpick inspect needs a query
+Fix: name a host, as in `sshpick inspect stg-consul1`, or list them with `sshpick ls`.
+
+$ sshpick inspect consul
+Error: 3 hosts match "consul"; inspect needs exactly one
+Fix: name one of stg-consul1, stg-consul2, stg-consul3, or list them with `sshpick ls consul`.
+
+$ sshpick inspect web
+Error: 8 hosts match "web"; inspect needs exactly one
+Fix: name one of web1, web2, web3, web4, web5 and 3 more, or list them with `sshpick ls web`.
+
+$ sshpick inspect stg-broken
+Error: /home/me/.ssh/config: terminating, 1 bad configuration options
+
+$ sshpick inspect stg-slow
+Error: ssh -G gave no answer within 2 s
 
 $ sshpick  # no Host lines
 Error: no hosts found in ~/.ssh/config or the files it Includes

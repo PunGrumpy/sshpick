@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: 2 hosts match "consul"; inspect needs exactly one
+Fix: name one of stg-consul1, stg-consul2, or list them with `sshpick ls consul`.

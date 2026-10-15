@@ -36,6 +36,13 @@ pub(crate) struct Example {
     pub(crate) command: &'static str,
 }
 
+const JSON: OptionSpec = OptionSpec {
+    long: "json",
+    short: None,
+    aliases: &[],
+    description: Some("Output as JSON"),
+};
+
 pub(crate) const PICK: CommandSpec = CommandSpec {
     name: "pick",
     aliases: &[],
@@ -91,7 +98,7 @@ pub(crate) const LIST: CommandSpec = CommandSpec {
         required: false,
         multiple: true,
     }],
-    options: &[],
+    options: &[JSON],
     keys: &[],
     examples: &[
         Example {
@@ -109,6 +116,43 @@ pub(crate) const LIST: CommandSpec = CommandSpec {
         Example {
             name: "Print only the host names",
             command: "sshpick ls | cut -f2",
+        },
+        Example {
+            name: "List the hosts as JSON",
+            command: "sshpick list --json",
+        },
+    ],
+};
+
+pub(crate) const INSPECT: CommandSpec = CommandSpec {
+    name: "inspect",
+    aliases: &[],
+    default: false,
+    summary: "Show where a host resolves",
+    description: "Show where a host resolves, as ssh sees it (ssh -G).",
+    arguments: &[Argument {
+        name: "query",
+        required: true,
+        multiple: true,
+    }],
+    options: &[JSON],
+    keys: &[],
+    examples: &[
+        Example {
+            name: "Show where a host resolves",
+            command: "sshpick inspect stg-consul1",
+        },
+        Example {
+            name: "Inspect the one host that a query matches",
+            command: "sshpick inspect new consul",
+        },
+        Example {
+            name: "Show the result as JSON",
+            command: "sshpick inspect stg-consul1 --json",
+        },
+        Example {
+            name: "Read one field in a script",
+            command: "sshpick inspect stg-consul1 --json | jq -r .resolved.hostname",
         },
     ],
 };
@@ -132,7 +176,7 @@ pub(crate) const HELP: CommandSpec = CommandSpec {
     }],
 };
 
-pub(crate) const COMMANDS: &[&CommandSpec] = &[&PICK, &HELP, &LIST];
+pub(crate) const COMMANDS: &[&CommandSpec] = &[&PICK, &HELP, &INSPECT, &LIST];
 
 pub(crate) const GLOBAL: &[OptionSpec] = &[
     OptionSpec {
@@ -181,6 +225,10 @@ pub(crate) const ROOT_EXAMPLES: &[Example] = &[
         command: "sshpick ls new consul | cut -f2",
     },
     Example {
+        name: "Show where a host resolves",
+        command: "sshpick inspect stg-consul1",
+    },
+    Example {
         name: "Search for a word that is also a command name",
         command: "sshpick pick list",
     },
@@ -199,7 +247,7 @@ pub(crate) const EXIT_STATUS: &[Row] = &[
     ("1", "No host matches"),
     (
         "2",
-        "Usage or config error; several matches where one is needed",
+        "Usage, config or ssh -G error; several matches where one is needed",
     ),
     ("127", "ssh could not be run"),
     ("130", "Cancelled"),
@@ -228,8 +276,17 @@ pub(crate) fn command(word: &str) -> Option<&'static CommandSpec> {
     COMMANDS.iter().copied().find(|spec| spec.matches(word))
 }
 
+/// A global option by any spelling.
 pub(crate) fn option(token: &str) -> Option<&'static OptionSpec> {
     GLOBAL.iter().find(|spec| spec.matches(token))
+}
+
+/// An option that belongs to some command, such as `--json`.
+pub(crate) fn command_option(token: &str) -> Option<&'static OptionSpec> {
+    COMMANDS
+        .iter()
+        .flat_map(|spec| spec.options)
+        .find(|spec| spec.matches(token))
 }
 
 /// Every spelling of every command paired with the name it stands for, for typo suggestions.

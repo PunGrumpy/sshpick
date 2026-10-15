@@ -1,0 +1,21 @@
+---
+source: crates/sshpick-cli/src/commands/inspect.rs
+expression: text
+---
+  General
+
+    host   stg-consul1
+    env    STAGING
+    what   consul server 1
+    names  stg-consul1, consul1.stg
+
+  Resolved
+
+    user       ubuntu
+    hostname   192.0.2.11
+    port       22
+    proxyjump  stg-bastion
+
+  Command
+
+    ssh -- stg-consul1

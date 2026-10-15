@@ -108,7 +108,7 @@ fn serve(inbox: &Receiver<Host>, outbox: &Sender<Reply>, program: &OsStr, timeou
             }
             host = newer;
         }
-        let result = ssh::resolve(program, &host, timeout);
+        let result = ssh::resolve_with(program, &host, timeout);
         if outbox.send(Reply::Resolved(host, result)).is_err() {
             return;
         }

@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: sshpick inspect needs a query
+Fix: name a host, as in `sshpick inspect stg-consul1`, or list them with `sshpick ls`.

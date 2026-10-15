@@ -17,16 +17,18 @@ sshpick-cli
     │   ├── suggest.rs - closest(): a typo suggestion only for a unique single edit
     │   ├── error.rs - Error, the one exit_code() table, fix() and docs() for the Fix and Learn More lines, Exit
     │   └── test.rs - argv tables, exit codes, help snapshots
-    └── commands/ - one file per command, each with its own Error
+    └── commands/ - one file per command, each with its own Error; mod.rs holds CommandBase and
+        the host view the JSON output shares
         ├── pick.rs - settle the query with Picker::resolve, or open the picker, then exec ssh
-        └── list.rs - a table on a terminal, tab-separated rows on a pipe
+        ├── list.rs - a table on a terminal, tab-separated rows on a pipe, or --json
+        └── inspect.rs - the one matching host, what ssh -G says, the command; text or --json
 ```
 
 ## Notes
 
 Add a command or flag to `cli/spec.rs` first: parsing, `--help`, the root command list and
 `sshpick help <command>` all read it. The first positional word selects a command when it names
-one (`pick`, `list`, `ls`, `help`); anything else is `pick`'s query, and `--` ends options.
+one (`pick`, `list`, `ls`, `inspect`, `help`); anything else is `pick`'s query, and `--` ends options.
 
 Cancel (130) and a quiet no-match (1) come back as `Ok(code)`, the way turbo returns
 `Ok(exit_code)`; every failure is an `Error` and `Error::exit_code` is the only place a code is

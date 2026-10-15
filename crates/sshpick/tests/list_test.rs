@@ -1,6 +1,8 @@
 mod common;
 
 use common::{sshpick, stderr};
+use insta::assert_snapshot;
+use serde_json::json;
 
 #[test]
 fn list_prints_every_host_as_tsv_in_file_order() {
@@ -96,4 +98,87 @@ fn a_command_word_lists_instead_of_searching_for_the_word() {
         .assert()
         .code(0)
         .stdout("\tlist\t\n\tweb\t\n");
+}
+
+#[test]
+fn list_json_prints_the_query_the_total_and_every_match() {
+    let out = sshpick("inspect")
+        .args(["list", "consul", "--json"])
+        .assert()
+        .code(0);
+    assert_eq!(stderr(&out), "");
+    let text = String::from_utf8_lossy(&out.get_output().stdout).into_owned();
+    assert!(text.starts_with("{\n  \"query\": \"consul\",\n  \"total\": 4,"));
+    assert!(text.ends_with("}\n"));
+    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        value,
+        json!({
+            "query": "consul",
+            "total": 4,
+            "hosts": [
+                {
+                    "host": "stg-consul1",
+                    "env": "STAGING",
+                    "what": "consul server 1",
+                    "names": ["stg-consul1", "consul1.stg"],
+                },
+                {
+                    "host": "stg-consul2",
+                    "env": "STAGING",
+                    "what": "consul server 2",
+                    "names": ["stg-consul2"],
+                },
+            ],
+            "warnings": [],
+        })
+    );
+}
+
+#[test]
+fn list_json_has_the_same_order_as_the_rows() {
+    let rows = sshpick("ui").arg("ls").assert().code(0);
+    let hosts: Vec<String> = String::from_utf8_lossy(&rows.get_output().stdout)
+        .lines()
+        .map(|line| line.split('\t').nth(1).unwrap_or_default().to_owned())
+        .collect();
+    let out = sshpick("ui").args(["ls", "--json"]).assert().code(0);
+    let value: serde_json::Value = serde_json::from_slice(&out.get_output().stdout).unwrap();
+    let listed: Vec<&str> = value["hosts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|host| host["host"].as_str().unwrap())
+        .collect();
+    assert_eq!(listed, hosts);
+}
+
+#[test]
+fn list_json_with_no_match_prints_the_object_and_exits_one() {
+    let out = sshpick("inspect")
+        .args(["ls", "zzz", "--json"])
+        .assert()
+        .code(1);
+    assert_eq!(stderr(&out), "");
+    let value: serde_json::Value = serde_json::from_slice(&out.get_output().stdout).unwrap();
+    assert_eq!(
+        value,
+        json!({"query": "zzz", "total": 4, "hosts": [], "warnings": []})
+    );
+}
+
+#[test]
+fn list_json_carries_the_warnings_the_run_found() {
+    let out = sshpick("cycle").args(["ls", "--json"]).assert().code(0);
+    let path = common::fixtures().join("cycle/.ssh/config");
+    let value: serde_json::Value = serde_json::from_slice(&out.get_output().stdout).unwrap();
+    assert_eq!(
+        value["warnings"],
+        json!([{
+            "kind": "cycle",
+            "path": path.display().to_string(),
+            "message": format!("{}: skipped, include cycle", path.display()),
+        }])
+    );
+    assert_snapshot!("warning_still_on_stderr", stderr(&out));
 }

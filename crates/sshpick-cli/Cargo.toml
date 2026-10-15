@@ -11,6 +11,8 @@ publish = false
 workspace = true
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
 sshpick-core = { workspace = true }
 sshpick-ui = { workspace = true }
 thiserror = { workspace = true }

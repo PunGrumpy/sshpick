@@ -73,6 +73,14 @@ pub fn load(home: &Path) -> Result<Loaded, LoadError> {
     Walk::new(home, &|name| std::env::var_os(name)).root()
 }
 
+impl Entry {
+    /// Every name on the `Host` line that this row stands for: the one shown first, then the
+    /// other literals, which are searchable and also reach the same host.
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.host.as_str()).chain(self.aliases.iter().map(String::as_str))
+    }
+}
+
 impl Host {
     pub fn as_str(&self) -> &str {
         &self.0
@@ -471,6 +479,25 @@ mod tests {
                 ("c", ["b".to_owned()].as_slice())
             ]
         );
+    }
+
+    #[test]
+    fn names_lead_with_the_shown_host_and_keep_the_aliases_in_line_order() {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        let tokens = |line: &str| match classify(line) {
+            Line::Host(tokens) => tokens,
+            other => panic!("not a Host line: {other:?}"),
+        };
+        walk.host(&tokens("Host web web.corp *.corp web2"), "", "");
+        walk.host(&tokens("Host solo"), "", "");
+        let names: Vec<Vec<&str>> = walk
+            .out
+            .entries
+            .iter()
+            .map(|e| e.names().collect())
+            .collect();
+        assert_eq!(names, [vec!["web", "web.corp", "web2"], vec!["solo"]]);
     }
 
     #[test]

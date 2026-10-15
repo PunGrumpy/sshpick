@@ -1,3 +1,15 @@
 #!/bin/sh
-# Stands in for ssh on PATH: records how sshpick exec'd it.
+# Stands in for ssh on PATH. `ssh -G -- host` answers the way ssh does; anything else records how
+# sshpick exec'd it.
+if [ "$1" = "-G" ]; then
+  if [ "$3" = "stg-broken" ]; then
+    echo "Pseudo-terminal will not be allocated because stdin is not a terminal." >&2
+    echo "/home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus" >&2
+    echo "/home/me/.ssh/config: terminating, 1 bad configuration options" >&2
+    exit 255
+  fi
+  echo "Pseudo-terminal will not be allocated because stdin is not a terminal." >&2
+  printf 'host %s\nuser ubuntu\nhostname 192.0.2.11\nport 22\naddressfamily any\nproxyjump stg-bastion\n' "$3"
+  exit 0
+fi
 echo "ssh $*"

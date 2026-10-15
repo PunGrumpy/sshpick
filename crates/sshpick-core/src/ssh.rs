@@ -62,15 +62,26 @@ fn exit_message(code: &Option<i32>, stderr: &str) -> String {
     }
 }
 
+/// The argv of the connection: `ssh -- <host>`. `exec` runs it, and `inspect` shows it.
+pub fn command(host: &Host) -> [&str; 3] {
+    [SSH, "--", host.as_str()]
+}
+
 /// Replace this process with `ssh -- <host>`. Returns only if exec failed.
 ///
 /// The caller restores the terminal first: exec runs no destructors, so raw mode and the
 /// alternate screen would pass straight to ssh.
 pub fn exec(host: &Host) -> io::Error {
-    Command::new(SSH).arg("--").arg(host.as_str()).exec()
+    let [program, dashes, name] = command(host);
+    Command::new(program).args([dashes, name]).exec()
 }
 
-pub(crate) fn resolve(
+/// Ask `ssh -G` where `host` resolves, giving up after two seconds.
+pub fn resolve(host: &Host) -> Result<Preview, ResolveError> {
+    resolve_with(OsStr::new(SSH), host, TIMEOUT)
+}
+
+pub(crate) fn resolve_with(
     program: &OsStr,
     host: &Host,
     timeout: Duration,
@@ -176,6 +187,11 @@ mod tests {
     }
 
     #[test]
+    fn the_command_is_ssh_double_dash_host() {
+        assert_eq!(command(&host("stg-consul1")), ["ssh", "--", "stg-consul1"]);
+    }
+
+    #[test]
     fn parse_is_the_public_face_of_parse_g() {
         let stdout = "user ubuntu\nport 22\n";
         assert_eq!(Preview::parse(stdout), parse_g(stdout));
@@ -191,7 +207,7 @@ mod tests {
 
     #[test]
     fn resolve_passes_double_dash_and_resolves() {
-        let preview = resolve(fake("ssh-ok").as_os_str(), &host("web-1"), PATIENT).unwrap();
+        let preview = resolve_with(fake("ssh-ok").as_os_str(), &host("web-1"), PATIENT).unwrap();
         let got: Vec<_> = preview.lines().collect();
         assert_eq!(
             got,
@@ -207,7 +223,7 @@ mod tests {
     #[test]
     fn resolve_reports_ssh_errors_without_the_tty_notice() {
         let error =
-            resolve(fake("ssh-bad-config").as_os_str(), &host("web-1"), PATIENT).unwrap_err();
+            resolve_with(fake("ssh-bad-config").as_os_str(), &host("web-1"), PATIENT).unwrap_err();
         let ResolveError::Ssh { code, stderr } = &error else {
             panic!("expected Ssh, got {error:?}");
         };
@@ -223,7 +239,7 @@ mod tests {
     #[test]
     fn resolve_kills_a_hung_ssh_at_the_deadline() {
         let started = Instant::now();
-        let error = resolve(
+        let error = resolve_with(
             fake("ssh-hang").as_os_str(),
             &host("web-1"),
             Duration::from_millis(100),
@@ -239,7 +255,7 @@ mod tests {
 
     #[test]
     fn resolve_reports_a_missing_program() {
-        let error = resolve(
+        let error = resolve_with(
             OsStr::new("/nonexistent/ssh"),
             &host("web-1"),
             Duration::from_secs(1),

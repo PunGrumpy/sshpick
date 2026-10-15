@@ -13,7 +13,8 @@ sshpick
     └── tests/ - assert_cmd tests against the real binary
         ├── common/mod.rs - a fixture HOME, the fake ssh on PATH, a clean environment
         ├── pick_test.rs - one match, no terminal, no hosts, unreadable config
-        ├── list_test.rs - the tab-separated rows of --list
+        ├── list_test.rs - the tab-separated rows of ls and --list, and ls --json
+        ├── inspect_test.rs - inspect as text and as JSON, and how it fails
         └── usage_test.rs - help, version, unknown options
 ```
 

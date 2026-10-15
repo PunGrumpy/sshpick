@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: cannot run ssh -G: No such file or directory (os error 2)
+Fix: install OpenSSH, or put `ssh` on your PATH.

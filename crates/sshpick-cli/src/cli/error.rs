@@ -3,7 +3,7 @@ use std::io;
 use super::args::UsageError;
 use super::spec;
 use super::suggest;
-use crate::commands::{list, pick};
+use crate::commands::{inspect, list, pick};
 
 const CONFIG_DOCS: &str = "https://github.com/PunGrumpy/sshpick#config-conventions";
 
@@ -32,6 +32,14 @@ pub(crate) enum Error {
     Pick(#[from] pick::Error),
     #[error(transparent)]
     List(#[from] list::Error),
+    #[error(transparent)]
+    Inspect(#[from] inspect::Error),
+    #[error("no host matches \"{query}\"")]
+    NoMatch {
+        query: String,
+        /// The command the first word looks like, with the rest of the query after it.
+        did_you_mean: Option<String>,
+    },
     #[error("cannot write to stdout: {0}")]
     Stdout(#[source] io::Error),
     #[error("cannot find the home directory")]
@@ -44,12 +52,13 @@ impl Error {
     /// The one table from an error to an exit status.
     pub(crate) fn exit_code(&self) -> u8 {
         match self {
-            Error::Pick(pick::Error::NoMatch { .. }) => Exit::NoMatch,
+            Error::NoMatch { .. } => Exit::NoMatch,
             Error::Pick(pick::Error::Exec(_)) => Exit::ExecFailed,
             Error::Usage(_)
             | Error::Load(_)
             | Error::Pick(_)
             | Error::List(_)
+            | Error::Inspect(_)
             | Error::Stdout(_)
             | Error::NoHome
             | Error::NoHosts => Exit::Error,
@@ -63,6 +72,9 @@ impl Error {
             Error::Usage(UsageError::Option { option, command }) => {
                 Some(accepted_options(option, *command))
             }
+            Error::Usage(UsageError::MissingQuery(command)) => Some(format!(
+                "name a host, as in `sshpick {command} stg-consul1`, or list them with `sshpick ls`."
+            )),
             Error::Usage(UsageError::Command(word)) => {
                 Some(match suggest::closest(word, &spec::command_words()) {
                     Some(command) => format!(
@@ -71,7 +83,13 @@ impl Error {
                     None => "see all commands with `sshpick --help`.".to_owned(),
                 })
             }
+            Error::NoMatch {
+                did_you_mean: Some(command),
+                ..
+            } => Some(format!("did you mean `sshpick {command}`?")),
+            Error::NoMatch { .. } => Some("list every host with `sshpick ls`.".to_owned()),
             Error::Pick(error) => error.fix(),
+            Error::Inspect(error) => error.fix(),
             Error::NoHosts => Some("add `Host` lines; ENV and WHAT come from comments.".to_owned()),
             Error::Load(_) | Error::List(_) | Error::Stdout(_) | Error::NoHome => None,
         }

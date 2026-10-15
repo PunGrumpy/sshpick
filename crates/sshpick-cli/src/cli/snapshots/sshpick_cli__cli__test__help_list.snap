@@ -3,9 +3,14 @@ source: crates/sshpick-cli/src/cli/test.rs
 expression: "page(topic, 80)"
 ---
 
-  ▌ sshpick list [query ...]
+  ▌ sshpick list [query ...] [options]
 
   List the hosts that match a query.
+
+  Options:
+
+       --json  Output as JSON
+
 
   Global Options:
 
@@ -33,3 +38,7 @@ expression: "page(topic, 80)"
   - Print only the host names
 
     $ sshpick ls | cut -f2
+
+  - List the hosts as JSON
+
+    $ sshpick list --json

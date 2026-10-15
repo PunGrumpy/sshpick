@@ -129,11 +129,13 @@ An argument that starts with `-` is an option. To search for text that starts wi
 |--------------------------|-------------------------------------------------------------------|
 | `pick [query ...]`       | The default. Connect when one host matches, else open the picker  |
 | `list`, `ls [query ...]` | Print the hosts that match, best first                            |
+| `inspect query ...`      | Show where the one matching host resolves, as `ssh -G` sees it    |
 | `help [command]`         | Show help for a command; `sshpick help ls` is `sshpick ls --help` |
 
-`pick`, `list`, `ls` and `help` are command words when they come first. Any other first word is
+`pick`, `list`, `ls`, `inspect` and `help` are command words when they come first. Any other first word is
 query text, so `sshpick consul` still searches. A host named exactly like a command word is
-reached with `sshpick pick list` or `sshpick -- list`. `-h` and `--help` work anywhere and win
+reached with `sshpick pick list` or `sshpick -- list`; when `list` or `inspect` is also a host or
+an alias, a terminal gets a note saying so. `-h` and `--help` work anywhere and win
 over every other error. `--version` and `-V` print the version; `-v` is the same flag.
 
 Options go anywhere before a bare `--`:
@@ -161,6 +163,35 @@ Options go anywhere before a bare `--`:
 The list is top-down with the best match first and the selection on it, like fzf's
 `--layout=reverse`. The text cursor is always at the end of the query.
 
+## Inspect
+
+`sshpick inspect` is a dry run of `pick`: it takes the same query, needs exactly one match, and
+shows what `ssh -G` says about the host and the command that would connect. Nothing is
+connected.
+
+    $ sshpick inspect stg-consul1
+      General
+
+        host   stg-consul1
+        env    STAGING
+        what   consul server 1
+        names  stg-consul1, consul1.stg
+
+      Resolved
+
+        user       ubuntu
+        hostname   192.0.2.11
+        port       22
+        proxyjump  stg-bastion
+
+      Command
+
+        ssh -- stg-consul1
+
+`names` is the first name on the `Host` line and then the others. The `Resolved` keys are the
+ones the picker's pane shows. Several matches exit 2 and name the candidates; no match exits 1;
+a failing `ssh -G` exits 2 with ssh's own message.
+
 ## Scripting
 
     sshpick ls                  # every host, one per line
@@ -181,6 +212,31 @@ spaces. Warnings go to stderr. The exit status is 1 when nothing matches.
 `--list` and `-l` stay as hidden spellings of `ls` that always print the tab-separated rows,
 even on a terminal, so `sshpick --list | fzf` keeps working.
 
+`ls --json` and `inspect --json` print one JSON object, indented by two spaces, and nothing else
+on stdout. Keys are fixed and an empty result still prints the object (and `ls` exits 1).
+
+    $ sshpick ls consul --json
+    {
+      "query": "consul",
+      "total": 12,
+      "hosts": [
+        {
+          "host": "stg-consul1",
+          "env": "STAGING",
+          "what": "consul server 1",
+          "names": ["stg-consul1", "consul1.stg"]
+        }
+      ],
+      "warnings": []
+    }
+
+`env` and `what` are always there, as `""` when empty. A warning is `{"kind", "path", "message"}`
+with `kind` one of `unreadable`, `too_deep`, `cycle` or `bad_include`; `path` is left out when
+the warning has none. `inspect --json` is `{host, env, what, names, resolved, command}`, where
+`resolved` has ssh's own keys (`user`, `hostname`, `port`, `remotecommand`, `proxyjump`) and
+leaves out the ones ssh did not print, and `command` is the argv that `pick` would run.
+Errors still go to stderr as text.
+
 Only results go to stdout. Help and `--version` also go to stdout; warnings, errors and the `>`
 line go to stderr. An error is an `Error:` line, then a `Fix:` line when there is a next step and
 a `Learn More:` line when the docs help; a warning is a `! message` line:
@@ -199,11 +255,11 @@ turns it off.
 
 | Status      | Meaning                                                                     |
 |-------------|-----------------------------------------------------------------------------|
-| 0           | `ls`, `--help` or `--version` succeeded                                     |
+| 0           | `ls`, `inspect`, `--help` or `--version` succeeded                          |
 | `ssh`'s own | after a pick (sshpick becomes `ssh`)                                        |
-| 1           | Enter with no match, or no match without the picker (`ls`, no terminal)     |
-| 2           | config error, no hosts found, unknown option or command, or several matches |
-|             | where the picker cannot open (no terminal, `--non-interactive`)             |
+| 1           | Enter with no match, or no match without the picker (`ls`, `inspect`)       |
+| 2           | config error, no hosts found, unknown option or command, a failed `ssh -G`, |
+|             | or several matches where one is needed                                      |
 | 127         | `ssh` could not be run                                                      |
 | 130         | cancelled                                                                   |
 

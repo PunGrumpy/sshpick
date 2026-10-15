@@ -62,7 +62,7 @@ fn help_for_a_command_is_the_same_page_three_ways() {
         String::from_utf8_lossy(&out.get_output().stdout).into_owned()
     };
     let list = page(&["list", "--help"]);
-    assert!(list.starts_with("\n  ▌ sshpick list [query ...]\n"));
+    assert!(list.starts_with("\n  ▌ sshpick list [query ...] [options]\n"));
     assert_eq!(list, page(&["ls", "-h"]));
     assert_eq!(list, page(&["help", "ls"]));
     assert_eq!(list, page(&["help", "list"]));

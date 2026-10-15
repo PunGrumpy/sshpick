@@ -4,7 +4,7 @@ use std::io::Write;
 use sshpick_ui::Output;
 
 use self::args::Command;
-use crate::commands::{CommandBase, list, pick};
+use crate::commands::{CommandBase, inspect, list, pick};
 
 mod args;
 mod error;
@@ -40,9 +40,25 @@ fn dispatch(argv: Vec<OsString>, output: &Output) -> Result<u8, Error> {
             )
         }
         Command::Version => print(output, concat!("sshpick ", env!("CARGO_PKG_VERSION"), "\n")),
-        Command::List { query, machine } => {
-            list::run(&CommandBase::new(output, non_interactive)?, &query, machine)
-        }
+        Command::List {
+            query,
+            json,
+            machine,
+        } => list::run(
+            &CommandBase::new(output, non_interactive)?,
+            &list::Request {
+                query: &query,
+                json,
+                machine,
+                typed: args.typed.as_deref(),
+            },
+        ),
+        Command::Inspect { query, json } => inspect::run(
+            &CommandBase::new(output, non_interactive)?,
+            &query,
+            json,
+            args.typed.as_deref().unwrap_or(spec::INSPECT.name),
+        ),
         Command::Pick { query } => pick::run(&CommandBase::new(output, non_interactive)?, &query),
     }
 }

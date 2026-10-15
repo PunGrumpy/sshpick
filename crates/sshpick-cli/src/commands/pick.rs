@@ -3,18 +3,12 @@ use std::io::{self, IsTerminal};
 use sshpick_core::{Host, Outcome, Picker, Previews, Resolution};
 use sshpick_ui::Screen;
 
-use super::CommandBase;
+use super::{CommandBase, did_you_mean};
 use crate::cli;
-use crate::cli::{Exit, spec, suggest};
+use crate::cli::Exit;
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
-    #[error("no host matches \"{query}\"")]
-    NoMatch {
-        query: String,
-        /// The command the first word looks like, with the rest of the query after it.
-        did_you_mean: Option<String>,
-    },
     #[error("{}", several(.count, .query, .refusal))]
     Several {
         count: usize,
@@ -39,11 +33,6 @@ pub(crate) enum Refusal {
 impl Error {
     pub(crate) fn fix(&self) -> Option<String> {
         match self {
-            Error::NoMatch {
-                did_you_mean: Some(command),
-                ..
-            } => Some(format!("did you mean `sshpick {command}`?")),
-            Error::NoMatch { .. } => Some("list every host with `sshpick ls`.".to_owned()),
             Error::Several { query, .. } => {
                 let list = if query.is_empty() {
                     "sshpick ls".to_owned()
@@ -93,11 +82,10 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
         }
         (Resolution::NoMatch, Some(_)) => {
             base.warn_all(&loaded.warnings);
-            return Err(Error::NoMatch {
+            return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
                 did_you_mean: did_you_mean(query),
-            }
-            .into());
+            });
         }
         (Resolution::Many(count), Some(refusal)) => {
             base.warn_all(&loaded.warnings);
@@ -134,25 +122,4 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
 
 fn exec(host: &Host) -> Result<u8, cli::Error> {
     Err(Error::Exec(sshpick_core::exec(host)).into())
-}
-
-/// A first word one edit away from a command, as the whole command line that was probably meant.
-fn did_you_mean(query: &str) -> Option<String> {
-    let (first, rest) = query.split_once(' ').unwrap_or((query, ""));
-    let command = suggest::closest(first, &spec::command_words())?;
-    Some(format!("{command} {rest}").trim_end().to_owned())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_misspelt_first_word_suggests_the_command_with_the_rest_of_the_query() {
-        assert_eq!(did_you_mean("lst new"), Some("list new".to_owned()));
-        assert_eq!(did_you_mean("lst"), Some("list".to_owned()));
-        assert_eq!(did_you_mean("consul"), None);
-        assert_eq!(did_you_mean("list new"), None, "already a command");
-        assert_eq!(did_you_mean(""), None);
-    }
 }
