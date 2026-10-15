@@ -23,7 +23,7 @@ pub fn plain(home: &str) -> process::Command {
     );
     let mut command = process::Command::new(env!("CARGO_BIN_EXE_sshpick"));
     command.env("HOME", fixtures().join(home)).env("PATH", path);
-    for name in ["NO_COLOR", "CLICOLOR_FORCE", "COLORFGBG", "COLUMNS", "TERM"] {
+    for name in ["NO_COLOR", "CLICOLOR_FORCE", "COLUMNS", "TERM"] {
         command.env_remove(name);
     }
     for (name, _) in std::env::vars_os() {

@@ -2,14 +2,14 @@
 source: crates/sshpick-ui/src/tui/popup.rs
 expression: frame(&lines)
 ---
- 0|> type to filter                                                                                 5/5
- 1|────────────────────────────────────────────────────────────────────────────────────────────────────
- 2|  ENV         HOST           WHAT                            │ ssh -G lab-a
- 3|▌ LAB         lab-a          LAB — personal VMs              │
- 4|  LAB         lab-b          build box                       │
- 5|  NEW STAGING newstg-consul1 consul server 1 — mgmt          │
+ 0|> type to filter                                       5/5│  lab-a > ssh -G »
+ 1|  ENV         HOST           WHAT                         │
+ 2|▌ LAB         lab-a          LAB — personal VMs           │
+ 3|  LAB         lab-b          build box                    │
+ 4|  NEW STAGING newstg-consul1 consul server 1 — mgmt       │
+ 5|  NEW STAGING newstg-consul2                              │
  6|  NEW STAGI┌ Keybinds ──────────────────────────────────────────────────────────────────┐
- 7|  NEW STAGI│                                                                            │
+ 7|           │                                                                            │
  8|           │ Enter                       - ssh to the selected host                     │
  9|           │ Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first  │
 10|           │ Up, Ctrl-P, Ctrl-K          - select the previous host (up the list)       │
@@ -26,9 +26,9 @@ expression: frame(&lines)
 21|           │ Include ${NOPE}/x: skipped, ${NOPE} is not set                             │
 22|           │                                                                            │
 23|           └────────────────────────────────────────────────────────────────────────────┘
-24|                                                             │
-25|                                                             │
-26|                                                             │
-27|                                                             │
-28|────────────────────────────────────────────────────────────────────────────────────────────────────
-29| Enter ssh  Esc quit  Ctrl-U clear  ↑↓ move  5 hosts · 2 warnings · /home/me/.ssh/config.d/9-lat...
+24|                                                          │
+25|                                                          │
+26|                                                          │
+27|                                                          │
+28|↑ ↓ - Select                                              │
+29|? - More binds   2 warnings                               │    Enter - ssh   Esc - Quit

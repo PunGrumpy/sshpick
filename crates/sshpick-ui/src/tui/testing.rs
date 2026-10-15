@@ -1,17 +1,13 @@
-use std::ffi::OsString;
 use std::path::Path;
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
-use ratatui::style::{Color, Style};
+use ratatui::style::Modifier;
 use ratatui::text::Line;
 use sshpick_core::{Entry, Picker, Preview, Slot, Warning};
 
 use super::screen::Screen;
-
-pub(super) const DARK: Style = Style::new().fg(Color::Black).bg(Color::White);
-pub(super) const LIGHT: Style = Style::new().fg(Color::White).bg(Color::Black);
 
 pub(super) fn entries(home: &str) -> Vec<Entry> {
     let home = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -21,20 +17,12 @@ pub(super) fn entries(home: &str) -> Vec<Entry> {
 }
 
 pub(super) fn setup(home: &str, query: &str) -> (Screen, Picker) {
-    setup_with(home, query, DARK, &[])
+    setup_with(home, query, &[])
 }
 
-pub(super) fn setup_with(
-    home: &str,
-    query: &str,
-    bar: Style,
-    warnings: &[Warning],
-) -> (Screen, Picker) {
+pub(super) fn setup_with(home: &str, query: &str, warnings: &[Warning]) -> (Screen, Picker) {
     let entries = entries(home);
-    (
-        Screen::styled(&entries, warnings, bar),
-        Picker::new(entries, query),
-    )
+    (Screen::new(&entries, warnings), Picker::new(entries, query))
 }
 
 pub(super) fn terminal(width: u16, height: u16) -> Terminal<TestBackend> {
@@ -77,16 +65,55 @@ pub(super) fn cell(terminal: &Terminal<TestBackend>, x: u16, y: u16) -> Cell {
     terminal.backend().buffer()[(x, y)].clone()
 }
 
-pub(super) fn inverted(cell: &Cell, bar: Style) -> bool {
-    Some(cell.fg) == bar.fg && Some(cell.bg) == bar.bg
+pub(super) fn reversed(cell: &Cell) -> bool {
+    cell.modifier.contains(Modifier::REVERSED)
 }
 
-pub(super) fn vars<'a>(set: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<OsString> + 'a {
-    move |name| {
-        set.iter()
-            .find(|(key, _)| *key == name)
-            .map(|(_, value)| OsString::from(value))
+pub(super) fn dim(cell: &Cell) -> bool {
+    cell.modifier.contains(Modifier::DIM)
+}
+
+pub(super) fn bold(cell: &Cell) -> bool {
+    cell.modifier.contains(Modifier::BOLD)
+}
+
+/// Where each style is on each row, as `y2  REV[0..77] DIM[80..93]`: the columns of every run
+/// of cells that are reversed, bold or dim, in column order. A text snapshot cannot hold
+/// styles, so this is the text that stands in for them.
+pub(super) fn styles(terminal: &Terminal<TestBackend>) -> String {
+    let buffer = terminal.backend().buffer();
+    let (width, height) = (buffer.area.width, buffer.area.height);
+    let mut rows = Vec::new();
+    for y in 0..height {
+        let mut runs: Vec<(u16, u16, &str)> = Vec::new();
+        for (name, modifier) in [
+            ("REV", Modifier::REVERSED),
+            ("BOLD", Modifier::BOLD),
+            ("DIM", Modifier::DIM),
+        ] {
+            let mut start = None;
+            for x in 0..=width {
+                let on = x < width && buffer[(x, y)].modifier.contains(modifier);
+                match (start, on) {
+                    (None, true) => start = Some(x),
+                    (Some(from), false) => {
+                        runs.push((from, x - 1, name));
+                        start = None;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        runs.sort_unstable();
+        if !runs.is_empty() {
+            let runs: Vec<String> = runs
+                .iter()
+                .map(|(from, to, name)| format!("{name}[{from}..{to}]"))
+                .collect();
+            rows.push(format!("y{y:<2} {}", runs.join(" ")));
+        }
     }
+    rows.join("\n")
 }
 
 pub(super) fn text(line: &Line) -> String {

@@ -3,14 +3,14 @@ source: crates/sshpick-ui/src/tui/popup.rs
 expression: frame(&lines)
 ---
  0|>┌ Keybinds ──────────────────────────────────────────────────────────────────┐5
- 1|─│                                                                            │─
- 2| │ Enter                       - ssh to the selected host                     │
- 3|▌│ Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first  │
+ 1| │                                                                            │
+ 2|▌│ Enter                       - ssh to the selected host                     │
+ 3| │ Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first  │
  4| │ Up, Ctrl-P, Ctrl-K          - select the previous host (up the list)       │
  5| │ Down, Ctrl-N, Ctrl-J        - select the next host (down the list)         │
  6| │ type                        - filter; 'exact ^prefix suffix$ !not          │
  7| │ Backspace, Ctrl-H           - delete the last character                    │
  8| │ Ctrl-U                      - clear the filter                             │
  9| │ Ctrl-W                      - delete the last word                         │
-10|─│                                                                            │─
-11| └ 2 more binds. Make your terminal taller. ──────────────────────────────────┘
+10|↑│                                                                            │
+11|?└ 2 more binds. Make your terminal taller. ──────────────────────────────────┘

@@ -12,24 +12,26 @@ ranking, and a live `ssh -G` preview of where the host really resolves.
 Press `?` on an empty filter, or `F1`, for the key list.
 
 The picker after typing `consul`, at 80 columns. The prompt is the top row, with the count on
-its right. The best match is the first row under the header, and the `▌` row is the selection.
-From 100 columns the preview sits in a pane beside the list instead of under it.
+its right. The best match is the first row under the header, and the reversed `▌` row is the
+selection. From 100 columns the preview sits in a pane beside the list instead of under it.
 
 ```text
 > consul                                                                    4/12
-────────────────────────────────────────────────────────────────────────────────
   ENV     HOST          WHAT
 ▌ STAGING stg-consul1   consul server 1
   STAGING stg-consul2   consul server 2
   STAGING stg-consul3   consul server 3
   STAGING stg-consul-ui consul web UI tunnel: `ssh -f stg-consul-ui`, then open…
-─ ssh -G stg-consul1 ───────────────────────────────────────────────────────────
+
+
+ stg-consul1 > ssh -G
   user          ubuntu
   hostname      192.0.2.11
   port          22
   proxyjump     stg-bastion
 
- Enter ssh  Esc quit  Ctrl-U clear  ↑↓ move                            12 hosts
+↑ ↓ - Select
+F1 - More binds
 ```
 
 ## What it shows
@@ -47,38 +49,31 @@ config shows ssh's own error there. Each host is resolved once per session.
 ### Appearance
 
 The screen reads top-down. The first row is the prompt: `> `, the query, and on the right the
-count of matches out of all hosts (`5/29`). A dim rule, the header, then the list, best match
-first. A second dim rule closes the list, and the last row is the status bar.
+count of matches out of all hosts (`5/29`). A dim header follows, then the list, best match
+first, and two dim footer rows. The first is `↑ ↓ - Select`, with `N more below` after it when
+more rows match than fit. The second is `? - More binds`, or `F1 - More binds` once the query is
+not empty, with `N warnings` after it when the config has any; their text is in the help popup.
 
-The selected row is an inverted bar with a `▌` marker. Matched characters are bold. ENV, WHAT,
-the header, the count, the rules and the preview keys are dim. Nothing else has a colour.
+The selected row is reversed video with a `▌` marker. Matched characters are bold. ENV, WHAT,
+the header, the count, the footer, the titles and the preview keys are dim. Nothing has a
+colour, so `NO_COLOR` has nothing to remove here.
 
-At 100 columns or more the preview is a 40-column pane to the right of the list, behind a dim
-`│`. Its title, `ssh -G host`, sits on the header row, and the values start on the next row.
-Below 100 columns the preview is stacked under the list: the closing rule carries the title
-(`─ ssh -G host ─`) and five rows follow.
+At 100 columns or more the list has one border, on its right edge, and the preview is a
+40-column pane beside it. The pane's dim title, `lab-a > ssh -G`, is on the prompt row. It ends
+in `»` while ssh has not answered and in `failed` when ssh failed. The pane's dim footer, on the
+last row, reads `Enter - ssh   Esc - Quit`, without Enter when nothing matches. Below 100
+columns the preview is stacked under the list: a dim title row and five rows, and no pane
+footer.
 
-When more rows match than fit, the closing rule says so on its right:
-`──── 17 more below ─`. When nothing matches, the first list row shows a dim `no match`.
-
-The last row is a status bar. It lists the main keys on the left. On the right it shows the
-host count. If the config has warnings, the count is followed by the number of warnings and
-the first one, cut to fit: `29 hosts · 2 warnings · <first warning>`. On a narrow terminal the
-hints drop from the right.
-
-An empty prompt shows a dim `type to filter`. A WHAT wider than its column ends in `…`. HOST
-and ENV are never cut.
+When nothing matches, the first list row shows a dim `no match`. An empty prompt shows a dim
+`type to filter`. A WHAT wider than its column ends in `…`. HOST and ENV are never cut.
 
 On a short terminal the picker gives the room to the list. Below 13 rows, at under 100
-columns, the stacked preview is not drawn. Below 7 rows, at any width, the header, both rules
-and the side pane go too, which leaves the prompt, the list and the status bar.
+columns, the stacked preview is not drawn. Below 7 rows, at any width, the header and the
+footer go too, which leaves the prompt and the list.
 
-In the picker the bar's colours follow the terminal theme. `SSHPICK_THEME=dark` or `light` overrides the
-detection, which otherwise reads `COLORFGBG` and falls back to dark. With `NO_COLOR` set, the
-picker draws with reverse video, bold and dim only. `CLICOLOR_FORCE` turns colours back on.
-
-There is no animation, spinner or fade, by design. Each key press is one redraw. A preview
-that is still loading shows its title and an empty body.
+There is no animation or fade, by design. Each key press is one redraw. A preview that is
+still loading shows its title and an empty body.
 
 ## Config conventions
 
@@ -229,7 +224,10 @@ on stdout. Keys are fixed and an empty result still prints the object (and `ls` 
           "host": "stg-consul1",
           "env": "STAGING",
           "what": "consul server 1",
-          "names": ["stg-consul1", "consul1.stg"]
+          "names": [
+            "stg-consul1",
+            "consul1.stg"
+          ]
         }
       ],
       "warnings": []
@@ -251,10 +249,19 @@ a `Learn More:` line when the docs help; a warning is a `! message` line:
     Fix: narrow the query to one host, or list them with `sshpick ls consul`.
 
 A near-miss gets one suggestion, only when it is a single edit from a command or option:
-`sshpick help lst` says ``did you mean `sshpick help list`?``. A pipe gets no escape bytes unless `CLICOLOR_FORCE` is set. Colour is decided
-per stream: `--no-color` or a non-empty `NO_COLOR` removes colour but keeps bold and dim on a
-terminal, `CLICOLOR_FORCE` (set, not empty, not `0`) keeps colour in a pipe, and `TERM=dumb`
-turns it off.
+`sshpick help lst` says ``did you mean `sshpick help list`?``.
+
+A pipe gets no escape bytes unless `CLICOLOR_FORCE` is set. Colour is decided per stream, in this
+order:
+
+| Setting                                          | Effect                                       |
+|--------------------------------------------------|----------------------------------------------|
+| `--no-color`, or a non-empty `NO_COLOR`          | no colour; bold and dim stay on a terminal   |
+| `CLICOLOR_FORCE` set, not empty, not `0`         | colour even when output is not a terminal    |
+| `TERM=dumb`                                      | no colour                                    |
+| none of these                                    | colour when the stream is a terminal         |
+
+`COLUMNS` sets the width of help when stdout is not a terminal (80 if unset).
 
 ## Exit status
 

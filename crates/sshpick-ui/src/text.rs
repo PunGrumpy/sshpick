@@ -1,6 +1,5 @@
 use ratatui::text::Line;
 
-pub(crate) const ELLIPSIS: &str = "...";
 const CUT: &str = "…";
 
 pub(crate) fn width(text: &str) -> u16 {
@@ -46,31 +45,6 @@ pub(crate) fn fit<'a>(runs: &[(&'a str, bool)], limit: usize) -> Vec<(&'a str, b
     kept
 }
 
-pub(crate) fn truncate_to_width(text: &str, limit: usize) -> String {
-    if columns(text) <= limit {
-        return text.to_owned();
-    }
-    let dotted = limit > ELLIPSIS.len();
-    let keep = if dotted {
-        limit - ELLIPSIS.len()
-    } else {
-        limit
-    };
-    let mut cut = String::new();
-    let mut used = 0;
-    for c in text.chars() {
-        used += columns(c.encode_utf8(&mut [0; 4]));
-        if used > keep {
-            break;
-        }
-        cut.push(c);
-    }
-    if dotted {
-        cut.push_str(ELLIPSIS);
-    }
-    cut
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,17 +88,5 @@ mod tests {
             "a combining mark stays with its base"
         );
         assert_eq!(fit(&plain("สวัสดี"), 4), plain("สวัสดี"));
-    }
-
-    #[test]
-    fn truncation_counts_display_columns() {
-        assert_eq!(truncate_to_width("abcdef", 6), "abcdef");
-        assert_eq!(truncate_to_width("abcdef", 5), "ab...");
-        assert_eq!(truncate_to_width("abcdef", 3), "abc");
-        assert_eq!(truncate_to_width("abcdef", 0), "");
-        assert_eq!(truncate_to_width("日本語です", 7), "日本...");
-        assert_eq!(truncate_to_width("日本語です", 10), "日本語です");
-        assert_eq!(truncate_to_width("日本語です", 8), "日本...");
-        assert_eq!(truncate_to_width("日本語です", 9), "日本語...");
     }
 }

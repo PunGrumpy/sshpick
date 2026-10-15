@@ -3,22 +3,22 @@ source: crates/sshpick-ui/src/tui/screen.rs
 expression: frame(&lines)
 ---
  0|> type to filter                                         5/5
- 1|────────────────────────────────────────────────────────────
- 2|  ENV         HOST           WHAT
- 3|▌ LAB         lab-a          LAB — personal VMs
- 4|  LAB         lab-b          build box
- 5|  NEW STAGING newstg-consul1 consul server 1 — mgmt
- 6|  NEW STAGING newstg-consul2
- 7|  NEW STAGING newstg-bastion bastion
+ 1|  ENV         HOST           WHAT
+ 2|▌ LAB         lab-a          LAB — personal VMs
+ 3|  LAB         lab-b          build box
+ 4|  NEW STAGING newstg-consul1 consul server 1 — mgmt
+ 5|  NEW STAGING newstg-consul2
+ 6|  NEW STAGING newstg-bastion bastion
+ 7|
  8|
  9|
 10|
 11|
-12|
-13|─ ssh -G lab-a failed ──────────────────────────────────────
-14|  ssh -G gave no answer within 2 s
+12| lab-a > ssh -G failed
+13|  ssh -G gave no answer within 2 s
+14|
 15|
 16|
 17|
-18|
-19| Enter ssh  Esc quit  Ctrl-U clear  ↑↓ move         5 hosts
+18|↑ ↓ - Select
+19|? - More binds

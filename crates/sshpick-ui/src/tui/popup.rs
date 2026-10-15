@@ -4,7 +4,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Padding, Paragraph};
 use sshpick_core::BINDINGS;
 
-use super::style::{DIM, MATCHED};
+use super::style::{BOLD, DIM};
 use crate::text::{columns, fit, plural};
 
 const TITLE: &str = " Keybinds ";
@@ -76,7 +76,7 @@ pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
         .collect();
     if !warnings.is_empty() {
         lines.push(Line::default());
-        lines.push(Line::styled(WARNINGS_TITLE, MATCHED));
+        lines.push(Line::styled(WARNINGS_TITLE, BOLD));
         for text in warnings {
             let cut: String = fit(&[(text, false)], text_width)
                 .iter()
@@ -112,10 +112,9 @@ fn width_of(columns: usize) -> u16 {
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
-    use ratatui::style::Modifier;
     use sshpick_core::{Key, Slot, Warning};
 
-    use crate::tui::testing::{DARK, cell, frame, ready, render, setup, setup_with, terminal};
+    use crate::tui::testing::{bold, cell, frame, ready, render, setup, setup_with, terminal};
 
     fn open(picker: &mut sshpick_core::Picker) {
         assert_eq!(picker.handle(Key::F(1)), None);
@@ -169,13 +168,13 @@ mod tests {
                 reason: "${NOPE} is not set".to_owned(),
             },
         ];
-        let (screen, mut picker) = setup_with("ui", "", DARK, &warnings);
+        let (screen, mut picker) = setup_with("ui", "", &warnings);
         open(&mut picker);
         let mut terminal = terminal(100, 30);
         let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
         assert_snapshot!("popup_warnings_100x30", frame(&lines));
         assert!(
-            (0..100).any(|x| cell(&terminal, x, 19).modifier.contains(Modifier::BOLD)),
+            (0..100).any(|x| bold(&cell(&terminal, x, 19))),
             "the Warnings heading is bold: {lines:#?}"
         );
     }
@@ -185,7 +184,7 @@ mod tests {
         let warnings = [Warning::Cycle {
             path: format!("/home/me/{}.conf", "very-long-name-".repeat(8)).into(),
         }];
-        let (screen, mut picker) = setup_with("ui", "", DARK, &warnings);
+        let (screen, mut picker) = setup_with("ui", "", &warnings);
         open(&mut picker);
         let lines = render(&mut terminal(60, 30), &screen, &mut picker, &Slot::Waiting);
         assert!(lines.iter().all(|line| line.chars().count() <= 60));

@@ -1,5 +1,4 @@
 mod app;
-mod bar;
 mod input;
 mod pane;
 mod popup;
