@@ -20,8 +20,6 @@ pub struct Previews {
 pub enum Slot {
     Waiting,
     Ready(Preview),
-    /// Kept for the session (a broken config would otherwise spawn a failing `ssh` per key),
-    /// except [`ResolveError::Timeout`], which is asked again on the host's next arrival.
     Failed(ResolveError),
 }
 
@@ -56,7 +54,9 @@ impl Previews {
     pub fn fetch(&mut self, host: &Host) -> &Slot {
         self.drain();
         if self.shown.as_ref() != Some(host) {
-            if let Some(Slot::Failed(ResolveError::Timeout)) = self.slots.get(host) {
+            if let Some(Slot::Failed(error)) = self.slots.get(host)
+                && error.is_transient()
+            {
                 self.slots.remove(host);
             }
             self.shown = Some(host.clone());

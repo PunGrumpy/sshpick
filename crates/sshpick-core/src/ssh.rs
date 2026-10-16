@@ -27,14 +27,19 @@ pub struct Preview(Vec<(&'static str, String)>);
 pub enum ResolveError {
     #[error("cannot run ssh -G: {0}")]
     Spawn(#[source] io::Error),
-    /// No exit within [`TIMEOUT`]; the child was killed. The pane retries when the cursor comes
-    /// back (load spikes pass; see `Previews::fetch`).
+    /// No exit within [`TIMEOUT`]; the child was killed.
     #[error("ssh -G gave no answer within {} s", TIMEOUT.as_secs())]
     Timeout,
     /// `ssh -G` exited non-zero (`code` is `None` if a signal killed it). `stderr` is what it
     /// said. One bad option anywhere in the config fails every host this way.
     #[error("{}", exit_message(.code, .stderr))]
     Ssh { code: Option<i32>, stderr: String },
+}
+
+impl ResolveError {
+    pub fn is_transient(&self) -> bool {
+        matches!(self, ResolveError::Timeout)
+    }
 }
 
 impl Preview {
@@ -284,5 +289,30 @@ mod tests {
             stderr: String::new(),
         };
         assert_eq!(killed.to_string(), "ssh -G was killed by a signal");
+    }
+
+    #[test]
+    fn only_a_timeout_is_transient() {
+        let cases = [
+            (ResolveError::Timeout, true),
+            (ResolveError::Spawn(io::Error::other("no ssh")), false),
+            (
+                ResolveError::Ssh {
+                    code: Some(255),
+                    stderr: "Bad port".to_owned(),
+                },
+                false,
+            ),
+            (
+                ResolveError::Ssh {
+                    code: None,
+                    stderr: String::new(),
+                },
+                false,
+            ),
+        ];
+        for (error, want) in cases {
+            assert_eq!(error.is_transient(), want, "{error}");
+        }
     }
 }
