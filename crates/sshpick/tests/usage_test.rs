@@ -4,13 +4,13 @@ use std::io;
 use std::process::{Output, Stdio};
 
 use assert_cmd::Command;
-use common::{isolated, plain, sshpick, stderr};
+use common::{isolated, sshpick, sshpick_std, stderr};
 use insta::assert_snapshot;
 
 fn with_stdout_closed(home: &str, args: &[&str]) -> io::Result<Output> {
     let (reader, writer) = io::pipe()?;
     drop(reader);
-    plain(home)
+    sshpick_std(home)
         .args(args)
         .stdin(Stdio::null())
         .stdout(writer)
@@ -143,6 +143,23 @@ fn colour_follows_the_environment_not_just_the_terminal() {
         ("TERM", "dumb"),
         ("NO_COLOR", "yes")
     ]));
+}
+
+#[test]
+fn a_usage_error_honours_no_color_until_a_double_dash() {
+    let escapes = |args: &[&str]| {
+        let out = sshpick("home")
+            .args(args)
+            .env("CLICOLOR_FORCE", "1")
+            .assert()
+            .code(2)
+            .stdout("");
+        stderr(&out).contains('\x1b')
+    };
+    assert!(escapes(&["--bogus"]), "forced colour reaches the error");
+    assert!(!escapes(&["--bogus", "--no-color"]));
+    assert!(!escapes(&["--no-color", "--bogus"]));
+    assert!(escapes(&["--bogus", "--", "--no-color"]));
 }
 
 #[test]

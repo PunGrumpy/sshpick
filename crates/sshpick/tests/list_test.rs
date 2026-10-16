@@ -136,6 +136,23 @@ fn list_json_prints_the_query_the_total_and_every_match() {
 }
 
 #[test]
+fn json_beats_dash_dash_list() {
+    let json = sshpick("inspect").args(["list", "--json"]).assert().code(0);
+    let both = sshpick("inspect")
+        .args(["list", "--list", "--json"])
+        .assert()
+        .code(0)
+        .stderr("");
+    assert_eq!(
+        both.get_output().stdout,
+        json.get_output().stdout,
+        "--list adds nothing to --json"
+    );
+    let text = String::from_utf8_lossy(&both.get_output().stdout).into_owned();
+    assert!(text.starts_with("{\n  \"query\": \"\","), "{text}");
+}
+
+#[test]
 fn list_json_has_the_same_order_as_the_rows() {
     let rows = sshpick("ui").arg("ls").assert().code(0);
     let hosts: Vec<String> = String::from_utf8_lossy(&rows.get_output().stdout)

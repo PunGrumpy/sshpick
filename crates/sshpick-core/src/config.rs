@@ -18,7 +18,6 @@ const MAX_DEPTH: usize = 16;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Host(String);
 
-/// One row of the picker.
 #[derive(Debug)]
 pub struct Entry {
     /// ENV column: the label of the included file the host is in (see `label::env_label`), or
@@ -31,17 +30,15 @@ pub struct Entry {
     pub(crate) aliases: Vec<String>,
 }
 
-/// What [`load`] read.
 #[derive(Debug)]
 pub struct Loaded {
     /// Rows in ssh's read order: lines in file order, each `Include` expanded in place, glob
     /// matches in byte order (`10.conf` before `9.conf`). A literal listed twice is one row.
     pub entries: Vec<Entry>,
-    /// What cost rows without stopping the run. The caller shows them to the user.
+    /// What cost rows without stopping the run.
     pub warnings: Vec<Warning>,
 }
 
-/// `~/.ssh/config` itself could not be read: the one fatal config error (exit 2).
 #[derive(Debug, thiserror::Error)]
 #[error("cannot read {}: {source}", .path.display())]
 pub struct LoadError {
@@ -49,20 +46,14 @@ pub struct LoadError {
     source: io::Error,
 }
 
-/// A problem below the root file. The walk skips the file or argument and goes on.
 #[derive(Debug, thiserror::Error)]
 pub enum Warning {
-    /// A file an `Include` matched could not be read.
     #[error("{}: skipped, {source}", .path.display())]
     Unreadable { path: PathBuf, source: io::Error },
-    /// An `Include` chain went past ssh's depth limit (ssh: "Too many recursive configuration
-    /// includes").
     #[error("{}: skipped, Include nested deeper than {MAX_DEPTH} levels", .path.display())]
     TooDeep { path: PathBuf },
-    /// A file includes itself through its own chain. Skipped, so a cyclic glob cannot fan out.
     #[error("{}: skipped, include cycle", .path.display())]
     Cycle { path: PathBuf },
-    /// An `Include` argument could not be expanded: an unset `${VAR}` or an invalid glob.
     #[error("Include {arg}: skipped, {reason}")]
     BadInclude { arg: String, reason: String },
 }

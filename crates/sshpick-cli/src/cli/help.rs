@@ -12,13 +12,10 @@ pub(crate) const MIN_WIDTH: usize = 40;
 pub(crate) const MAX_WIDTH: usize = 100;
 const MIN_TEXT: usize = 10;
 const MIN_SUMMARY: usize = 30;
-// "  -h," : the shorthand column is this wide even when no row has a shorthand.
-const SHORT_COLUMN: usize = 5;
+const SHORT_COLUMN: usize = INDENT.len() + "-h,".len();
 const COMMAND_INDENT: &str = "    ";
 const MAX_LISTED_ALIAS: usize = 3;
 
-/// A help page as text: a pure function of the table, the width and the colour setting.
-/// `topic` is a command, or the root page when `None`. Lines never end in a space.
 pub(crate) fn render(topic: Option<&CommandSpec>, width: usize, colors: ColorConfig) -> String {
     let page = Page {
         width: width.clamp(MIN_WIDTH, MAX_WIDTH),
@@ -107,7 +104,6 @@ impl Page {
         format!("{INDENT}{}:", self.colors.dim(title))
     }
 
-    /// Two blank lines follow every table.
     fn table(&self, title: &str, rows: Vec<String>) -> Vec<String> {
         let mut lines = vec![self.heading(title), String::new()];
         lines.extend(rows);
@@ -143,7 +139,8 @@ impl Page {
     fn options(&self, title: &str, options: &[OptionSpec]) -> Vec<String> {
         let mut shown: Vec<(&OptionSpec, &str)> = options
             .iter()
-            .filter_map(|option| Some((option, option.description?)))
+            .filter(|option| !option.hidden)
+            .map(|option| (option, option.description))
             .collect();
         shown.sort_by_key(|(option, _)| option.long);
         let cells: Vec<(String, String)> = shown

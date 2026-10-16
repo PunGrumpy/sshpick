@@ -1,4 +1,5 @@
 use ratatui::text::Line;
+use sshpick_core::Run;
 
 const CUT: &str = "…";
 
@@ -18,8 +19,8 @@ pub(crate) fn plural(count: usize, noun: &str) -> String {
     }
 }
 
-pub(crate) fn fit<'a>(runs: &[(&'a str, bool)], limit: usize) -> Vec<(&'a str, bool)> {
-    if runs.iter().map(|&(text, _)| columns(text)).sum::<usize>() <= limit {
+pub(crate) fn fit<'a>(runs: &[Run<'a>], limit: usize) -> Vec<Run<'a>> {
+    if runs.iter().map(|run| columns(run.text)).sum::<usize>() <= limit {
         return runs.to_vec();
     }
     let Some(budget) = limit.checked_sub(columns(CUT)) else {
@@ -27,21 +28,27 @@ pub(crate) fn fit<'a>(runs: &[(&'a str, bool)], limit: usize) -> Vec<(&'a str, b
     };
     let mut kept = Vec::new();
     let mut used = 0;
-    'runs: for &(text, matched) in runs {
+    'runs: for &Run { text, matched } in runs {
         for (start, c) in text.char_indices() {
             let end = start + c.len_utf8();
             let cells = columns(&text[start..end]);
             if used + cells > budget {
                 if start > 0 {
-                    kept.push((&text[..start], matched));
+                    kept.push(Run {
+                        text: &text[..start],
+                        matched,
+                    });
                 }
                 break 'runs;
             }
             used += cells;
         }
-        kept.push((text, matched));
+        kept.push(Run { text, matched });
     }
-    kept.push((CUT, false));
+    kept.push(Run {
+        text: CUT,
+        matched: false,
+    });
     kept
 }
 
@@ -51,40 +58,47 @@ mod tests {
 
     #[test]
     fn fit_cuts_on_display_width_and_keeps_runs_whole_or_cut_cleanly() {
-        let plain = |text| [(text, false)];
+        let run = |text, matched| Run { text, matched };
+        let plain = |text| [run(text, false)];
         assert_eq!(fit(&plain("abcdef"), 6), plain("abcdef"));
-        assert_eq!(fit(&plain("abcdef"), 5), [("abcd", false), (CUT, false)]);
-        assert_eq!(fit(&plain("abcdef"), 1), [(CUT, false)]);
+        assert_eq!(
+            fit(&plain("abcdef"), 5),
+            [run("abcd", false), run(CUT, false)]
+        );
+        assert_eq!(fit(&plain("abcdef"), 1), [run(CUT, false)]);
         assert!(fit(&plain("abcdef"), 0).is_empty());
 
-        let runs = [("ab", false), ("cdef", true), ("gh", false)];
+        let runs = [run("ab", false), run("cdef", true), run("gh", false)];
         assert_eq!(
             fit(&runs, 5),
-            [("ab", false), ("cd", true), (CUT, false)],
+            [run("ab", false), run("cd", true), run(CUT, false)],
             "a cut run keeps its match"
         );
-        assert_eq!(fit(&runs, 3), [("ab", false), (CUT, false)]);
+        assert_eq!(fit(&runs, 3), [run("ab", false), run(CUT, false)]);
         assert_eq!(fit(&runs, 8), runs);
-        assert_eq!(fit(&runs, 7), [("ab", false), ("cdef", true), (CUT, false)]);
+        assert_eq!(
+            fit(&runs, 7),
+            [run("ab", false), run("cdef", true), run(CUT, false)]
+        );
 
         assert_eq!(
             fit(&plain("a — b"), 4),
-            [("a —", false), (CUT, false)],
+            [run("a —", false), run(CUT, false)],
             "an em dash is one column and three bytes"
         );
         assert_eq!(
             fit(&plain("日本語です"), 6),
-            [("日本", false), (CUT, false)],
+            [run("日本", false), run(CUT, false)],
             "a wide char that does not fit is dropped, not split"
         );
         assert_eq!(
             fit(&plain("日本語です"), 7),
-            [("日本語", false), (CUT, false)]
+            [run("日本語", false), run(CUT, false)]
         );
         assert_eq!(fit(&plain("日本語です"), 10), plain("日本語です"));
         assert_eq!(
             fit(&plain("สวัสดี"), 3),
-            [("สวั", false), (CUT, false)],
+            [run("สวั", false), run(CUT, false)],
             "a combining mark stays with its base"
         );
         assert_eq!(fit(&plain("สวัสดี"), 4), plain("สวัสดี"));

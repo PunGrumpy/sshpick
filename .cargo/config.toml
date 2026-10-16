@@ -1,5 +1,4 @@
 [alias]
-# The one lint entry point: Makefile, pre-push hook, CI and AGENTS.md all call this.
 lint = "clippy --workspace --all-targets -- -D warnings"
 
 [env]

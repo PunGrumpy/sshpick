@@ -21,7 +21,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Configure which types are allowed (newline-delimited).
           types: |
             fix
             feat
@@ -32,9 +31,7 @@ jobs:
             perf
             test
             style
-          # Scopes are not allowed.
-          scopes: ""
-          # Ensures that the subject starts with an uppercase character.
+          disallowScopes: .+
           subjectPattern: ^[A-Z].*$
           subjectPatternError: |
             The subject "{subject}" found in the pull request title "{title}" doesn't match the configured pattern.

@@ -4,8 +4,6 @@ use std::ops::Range;
 use crate::config::{Entry, Host};
 use crate::rank::{Match, Ranker};
 
-/// Query, matches, cursor and scroll for one session. The only owner of all four: the UI
-/// keeps no selection or table offset of its own and builds each frame from [`Picker::view`].
 pub struct Picker {
     ranker: Ranker,
     query: String,
@@ -14,8 +12,6 @@ pub struct Picker {
     help: bool,
 }
 
-/// A key with the terminal encoding stripped. `sshpick-ui` maps crossterm events to this one to
-/// one, with no policy; what each key does lives in [`Picker::handle`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
     /// A printable character, typed or pasted (Shift folded in).
@@ -28,32 +24,23 @@ pub enum Key {
     Backspace,
     Up,
     Down,
-    /// A function key: `F(1)` is F1. Only F1 does anything.
     F(u8),
 }
 
-/// How a session ends. `sshpick-cli` maps each to an exit code.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
-    /// Enter on a match: restore the terminal, then exec `ssh -- <host>`.
     Pick(Host),
-    /// Esc, Ctrl-C, Ctrl-G, Ctrl-Q, or Ctrl-D on an empty query: exit 130, as fzf.
     Cancel,
-    /// Enter with nothing matched: exit 1, as fzf.
     NoMatch,
 }
 
-/// What a query settles by itself; see [`Picker::resolve`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum Resolution<'a> {
-    /// Exactly one host matches: connect to it.
     One(&'a Host),
     NoMatch,
-    /// This many hosts match: someone has to choose.
     Many(usize),
 }
 
-/// Everything one frame shows from the picker.
 #[derive(Debug)]
 pub struct View<'a> {
     pub query: &'a str,
@@ -62,17 +49,20 @@ pub struct View<'a> {
     /// The rows that fit, top to bottom as drawn: the best visible match first (fzf's
     /// `--layout=reverse`). Exactly one is `selected` unless nothing matched.
     pub rows: Vec<Row<'a>>,
-    /// Matches past the last visible row, the "N more below" count.
     pub below: usize,
 }
 
-/// One visible row. Each column is its text cut into `(text, matched)` runs, in order, so the
-/// UI can style matched characters without knowing how the haystack was laid out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Run<'a> {
+    pub text: &'a str,
+    pub matched: bool,
+}
+
 #[derive(Debug)]
 pub struct Row<'a> {
-    pub env: Vec<(&'a str, bool)>,
-    pub host: Vec<(&'a str, bool)>,
-    pub what: Vec<(&'a str, bool)>,
+    pub env: Vec<Run<'a>>,
+    pub host: Vec<Run<'a>>,
+    pub what: Vec<Run<'a>>,
     pub selected: bool,
 }
 
@@ -87,7 +77,6 @@ enum Matches {
 }
 
 impl Picker {
-    /// Rank `entries` against `query` (argv joined by spaces), cursor on the best match.
     pub fn new(entries: Vec<Entry>, query: &str) -> Picker {
         let mut ranker = Ranker::new(entries);
         let matches = Matches::best_first(ranker.rank(query));
@@ -101,8 +90,7 @@ impl Picker {
     }
 
     /// What the query settles before any terminal is touched: fzf's `--select-1` when exactly one
-    /// entry matches, applied to any query, the empty one included (a one-host config). Zero or
-    /// several matches need the picker, or an error when there is no picker to open.
+    /// entry matches, applied to any query, the empty one included (a one-host config).
     pub fn resolve(&self) -> Resolution<'_> {
         match (&self.matches, self.matches.len()) {
             (Matches::Some { current, .. }, 1) => Resolution::One(&self.ranker.entry(current).host),
@@ -111,7 +99,6 @@ impl Picker {
         }
     }
 
-    /// The host under the cursor, `None` when nothing matches. The preview pane follows it.
     pub fn selected(&self) -> Option<&Host> {
         match &self.matches {
             Matches::Some { current, .. } => Some(&self.ranker.entry(current).host),
@@ -120,7 +107,7 @@ impl Picker {
     }
 
     /// Every match, best first, in the order [`Picker::view`] draws them top to bottom. The cursor
-    /// and scroll do not move it; an empty query keeps file order. This is what `--list` prints.
+    /// and scroll do not move it; an empty query keeps file order.
     pub fn listing(&self) -> Vec<&Entry> {
         self.matches
             .ranked()
@@ -128,29 +115,11 @@ impl Picker {
             .collect()
     }
 
-    /// Whether the key help is showing. It is non-modal: every other key still acts.
     pub fn help_open(&self) -> bool {
         self.help
     }
 
-    /// Apply one key. `Some` ends the session. The bindings are fzf's defaults, plus the help;
-    /// [`BINDINGS`](crate::BINDINGS) lists them for people and a test keeps the two in step:
-    ///
-    /// | Key                                   | Effect                                     |
-    /// |---------------------------------------|--------------------------------------------|
-    /// | Enter                                 | `Pick(selected)`, or `NoMatch`             |
-    /// | Esc                                   | closes the help if it is open, else `Cancel` |
-    /// | Ctrl-C, Ctrl-G, Ctrl-Q                | `Cancel`                                   |
-    /// | Ctrl-D                                | `Cancel` on an empty query, else nothing   |
-    /// | Up, Ctrl-P, Ctrl-K                    | cursor to the next better match (up the list) |
-    /// | Down, Ctrl-N, Ctrl-J                  | cursor to the next worse match (down the list) |
-    /// | printable                             | append to the query                        |
-    /// | Backspace, Ctrl-H                     | delete the last char                       |
-    /// | Ctrl-U                                | clear the query                            |
-    /// | Ctrl-W                                | delete the last word                       |
-    /// | F1, `?` on an empty query             | show or hide the help                      |
-    ///
-    /// The query cursor is always at the end; there is no Left/Right editing.
+    /// Apply one key. `Some` ends the session.
     pub fn handle(&mut self, key: Key) -> Option<Outcome> {
         match key {
             Key::Enter => {
@@ -177,15 +146,16 @@ impl Picker {
         None
     }
 
-    /// The rows that fit in `height` lines, scrolled so the cursor is visible, plus the prompt
-    /// and count. Takes `&mut self` because it moves the scroll window.
-    pub fn view(&mut self, height: usize) -> View<'_> {
-        self.scroll = follow(
+    pub fn follow(&mut self, height: usize) {
+        self.scroll = scroll_to_show(
             self.scroll,
             self.matches.cursor(),
             height,
             self.matches.len(),
         );
+    }
+
+    pub fn view(&self, height: usize) -> View<'_> {
         let rows: Vec<_> = self
             .matches
             .ranked()
@@ -298,7 +268,7 @@ impl Matches {
     }
 }
 
-fn follow(scroll: usize, cursor: usize, height: usize, len: usize) -> usize {
+fn scroll_to_show(scroll: usize, cursor: usize, height: usize, len: usize) -> usize {
     if height == 0 {
         return scroll;
     }
@@ -311,18 +281,27 @@ fn follow(scroll: usize, cursor: usize, height: usize, len: usize) -> usize {
     scroll.min(len.saturating_sub(height))
 }
 
-fn runs<'a>(text: &'a str, hits: &[Range<usize>]) -> Vec<(&'a str, bool)> {
+fn runs<'a>(text: &'a str, hits: &[Range<usize>]) -> Vec<Run<'a>> {
     let mut runs = Vec::new();
     let mut at = 0;
     for hit in hits {
         if hit.start > at {
-            runs.push((&text[at..hit.start], false));
+            runs.push(Run {
+                text: &text[at..hit.start],
+                matched: false,
+            });
         }
-        runs.push((&text[hit.clone()], true));
+        runs.push(Run {
+            text: &text[hit.clone()],
+            matched: true,
+        });
         at = hit.end;
     }
     if at < text.len() {
-        runs.push((&text[at..], false));
+        runs.push(Run {
+            text: &text[at..],
+            matched: false,
+        });
     }
     runs
 }
@@ -340,6 +319,10 @@ fn delete_word(query: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn run(text: &str, matched: bool) -> Run<'_> {
+        Run { text, matched }
+    }
 
     fn entries(hosts: &[&str]) -> Vec<Entry> {
         hosts
@@ -363,16 +346,22 @@ mod tests {
         }
     }
 
+    fn below(picker: &mut Picker, height: usize) -> usize {
+        picker.follow(height);
+        picker.view(height).below
+    }
+
     fn selected(picker: &Picker) -> &str {
         picker.selected().map_or("", Host::as_str)
     }
 
     fn drawn(picker: &mut Picker, height: usize) -> (Vec<String>, Option<usize>) {
+        picker.follow(height);
         let view = picker.view(height);
         let hosts = view
             .rows
             .iter()
-            .map(|r| r.host.iter().map(|(text, _)| *text).collect())
+            .map(|r| r.host.iter().map(|run| run.text).collect())
             .collect();
         (hosts, view.rows.iter().position(|r| r.selected))
     }
@@ -708,13 +697,13 @@ mod tests {
             what: "build box".to_owned(),
             aliases: Vec::new(),
         };
-        let mut picker = Picker::new(vec![entry], "^lab box");
+        let picker = Picker::new(vec![entry], "^lab box");
         let view = picker.view(3);
         assert_eq!((view.matched, view.total, view.query), (1, 1, "^lab box"));
         let row = &view.rows[0];
-        assert_eq!(row.env, [("LAB", true)]);
-        assert_eq!(row.host, [("lab-a", false)]);
-        assert_eq!(row.what, [("build ", false), ("box", true)]);
+        assert_eq!(row.env, [run("LAB", true)]);
+        assert_eq!(row.host, [run("lab-a", false)]);
+        assert_eq!(row.what, [run("build ", false), run("box", true)]);
         assert!(row.selected);
     }
 
@@ -738,24 +727,44 @@ mod tests {
     #[test]
     fn view_counts_the_matches_below_the_window() {
         let mut picker = picker(&["a", "b", "c", "d", "e"]);
-        assert_eq!(picker.view(5).below, 0, "all fit");
-        assert_eq!(picker.view(3).below, 2);
+        assert_eq!(below(&mut picker, 5), 0, "all fit");
+        assert_eq!(below(&mut picker, 3), 2);
         for _ in 0..3 {
             picker.handle(Key::Down);
         }
-        assert_eq!(picker.view(3).below, 1, "the window followed the cursor");
+        assert_eq!(below(&mut picker, 3), 1, "the window followed the cursor");
         picker.handle(Key::Down);
+        picker.follow(3);
         let view = picker.view(3);
         assert_eq!((view.below, view.matched), (0, 5), "scrolled to the end");
-        assert_eq!(picker.view(1).below, 0, "the cursor row is the last one");
+        assert_eq!(below(&mut picker, 1), 0, "the cursor row is the last one");
         picker.handle(Key::Up);
-        assert_eq!(picker.view(1).below, 1);
+        assert_eq!(below(&mut picker, 1), 1);
         type_text(&mut picker, "zzzz");
-        assert_eq!(picker.view(3).below, 0, "nothing matched");
+        assert_eq!(below(&mut picker, 3), 0, "nothing matched");
     }
 
     #[test]
-    fn follow_scrolls_like_fzf() {
+    fn the_window_moves_on_follow_and_view_leaves_it_alone() {
+        let mut picker = picker(&["a", "b", "c", "d", "e"]);
+        for _ in 0..4 {
+            picker.handle(Key::Down);
+        }
+        let before = picker.view(2);
+        assert!(
+            before.rows.iter().all(|row| !row.selected),
+            "view alone does not scroll to the cursor"
+        );
+        assert_eq!(before.below, 3);
+        assert_eq!(
+            drawn(&mut picker, 2),
+            (strings(&["d", "e"]), Some(1)),
+            "follow brings the cursor into view"
+        );
+    }
+
+    #[test]
+    fn scrolling_keeps_the_cursor_in_view_like_fzf() {
         let cases = [
             ((0, 0, 5, 20), 0),
             ((0, 5, 5, 20), 1),
@@ -764,7 +773,7 @@ mod tests {
             ((4, 4, 0, 20), 4),
         ];
         for ((scroll, cursor, height, len), want) in cases {
-            assert_eq!(follow(scroll, cursor, height, len), want);
+            assert_eq!(scroll_to_show(scroll, cursor, height, len), want);
         }
     }
 
@@ -773,11 +782,16 @@ mod tests {
         let got = runs("LAB — x", &[0..1, 4..7]);
         assert_eq!(
             got,
-            [("L", true), ("AB ", false), ("—", true), (" x", false)]
+            [
+                run("L", true),
+                run("AB ", false),
+                run("—", true),
+                run(" x", false)
+            ]
         );
         assert_eq!(runs("", &[]), []);
-        assert_eq!(runs("abc", &[]), [("abc", false)]);
+        assert_eq!(runs("abc", &[]), [run("abc", false)]);
         let all = 0..3;
-        assert_eq!(runs("abc", std::slice::from_ref(&all)), [("abc", true)]);
+        assert_eq!(runs("abc", std::slice::from_ref(&all)), [run("abc", true)]);
     }
 }

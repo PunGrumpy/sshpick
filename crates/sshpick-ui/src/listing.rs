@@ -1,4 +1,4 @@
-use sshpick_core::Entry;
+use sshpick_core::{Entry, Run};
 
 use crate::color::ColorConfig;
 use crate::text::{columns, fit};
@@ -50,10 +50,16 @@ pub fn hosts(entries: &[&Entry], width: usize, colors: ColorConfig) -> String {
     let mut out = row(TITLES[0], TITLES[1], TITLES[2], true);
     out.push('\n');
     for entry in entries {
-        let what: String = fit(&[(&entry.what, false)], room)
-            .iter()
-            .map(|&(text, _)| text)
-            .collect();
+        let what: String = fit(
+            &[Run {
+                text: &entry.what,
+                matched: false,
+            }],
+            room,
+        )
+        .iter()
+        .map(|run| run.text)
+        .collect();
         out.push_str(&row(&entry.env, entry.host.as_str(), &what, false));
         out.push('\n');
     }

@@ -13,13 +13,16 @@ pub(crate) enum Error {
     Write(#[source] io::Error),
 }
 
-/// What `list` was asked for. `machine` is the hidden `--list`: tab-separated rows whatever
-/// stdout is. `json` wins over it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ListFormat {
+    Auto,
+    Tsv,
+    Json,
+}
+
 pub(crate) struct Request<'a> {
     pub(crate) query: &'a str,
-    pub(crate) json: bool,
-    pub(crate) machine: bool,
-    /// The command word as typed, when there was one.
+    pub(crate) format: ListFormat,
     pub(crate) typed: Option<&'a str>,
 }
 
@@ -60,11 +63,10 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
     base.warn_all(&loaded.warnings);
     let Request {
         query,
-        json,
-        machine,
+        format,
         typed,
     } = *request;
-    let human = !json && !machine;
+    let human = format == ListFormat::Auto;
     if let Some(word) = typed.filter(|_| human) {
         base.note_if_also_a_host(word, &loaded.entries);
     }
@@ -80,7 +82,7 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
     } else {
         Exit::Success
     };
-    if json {
+    if format == ListFormat::Json {
         let view = View {
             query,
             total,
@@ -115,14 +117,13 @@ fn summary(matched: usize, total: usize, query: &str) -> String {
 fn write_rows(out: impl Write, rows: &[&Entry]) -> io::Result<()> {
     let mut out = io::BufWriter::new(out);
     for entry in rows {
-        let (env, what) = (field(&entry.env), field(&entry.what));
+        let (env, what) = (tsv_cell(&entry.env), tsv_cell(&entry.what));
         writeln!(out, "{env}\t{}\t{what}", entry.host)?;
     }
     out.flush()
 }
 
-/// A tab inside a comment would add a column and break `cut -f2`.
-fn field(text: &str) -> String {
+fn tsv_cell(text: &str) -> String {
     text.replace('\t', " ")
 }
 
@@ -141,8 +142,8 @@ mod tests {
 
     #[test]
     fn a_tab_in_a_comment_becomes_a_space() {
-        assert_eq!(field("one\ttwo"), "one two");
-        assert_eq!(field("plain"), "plain");
+        assert_eq!(tsv_cell("one\ttwo"), "one two");
+        assert_eq!(tsv_cell("plain"), "plain");
     }
 
     #[test]

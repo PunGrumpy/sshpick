@@ -23,8 +23,6 @@ const MORE_BINDS_ON_AN_EMPTY_QUERY: &str = "? - More binds";
 const MORE_BINDS: &str = "F1 - More binds";
 const HINT_GAP: &str = "   ";
 
-/// The column widths of the host table, measured once from every entry so the columns do not
-/// move as the query narrows the list.
 #[derive(Debug)]
 pub(super) struct HostTable {
     env: u16,
@@ -126,8 +124,6 @@ pub(super) fn prompt_row(frame: &mut Frame, area: Rect, view: &View<'_>) {
     frame.set_cursor_position((input.x.saturating_add(typed - scroll), input.y));
 }
 
-/// Two dim rows: how to move, and where the rest of the keys are. The first also says how many
-/// matches are below the last row; the second counts the config warnings.
 pub(super) fn footer(frame: &mut Frame, area: Rect, view: &View<'_>, warnings: usize) {
     let lines = footer_rows(view, warnings)
         .into_iter()
@@ -164,6 +160,7 @@ mod tests {
 
     fn rows(query: &str, height: usize, warnings: usize) -> [String; 2] {
         let mut picker = Picker::new(entries("ui"), query);
+        picker.follow(height);
         footer_rows(&picker.view(height), warnings)
     }
 

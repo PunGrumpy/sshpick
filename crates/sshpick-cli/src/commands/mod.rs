@@ -42,8 +42,6 @@ impl<'a> CommandBase<'a> {
         }
     }
 
-    /// `list` and `inspect` take the first word of the command line, so a host named like one
-    /// of them needs `pick`. Say so, once, to a person at a terminal.
     pub(crate) fn note_if_also_a_host(&self, word: &str, entries: &[Entry]) {
         if let Some(note) = collision_note(word, entries) {
             self.output.log(&note);
@@ -59,14 +57,12 @@ fn collision_note(word: &str, entries: &[Entry]) -> Option<String> {
         .then(|| format!("NOTE: \"{word}\" is also a host. Connect with `sshpick pick {word}`."))
 }
 
-/// A first word one edit away from a command, as the whole command line that was probably meant.
 pub(crate) fn did_you_mean(query: &str) -> Option<String> {
     let (first, rest) = query.split_once(' ').unwrap_or((query, ""));
     let command = suggest::closest(first, &spec::command_words())?;
     Some(format!("{command} {rest}").trim_end().to_owned())
 }
 
-/// One host as JSON, the same in `list --json` and `inspect --json`.
 #[derive(Serialize)]
 pub(crate) struct HostView<'a> {
     pub(crate) host: &'a str,
@@ -86,8 +82,6 @@ impl<'a> HostView<'a> {
     }
 }
 
-/// A JSON document: pretty-printed with a 2-space indent and a trailing newline, and nothing
-/// else on stdout.
 pub(crate) fn write_json(mut out: impl Write, value: &impl Serialize) -> io::Result<()> {
     serde_json::to_writer_pretty(&mut out, value)?;
     out.write_all(b"\n")?;

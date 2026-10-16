@@ -5,20 +5,14 @@ const MIN_HEIGHT_WITH_STACKED_PREVIEW: u16 = 13;
 const SIDE_PANE_MIN_WIDTH: u16 = 100;
 pub(super) const PANE_WIDTH: u16 = 40;
 pub(super) const PANE_LEFT_PADDING: u16 = 1;
-/// Rows of preview under the list, below its one-row title.
-pub(super) const STACKED_ROWS: u16 = 5;
+pub(super) const STACKED_BODY_ROWS: u16 = 5;
+pub(super) const STACKED_TITLE_ROWS: u16 = 1;
 
-/// How much of the screen the terminal's size allows, from the preview beside the list down to
-/// the prompt and the list alone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tier {
-    /// 100 columns and 7 rows or more: the preview sits in a pane beside the list.
     Side,
-    /// Under 100 columns and 13 rows or more: a title and five preview rows under the list.
     Stacked,
-    /// 7 rows or more, no room for a preview.
     ListOnly,
-    /// Under 7 rows: the prompt and the list, no header or footer.
     Bare,
 }
 

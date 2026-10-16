@@ -2,7 +2,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Paragraph, Wrap};
-use sshpick_core::{Host, Slot};
+use sshpick_core::{Host, Run, Slot};
 
 use super::style::DIM;
 use crate::text::{columns, fit};
@@ -16,7 +16,6 @@ const ESC_HINT: &str = "Esc - Quit";
 
 pub(super) type Pane<'a> = Option<(&'a Host, &'a Slot)>;
 
-/// `host > ssh -G`, with a `»` while ssh has not answered and `failed` when it did not.
 pub(super) fn title(host: &Host, slot: &Slot) -> String {
     let status = match slot {
         Slot::Waiting => " »",
@@ -30,7 +29,6 @@ fn heading(host: &Host, slot: &Slot) -> Line<'static> {
     Line::styled(format!(" {} ", title(host, slot)), DIM)
 }
 
-/// The preview under the list: a dim title row, then five rows of body.
 pub(super) fn stacked(frame: &mut Frame, area: Rect, pane: Pane<'_>) {
     let Some((host, slot)) = pane else {
         return;
@@ -43,9 +41,6 @@ pub(super) fn stacked(frame: &mut Frame, area: Rect, pane: Pane<'_>) {
     slot_body(frame, body, slot, None);
 }
 
-/// The preview beside the list: a borderless block whose dim title is the host and whose dim
-/// footer is what Enter and Esc do. With no selection the title and body are gone and the
-/// footer stays.
 pub(super) fn side(frame: &mut Frame, area: Rect, pane: Pane<'_>, matched: usize) {
     let mut block = Block::new().title_bottom(footer(matched, usize::from(area.width)));
     if let Some((host, slot)) = pane {
@@ -59,8 +54,6 @@ pub(super) fn side(frame: &mut Frame, area: Rect, pane: Pane<'_>, matched: usize
     }
 }
 
-/// `   Enter - ssh   Esc - Quit`, without Enter when nothing matches, and with hints dropped from
-/// the right until it fits.
 fn footer(matched: usize, width: usize) -> Line<'static> {
     let hints: Vec<&str> = [(matched > 0).then_some(ENTER_HINT), Some(ESC_HINT)]
         .into_iter()
@@ -95,12 +88,16 @@ fn key_values<'a>(
         .map(|(key, value)| {
             let gap = KEY_WIDTH.saturating_sub(columns(key)).max(1);
             let key = format!("{key}{}", " ".repeat(gap));
+            let value = [Run {
+                text: value,
+                matched: false,
+            }];
             let value = match room {
-                Some(room) => fit(&[(value, false)], room),
-                None => vec![(value, false)],
+                Some(room) => fit(&value, room),
+                None => value.to_vec(),
             };
             let mut spans = vec![Span::styled(key, DIM)];
-            spans.extend(value.into_iter().map(|(text, _)| Span::raw(text)));
+            spans.extend(value.into_iter().map(|run| Span::raw(run.text)));
             Line::from(spans)
         })
         .collect()

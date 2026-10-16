@@ -51,7 +51,6 @@ pub(super) fn render(
         .collect()
 }
 
-/// One row per line, numbered, so a snapshot shows blank rows and where the frame ends.
 pub(super) fn frame(lines: &[String]) -> String {
     lines
         .iter()
@@ -77,9 +76,6 @@ pub(super) fn bold(cell: &Cell) -> bool {
     cell.modifier.contains(Modifier::BOLD)
 }
 
-/// Where each style is on each row, as `y2  REV[0..77] DIM[80..93]`: the columns of every run
-/// of cells that are reversed, bold or dim, in column order. A text snapshot cannot hold
-/// styles, so this is the text that stands in for them.
 pub(super) fn styles(terminal: &Terminal<TestBackend>) -> String {
     let buffer = terminal.backend().buffer();
     let (width, height) = (buffer.area.width, buffer.area.height);

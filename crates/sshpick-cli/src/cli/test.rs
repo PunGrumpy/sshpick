@@ -5,10 +5,11 @@ use insta::assert_snapshot;
 use sshpick_ui::ColorConfig;
 use test_case::test_case;
 
-use super::args::{self, Command, UsageError, parse};
+use super::args::{Command, UsageError, parse};
 use super::error::{Error, Exit};
 use super::help::{self, MAX_WIDTH};
 use super::spec::{self, COMMANDS, GLOBAL};
+use crate::commands::list::ListFormat;
 use crate::commands::{inspect, list, pick};
 
 const PLAIN: ColorConfig = ColorConfig::none();
@@ -18,7 +19,7 @@ fn argv(args: &[&str]) -> Vec<OsString> {
 }
 
 fn command(args: &[&str]) -> Result<Command, UsageError> {
-    parse(argv(args)).map(|parsed| parsed.command)
+    parse(argv(args)).command
 }
 
 fn pick_for(query: &str) -> Result<Command, UsageError> {
@@ -27,20 +28,15 @@ fn pick_for(query: &str) -> Result<Command, UsageError> {
     })
 }
 
-fn list_for(query: &str, machine: bool) -> Result<Command, UsageError> {
+fn list_as(query: &str, format: ListFormat) -> Result<Command, UsageError> {
     Ok(Command::List {
         query: query.to_owned(),
-        json: false,
-        machine,
+        format,
     })
 }
 
 fn list_json(query: &str) -> Result<Command, UsageError> {
-    Ok(Command::List {
-        query: query.to_owned(),
-        json: true,
-        machine: false,
-    })
+    list_as(query, ListFormat::Json)
 }
 
 fn inspect_for(query: &str, json: bool) -> Result<Command, UsageError> {
@@ -91,15 +87,17 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["pick", "inspect"] => pick_for("inspect"); "pick makes inspect a query")]
 #[test_case(&["list", "--json"] => list_json(""); "list as json")]
 #[test_case(&["--json", "ls", "new"] => list_json("new"); "ls as json")]
-#[test_case(&["list"] => list_for("", false); "list")]
-#[test_case(&["ls", "new", "consul"] => list_for("new consul", false); "ls with a query")]
-#[test_case(&["list", "--", "-x"] => list_for("-x", false); "list with a dashed query")]
-#[test_case(&["db", "--list"] => list_for("db", true); "long list after a word")]
-#[test_case(&["-l", "db"] => list_for("db", true); "short list with a query")]
-#[test_case(&["-l"] => list_for("", true); "list with no query")]
-#[test_case(&["--list", "--", "-x", "y"] => list_for("-x y", true); "list with a dashed query after --")]
-#[test_case(&["ls", "-l"] => list_for("", true); "ls with -l is machine mode")]
-#[test_case(&["pick", "-l", "db"] => list_for("db", true); "pick with -l lists")]
+#[test_case(&["list", "--list", "--json"] => list_json(""); "json beats --list on list")]
+#[test_case(&["ls", "--json", "-l"] => list_json(""); "json beats -l whichever comes first")]
+#[test_case(&["list"] => list_as("", ListFormat::Auto); "list")]
+#[test_case(&["ls", "new", "consul"] => list_as("new consul", ListFormat::Auto); "ls with a query")]
+#[test_case(&["list", "--", "-x"] => list_as("-x", ListFormat::Auto); "list with a dashed query")]
+#[test_case(&["db", "--list"] => list_as("db", ListFormat::Tsv); "long list after a word")]
+#[test_case(&["-l", "db"] => list_as("db", ListFormat::Tsv); "short list with a query")]
+#[test_case(&["-l"] => list_as("", ListFormat::Tsv); "list with no query")]
+#[test_case(&["--list", "--", "-x", "y"] => list_as("-x y", ListFormat::Tsv); "list with a dashed query after --")]
+#[test_case(&["ls", "-l"] => list_as("", ListFormat::Tsv); "ls with -l is tab-separated")]
+#[test_case(&["pick", "-l", "db"] => list_as("db", ListFormat::Tsv); "pick with -l lists")]
 #[test_case(&["-h"] => help_for(None); "short help")]
 #[test_case(&["--help"] => help_for(None); "long help")]
 #[test_case(&["db", "-h"] => help_for(None); "help after a word")]
@@ -127,7 +125,7 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["-V"] => Ok(Command::Version); "short version")]
 #[test_case(&["-v"] => Ok(Command::Version); "hidden lowercase version")]
 #[test_case(&["db", "-V"] => Ok(Command::Version); "version after a query word")]
-#[test_case(&["ls", "-V"] => list_for("", false); "version is ignored when a command is named")]
+#[test_case(&["ls", "-V"] => list_as("", ListFormat::Auto); "version is ignored when a command is named")]
 #[test_case(&["--no-color", "db"] => pick_for("db"); "no-color is a flag, not a word")]
 #[test_case(&["--non-interactive", "db"] => pick_for("db"); "non-interactive is a flag, not a word")]
 fn argv_selects_a_command(args: &[&str]) -> Result<Command, UsageError> {
@@ -141,12 +139,12 @@ fn argv_selects_a_command(args: &[&str]) -> Result<Command, UsageError> {
 #[test_case(&["inspect", "x"] => Some("inspect".to_owned()); "inspect as typed")]
 #[test_case(&["x", "--", "list"] => None; "after the double dash")]
 fn the_command_word_is_kept_as_typed(args: &[&str]) -> Option<String> {
-    parse(argv(args)).unwrap().typed
+    parse(argv(args)).typed
 }
 
 #[test]
 fn global_flags_are_read_wherever_they_stand() {
-    let global = |args: &[&str]| parse(argv(args)).unwrap().global;
+    let global = |args: &[&str]| parse(argv(args)).global;
     assert!(global(&["--non-interactive"]).non_interactive);
     assert!(global(&["ls", "--non-interactive"]).non_interactive);
     assert!(!global(&["--", "--non-interactive"]).non_interactive);
@@ -154,14 +152,17 @@ fn global_flags_are_read_wherever_they_stand() {
     assert!(global(&["db", "--no-color"]).no_color);
 }
 
-#[test]
-fn no_color_is_read_before_the_strict_parse() {
-    assert!(parse(argv(&["--no-color"])).unwrap().global.no_color);
-    assert!(!parse(argv(&["db"])).unwrap().global.no_color);
-    assert!(args::wants_no_color(&argv(&["--bogus", "--no-color"])));
-    assert!(args::wants_no_color(&argv(&["ls", "--no-color"])));
-    assert!(!args::wants_no_color(&argv(&["--", "--no-color"])));
-    assert!(!args::wants_no_color(&argv(&["--no-colour"])));
+#[test_case(&["--no-color"], true; "alone")]
+#[test_case(&["ls", "--no-color"], true; "after a command")]
+#[test_case(&["--bogus", "--no-color"], true; "beside an unknown option")]
+#[test_case(&["--no-color", "--bogus"], true; "before an unknown option")]
+#[test_case(&["inspect", "--no-color"], true; "beside a missing query")]
+#[test_case(&["--", "--no-color"], false; "after -- it is query text")]
+#[test_case(&["--bogus", "--", "--no-color"], false; "after -- on a failed parse")]
+#[test_case(&["--no-colour"], false; "only the exact spelling")]
+#[test_case(&["db"], false; "absent")]
+fn no_color_is_read_whether_or_not_the_command_line_parses(args: &[&str], want: bool) {
+    assert_eq!(parse(argv(args)).global.no_color, want, "{args:?}");
 }
 
 #[test]
@@ -282,7 +283,7 @@ fn help_fits_a_100_column_terminal() {
 fn hidden_options_parse_but_stay_out_of_help() {
     let hidden: Vec<&str> = GLOBAL
         .iter()
-        .filter(|option| option.description.is_none())
+        .filter(|option| option.hidden)
         .map(|option| option.long)
         .collect();
     assert_eq!(hidden, ["list"]);

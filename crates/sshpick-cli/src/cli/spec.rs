@@ -1,6 +1,3 @@
-//! The command table. Parsing, `--help`, the root command list and the typo candidates all read
-//! these constants, so a command or flag added here shows up everywhere at once.
-
 use sshpick_core::{BINDINGS, Binding};
 
 pub(crate) const URL: &str = "https://github.com/PunGrumpy/sshpick#readme";
@@ -25,12 +22,12 @@ pub(crate) struct Argument {
     pub(crate) multiple: bool,
 }
 
-/// An option without a `description` still parses but is left out of help.
 pub(crate) struct OptionSpec {
     pub(crate) long: &'static str,
     pub(crate) short: Option<char>,
     pub(crate) aliases: &'static [&'static str],
-    pub(crate) description: Option<&'static str>,
+    pub(crate) description: &'static str,
+    pub(crate) hidden: bool,
 }
 
 pub(crate) struct Example {
@@ -42,7 +39,8 @@ const JSON: OptionSpec = OptionSpec {
     long: "json",
     short: None,
     aliases: &[],
-    description: Some("Output as JSON"),
+    description: "Output as JSON",
+    hidden: false,
 };
 
 pub(crate) const PICK: CommandSpec = CommandSpec {
@@ -179,31 +177,36 @@ pub(crate) const GLOBAL: &[OptionSpec] = &[
         long: "help",
         short: Some('h'),
         aliases: &[],
-        description: Some("Output usage information"),
+        description: "Output usage information",
+        hidden: false,
     },
     OptionSpec {
         long: "list",
         short: Some('l'),
         aliases: &[],
-        description: None,
+        description: "Print tab-separated rows whatever stdout is, for scripts",
+        hidden: true,
     },
     OptionSpec {
         long: "no-color",
         short: None,
         aliases: &[],
-        description: Some("No color mode (default off)"),
+        description: "No color mode (default off)",
+        hidden: false,
     },
     OptionSpec {
         long: "non-interactive",
         short: None,
         aliases: &[],
-        description: Some("Never open the picker; connect only when exactly one host matches"),
+        description: "Never open the picker; connect only when exactly one host matches",
+        hidden: false,
     },
     OptionSpec {
         long: "version",
         short: Some('V'),
         aliases: &["-v"],
-        description: Some("Output the version number"),
+        description: "Output the version number",
+        hidden: false,
     },
 ];
 
@@ -267,17 +270,14 @@ impl OptionSpec {
     }
 }
 
-/// A command by name or alias.
 pub(crate) fn command(word: &str) -> Option<&'static CommandSpec> {
     COMMANDS.iter().copied().find(|spec| spec.matches(word))
 }
 
-/// A global option by any spelling.
 pub(crate) fn option(token: &str) -> Option<&'static OptionSpec> {
     GLOBAL.iter().find(|spec| spec.matches(token))
 }
 
-/// An option that belongs to some command, such as `--json`.
 pub(crate) fn command_option(token: &str) -> Option<&'static OptionSpec> {
     COMMANDS
         .iter()
@@ -299,7 +299,7 @@ pub(crate) fn command_words() -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
-/// The options a command accepts, its own first and then the global ones, hidden ones included.
+/// Includes hidden options.
 pub(crate) fn options_of(command: Option<&str>) -> Vec<&'static OptionSpec> {
     let own = command
         .and_then(command_by_name)
