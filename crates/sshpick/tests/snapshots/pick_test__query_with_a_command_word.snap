@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: no host matches "web list"
+Fix: list every host with `sshpick ls`.

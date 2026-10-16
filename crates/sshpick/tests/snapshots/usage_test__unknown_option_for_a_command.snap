@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/usage_test.rs
+expression: stderr(&out)
+---
+Error: unknown option "--lsit"
+Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version. Did you mean --list?

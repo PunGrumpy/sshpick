@@ -11,6 +11,9 @@ publish = false
 workspace = true
 
 [dependencies]
-crossterm = { workspace = true }
-ratatui = { workspace = true }
-sshpick-core = { workspace = true }
+sshpick-cli = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+insta = { workspace = true }
+serde_json = { workspace = true }

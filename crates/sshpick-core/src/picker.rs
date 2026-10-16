@@ -4,16 +4,17 @@ use std::ops::Range;
 use crate::config::{Entry, Host};
 use crate::rank::{Match, Ranker};
 
-/// Query, matches, cursor and scroll for one session. The only owner of all four: the binary
+/// Query, matches, cursor and scroll for one session. The only owner of all four: the UI
 /// keeps no selection or table offset of its own and builds each frame from [`Picker::view`].
 pub struct Picker {
     ranker: Ranker,
     query: String,
     matches: Matches,
     scroll: usize,
+    help: bool,
 }
 
-/// A key with the terminal encoding stripped. The binary maps crossterm events to this one to
+/// A key with the terminal encoding stripped. `sshpick-ui` maps crossterm events to this one to
 /// one, with no policy; what each key does lives in [`Picker::handle`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Key {
@@ -27,9 +28,11 @@ pub enum Key {
     Backspace,
     Up,
     Down,
+    /// A function key: `F(1)` is F1. Only F1 does anything.
+    F(u8),
 }
 
-/// How a session ends. The binary maps each to an exit path; see its `Exit` codes.
+/// How a session ends. `sshpick-cli` maps each to an exit code.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
     /// Enter on a match: restore the terminal, then exec `ssh -- <host>`.
@@ -38,6 +41,16 @@ pub enum Outcome {
     Cancel,
     /// Enter with nothing matched: exit 1, as fzf.
     NoMatch,
+}
+
+/// What a query settles by itself; see [`Picker::resolve`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum Resolution<'a> {
+    /// Exactly one host matches: connect to it.
+    One(&'a Host),
+    NoMatch,
+    /// This many hosts match: someone has to choose.
+    Many(usize),
 }
 
 /// Everything one frame shows from the picker.
@@ -54,7 +67,7 @@ pub struct View<'a> {
 }
 
 /// One visible row. Each column is its text cut into `(text, matched)` runs, in order, so the
-/// binary can style matched characters without knowing how the haystack was laid out.
+/// UI can style matched characters without knowing how the haystack was laid out.
 #[derive(Debug)]
 pub struct Row<'a> {
     pub env: Vec<(&'a str, bool)>,
@@ -83,20 +96,18 @@ impl Picker {
             query: query.to_owned(),
             matches,
             scroll: 0,
+            help: false,
         }
     }
 
-    /// fzf `--select-1`: the host when exactly one entry matches, so the caller can exec before
-    /// touching the terminal. Applies to any query, the empty one included (a one-host config).
-    /// Zero matches is `None`: the UI opens, as fzf does.
-    pub fn only_match(&self) -> Option<&Host> {
-        match &self.matches {
-            Matches::Some {
-                better,
-                current,
-                worse,
-            } if better.is_empty() && worse.is_empty() => Some(&self.ranker.entry(current).host),
-            Matches::None | Matches::Some { .. } => None,
+    /// What the query settles before any terminal is touched: fzf's `--select-1` when exactly one
+    /// entry matches, applied to any query, the empty one included (a one-host config). Zero or
+    /// several matches need the picker, or an error when there is no picker to open.
+    pub fn resolve(&self) -> Resolution<'_> {
+        match (&self.matches, self.matches.len()) {
+            (Matches::Some { current, .. }, 1) => Resolution::One(&self.ranker.entry(current).host),
+            (Matches::Some { .. }, count) => Resolution::Many(count),
+            (Matches::None, _) => Resolution::NoMatch,
         }
     }
 
@@ -117,12 +128,19 @@ impl Picker {
             .collect()
     }
 
-    /// Apply one key. `Some` ends the session. The bindings are fzf's defaults:
+    /// Whether the key help is showing. It is non-modal: every other key still acts.
+    pub fn help_open(&self) -> bool {
+        self.help
+    }
+
+    /// Apply one key. `Some` ends the session. The bindings are fzf's defaults, plus the help;
+    /// [`BINDINGS`](crate::BINDINGS) lists them for people and a test keeps the two in step:
     ///
     /// | Key                                   | Effect                                     |
     /// |---------------------------------------|--------------------------------------------|
     /// | Enter                                 | `Pick(selected)`, or `NoMatch`             |
-    /// | Esc, Ctrl-C, Ctrl-G, Ctrl-Q           | `Cancel`                                   |
+    /// | Esc                                   | closes the help if it is open, else `Cancel` |
+    /// | Ctrl-C, Ctrl-G, Ctrl-Q                | `Cancel`                                   |
     /// | Ctrl-D                                | `Cancel` on an empty query, else nothing   |
     /// | Up, Ctrl-P, Ctrl-K                    | cursor to the next better match (up the list) |
     /// | Down, Ctrl-N, Ctrl-J                  | cursor to the next worse match (down the list) |
@@ -130,6 +148,7 @@ impl Picker {
     /// | Backspace, Ctrl-H                     | delete the last char                       |
     /// | Ctrl-U                                | clear the query                            |
     /// | Ctrl-W                                | delete the last word                       |
+    /// | F1, `?` on an empty query             | show or hide the help                      |
     ///
     /// The query cursor is always at the end; there is no Left/Right editing.
     pub fn handle(&mut self, key: Key) -> Option<Outcome> {
@@ -140,17 +159,20 @@ impl Picker {
                     None => Outcome::NoMatch,
                 });
             }
+            Key::Esc if self.help => self.help = false,
             Key::Esc | Key::Ctrl('c' | 'g' | 'q') => return Some(Outcome::Cancel),
             Key::Ctrl('d') if self.query.is_empty() => return Some(Outcome::Cancel),
             Key::Up | Key::Ctrl('p' | 'k') => self.matches.toward_better(),
             Key::Down | Key::Ctrl('n' | 'j') => self.matches.toward_worse(),
+            Key::F(1) => self.help = !self.help,
+            Key::Char('?') if self.query.is_empty() => self.help = !self.help,
             Key::Char(c) => self.edit(|query| query.push(c)),
             Key::Backspace | Key::Ctrl('h') => self.edit(|query| {
                 query.pop();
             }),
             Key::Ctrl('u') => self.edit(String::clear),
             Key::Ctrl('w') => self.edit(delete_word),
-            Key::Ctrl(_) => {}
+            Key::Ctrl(_) | Key::F(_) => {}
         }
         None
     }
@@ -218,9 +240,14 @@ impl Matches {
             current,
             worse,
         } = self
-            && let Some(next) = worse.pop()
         {
-            better.push(mem::replace(current, next));
+            if let Some(next) = worse.pop() {
+                better.push(mem::replace(current, next));
+            } else if !better.is_empty() {
+                let last = mem::replace(current, better.remove(0));
+                worse.push(last);
+                worse.extend(better.drain(..).rev());
+            }
         }
     }
 
@@ -230,9 +257,14 @@ impl Matches {
             current,
             worse,
         } = self
-            && let Some(previous) = better.pop()
         {
-            worse.push(mem::replace(current, previous));
+            if let Some(previous) = better.pop() {
+                worse.push(mem::replace(current, previous));
+            } else if !worse.is_empty() {
+                let first = mem::replace(current, worse.remove(0));
+                better.push(first);
+                better.extend(worse.drain(..).rev());
+            }
         }
     }
 
@@ -386,25 +418,69 @@ mod tests {
     fn down_moves_to_a_worse_match_and_up_to_a_better_one() {
         let mut picker = picker(&["a", "b", "c"]);
         assert_eq!(drawn(&mut picker, 5), (strings(&["a", "b", "c"]), Some(0)));
-        picker.handle(Key::Up);
-        assert_eq!(selected(&picker), "a", "nothing is better than the best");
-        for want in ["b", "c", "c"] {
+        for want in ["b", "c"] {
             picker.handle(Key::Down);
             assert_eq!(selected(&picker), want);
         }
         assert_eq!(drawn(&mut picker, 5).1, Some(2));
-        for want in ["b", "a", "a"] {
+        picker.handle(Key::Up);
+        assert_eq!(selected(&picker), "b");
+        for key in [
+            Key::Ctrl('n'),
+            Key::Ctrl('p'),
+            Key::Ctrl('j'),
+            Key::Ctrl('k'),
+        ] {
+            picker.handle(key);
+        }
+        assert_eq!(selected(&picker), "b");
+    }
+
+    #[test]
+    fn moving_past_either_end_wraps_and_keeps_the_order() {
+        let mut picker = picker(&["a", "b", "c", "d"]);
+        picker.handle(Key::Up);
+        assert_eq!(
+            selected(&picker),
+            "d",
+            "up from the best wraps to the worst"
+        );
+        assert_eq!(
+            drawn(&mut picker, 2),
+            (strings(&["c", "d"]), Some(1)),
+            "the window follows the wrap to the bottom"
+        );
+        assert_eq!(picker.view(2).below, 0);
+        picker.handle(Key::Down);
+        assert_eq!(
+            selected(&picker),
+            "a",
+            "down from the worst wraps to the best"
+        );
+        assert_eq!(drawn(&mut picker, 2), (strings(&["a", "b"]), Some(0)));
+        for want in ["b", "c", "d", "a"] {
+            picker.handle(Key::Down);
+            assert_eq!(selected(&picker), want);
+        }
+        for want in ["d", "c", "b", "a", "d"] {
             picker.handle(Key::Up);
             assert_eq!(selected(&picker), want);
         }
-        for key in [Key::Ctrl('n'), Key::Ctrl('j')] {
+        assert_eq!(drawn(&mut picker, 9).0, strings(&["a", "b", "c", "d"]));
+    }
+
+    #[test]
+    fn one_match_and_no_match_stay_put() {
+        let mut picker = picker(&["a"]);
+        for key in [Key::Up, Key::Down] {
+            picker.handle(key);
+            assert_eq!(selected(&picker), "a");
+        }
+        type_text(&mut picker, "zzz");
+        for key in [Key::Up, Key::Down] {
             picker.handle(key);
         }
-        assert_eq!(selected(&picker), "c");
-        for key in [Key::Ctrl('p'), Key::Ctrl('k')] {
-            picker.handle(key);
-        }
-        assert_eq!(selected(&picker), "a");
+        assert_eq!(drawn(&mut picker, 5), (Vec::new(), None));
     }
 
     #[test]
@@ -448,17 +524,29 @@ mod tests {
     }
 
     #[test]
-    fn only_match_needs_exactly_one_match() {
-        let only = |hosts: &[&str], query: &str| {
-            Picker::new(entries(hosts), query)
-                .only_match()
-                .map(|host| host.to_string())
-        };
-        assert_eq!(only(&["a"], ""), Some("a".to_owned()));
-        assert_eq!(only(&["a", "b"], ""), None);
-        assert_eq!(only(&["a", "b"], "b"), Some("b".to_owned()));
-        assert_eq!(only(&["a", "b"], "zz"), None);
-        assert_eq!(only(&[], ""), None);
+    fn resolve_settles_a_query_without_the_picker() {
+        let resolved =
+            |hosts: &[&str], query: &str| match Picker::new(entries(hosts), query).resolve() {
+                Resolution::One(host) => format!("one {host}"),
+                Resolution::NoMatch => "none".to_owned(),
+                Resolution::Many(count) => format!("many {count}"),
+            };
+        assert_eq!(resolved(&["a"], ""), "one a", "a one-host config");
+        assert_eq!(resolved(&["a", "b"], ""), "many 2");
+        assert_eq!(resolved(&["a", "b"], "b"), "one b");
+        assert_eq!(resolved(&["a", "b"], "zz"), "none");
+        assert_eq!(resolved(&[], ""), "none");
+        assert_eq!(resolved(&["web1", "web2", "db"], "web"), "many 2");
+    }
+
+    #[test]
+    fn resolve_counts_matches_whatever_the_cursor_did() {
+        let mut picker = picker(&["a", "b", "c"]);
+        picker.handle(Key::Down);
+        picker.handle(Key::Down);
+        assert!(matches!(picker.resolve(), Resolution::Many(3)));
+        type_text(&mut picker, "c");
+        assert!(matches!(picker.resolve(), Resolution::One(host) if host.as_str() == "c"));
     }
 
     #[test]
@@ -506,6 +594,77 @@ mod tests {
             assert!(!listed.is_empty(), "{query:?}");
             assert_eq!(drawn, listed, "{query:?}");
         }
+    }
+
+    #[test]
+    fn f1_toggles_the_help_and_question_mark_does_only_on_an_empty_query() {
+        let mut picker = picker(&["a", "b"]);
+        assert!(!picker.help_open());
+        assert_eq!(picker.handle(Key::F(1)), None);
+        assert!(picker.help_open());
+        picker.handle(Key::F(1));
+        assert!(!picker.help_open());
+
+        picker.handle(Key::Char('?'));
+        assert!(picker.help_open(), "? on an empty query opens it");
+        picker.handle(Key::Char('?'));
+        assert!(!picker.help_open(), "and closes it");
+        assert_eq!(picker.view(1).query, "", "? is not typed on an empty query");
+
+        type_text(&mut picker, "a");
+        picker.handle(Key::Char('?'));
+        assert!(!picker.help_open());
+        assert_eq!(picker.view(1).query, "a?", "with a query, ? is a character");
+        picker.handle(Key::F(1));
+        assert!(picker.help_open(), "F1 works whatever the query");
+    }
+
+    #[test]
+    fn other_function_keys_do_nothing() {
+        let mut picker = picker(&["a", "b"]);
+        for n in (2..=12).chain([0]) {
+            assert_eq!(picker.handle(Key::F(n)), None);
+        }
+        assert!(!picker.help_open());
+        assert_eq!(selected(&picker), "a");
+    }
+
+    #[test]
+    fn esc_closes_the_help_before_it_cancels() {
+        let mut picker = picker(&["a", "b"]);
+        picker.handle(Key::F(1));
+        assert_eq!(picker.handle(Key::Esc), None);
+        assert!(!picker.help_open());
+        assert_eq!(picker.handle(Key::Esc), Some(Outcome::Cancel));
+    }
+
+    #[test]
+    fn the_cancel_chords_quit_even_with_the_help_open() {
+        for key in [
+            Key::Ctrl('c'),
+            Key::Ctrl('g'),
+            Key::Ctrl('q'),
+            Key::Ctrl('d'),
+        ] {
+            let mut picker = picker(&["a"]);
+            picker.handle(Key::F(1));
+            assert_eq!(picker.handle(key), Some(Outcome::Cancel), "{key:?}");
+        }
+    }
+
+    #[test]
+    fn the_help_is_not_modal() {
+        let mut picker = picker(&["a-1", "a-2", "b"]);
+        picker.handle(Key::F(1));
+        type_text(&mut picker, "a");
+        assert!(picker.help_open(), "typing keeps it open");
+        picker.handle(Key::Down);
+        assert_eq!(selected(&picker), "a-2", "so do the arrows");
+        assert_eq!(
+            picker.handle(Key::Enter),
+            Some(Outcome::Pick(Host::literal("a-2").unwrap())),
+            "and Enter still picks"
+        );
     }
 
     #[test]

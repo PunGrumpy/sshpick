@@ -13,3 +13,4 @@ workspace = true
 [dependencies]
 glob = { workspace = true }
 nucleo-matcher = { workspace = true }
+thiserror = { workspace = true }

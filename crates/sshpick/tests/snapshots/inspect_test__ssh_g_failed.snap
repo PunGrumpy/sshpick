@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: /home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus
+/home/me/.ssh/config: terminating, 1 bad configuration options

@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: 2 hosts match "consul", and the picker needs an interactive terminal
+Fix: narrow the query to one host, or list them with `sshpick ls consul`.

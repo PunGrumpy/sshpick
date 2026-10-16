@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/usage_test.rs
+expression: stderr(&out)
+---
+Error: unknown option "--bogus"
+Fix: sshpick accepts --help, --no-color, --non-interactive, --version.

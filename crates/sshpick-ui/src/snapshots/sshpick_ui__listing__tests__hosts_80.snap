@@ -1,0 +1,10 @@
+---
+source: crates/sshpick-ui/src/listing.rs
+expression: "table(\"ui\", \"\", 80)"
+---
+  ENV          HOST            WHAT
+  LAB          lab-a           LAB — personal VMs
+  LAB          lab-b           build box
+  NEW STAGING  newstg-consul1  consul server 1 — mgmt
+  NEW STAGING  newstg-consul2
+  NEW STAGING  newstg-bastion  bastion

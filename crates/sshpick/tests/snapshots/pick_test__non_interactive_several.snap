@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: 5 hosts to choose from, and --non-interactive never opens the picker
+Fix: narrow the query to one host, or list them with `sshpick ls`.

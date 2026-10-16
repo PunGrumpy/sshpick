@@ -1,0 +1,54 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ sshpick pick [query ...]
+
+  Pick a host from ~/.ssh/config and ssh to it. Exactly one match connects at
+  once, without opening the picker.
+
+  Keys:
+
+  Enter                        ssh to the selected host
+  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes this help first
+  Up, Ctrl-P, Ctrl-K           select the previous host; wraps to the last
+  Down, Ctrl-N, Ctrl-J         select the next host; wraps to the first
+  type                         filter; 'exact ^prefix suffix$ !not
+  Backspace, Ctrl-H            delete the last character
+  Ctrl-U                       clear the filter
+  Ctrl-W                       delete the last word
+  Ctrl-D                       quit when the filter is empty
+  ?, F1                        toggle this help (? only on an empty filter)
+
+
+  Global Options:
+
+  -h,  --help             Output usage information
+       --no-color         No color mode (default off)
+       --non-interactive  Never open the picker; connect only when exactly one
+                          host matches
+  -V,  --version          Output the version number
+
+
+  Examples:
+
+  - Open the picker with every host
+
+    $ sshpick
+
+  - Open it filtered to hosts matching both words
+
+    $ sshpick new consul
+
+  - Connect without the picker when one host matches
+
+    $ sshpick stg-bastion
+
+  - Search for a word that is also a command name
+
+    $ sshpick pick list
+
+  - Search for text that starts with a dash
+
+    $ sshpick -- -bastion

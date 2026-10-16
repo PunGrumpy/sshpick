@@ -1,0 +1,82 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: text
+---
+$ sshpick --lst
+Error: unknown option "--lst"
+Fix: sshpick accepts --help, --no-color, --non-interactive, --version. Did you mean --list?
+
+$ sshpick list --lsit
+Error: unknown option "--lsit"
+Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version. Did you mean --list?
+
+$ sshpick --bogus
+Error: unknown option "--bogus"
+Fix: sshpick accepts --help, --no-color, --non-interactive, --version.
+
+$ sshpick help lst
+Error: unknown command "lst"
+Fix: did you mean `sshpick help list`? See all commands with `sshpick --help`.
+
+$ sshpick help bogus
+Error: unknown command "bogus"
+Fix: see all commands with `sshpick --help`.
+
+$ sshpick consul < /dev/null
+Error: 4 hosts match "consul", and the picker needs an interactive terminal
+Fix: narrow the query to one host, or list them with `sshpick ls consul`.
+
+$ sshpick --non-interactive
+Error: 12 hosts to choose from, and --non-interactive never opens the picker
+Fix: narrow the query to one host, or list them with `sshpick ls`.
+
+$ sshpick lst new < /dev/null
+Error: no host matches "lst new"
+Fix: did you mean `sshpick list new`?
+
+$ sshpick nope < /dev/null
+Error: no host matches "nope"
+Fix: list every host with `sshpick ls`.
+
+$ sshpick inspekt stg-consul1 < /dev/null
+Error: no host matches "inspekt stg-consul1"
+Fix: did you mean `sshpick inspect stg-consul1`?
+
+$ sshpick inspect
+Error: sshpick inspect needs a query
+Fix: name a host, as in `sshpick inspect stg-consul1`, or list them with `sshpick ls`.
+
+$ sshpick inspect consul
+Error: 3 hosts match "consul"; inspect needs exactly one
+Fix: name one of stg-consul1, stg-consul2, stg-consul3, or list them with `sshpick ls consul`.
+
+$ sshpick inspect web
+Error: 8 hosts match "web"; inspect needs exactly one
+Fix: name one of web1, web2, web3, web4, web5 and 3 more, or list them with `sshpick ls web`.
+
+$ sshpick inspect stg-broken
+Error: /home/me/.ssh/config: terminating, 1 bad configuration options
+
+$ sshpick inspect stg-slow
+Error: ssh -G gave no answer within 2 s
+
+$ sshpick  # no Host lines
+Error: no hosts found in ~/.ssh/config or the files it Includes
+Fix: add `Host` lines; ENV and WHAT come from comments.
+Learn More: https://github.com/PunGrumpy/sshpick#config-conventions
+
+$ sshpick  # no ~/.ssh/config
+Error: cannot read /nonexistent-home/.ssh/config: No such file or directory (os error 2)
+
+$ sshpick  # no HOME
+Error: cannot find the home directory
+
+$ sshpick stg-consul1  # no ssh
+Error: cannot run ssh: No such file or directory (os error 2)
+Fix: install OpenSSH, or put `ssh` on your PATH.
+
+$ sshpick stg-consul1  # ssh refused
+Error: cannot run ssh: Permission denied (os error 13)
+
+$ sshpick ls  # stdout is full
+Error: cannot write the host list: No space left on device (os error 28)

@@ -1,0 +1,12 @@
+---
+source: crates/sshpick-cli/src/commands/inspect.rs
+expression: text
+---
+  General
+
+    host   web
+    names  web, ls
+
+  Command
+
+    ssh -- web

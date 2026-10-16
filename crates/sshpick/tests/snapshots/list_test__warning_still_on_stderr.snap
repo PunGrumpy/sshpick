@@ -1,0 +1,5 @@
+---
+source: crates/sshpick/tests/list_test.rs
+expression: stderr(&out)
+---
+! <fixtures>/cycle/.ssh/config: skipped, include cycle

@@ -1,0 +1,20 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: frame(&lines)
+---
+ 0|> consul                                               2/5│  newstg-consul1 > ssh -G
+ 1|  ENV         HOST           WHAT                         │ user          ubuntu
+ 2|▌ NEW STAGING newstg-consul1 consul server 1 — mgmt       │ hostname      10.11.212.191
+ 3|  NEW STAGING newstg-consul2                              │ port          22
+ 4|                                                          │ proxyjump     newstg-bastion
+ 5|                                                          │
+ 6|                                                          │
+ 7|                                                          │
+ 8|                                                          │
+ 9|                                                          │
+10|                                                          │
+11|                                                          │
+12|                                                          │
+13|                                                          │
+14|↑ ↓ - Select                                              │
+15|F1 - More binds                                           │    Enter - ssh   Esc - Quit

@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: no host matches "lst zzz"
+Fix: did you mean `sshpick list zzz`?

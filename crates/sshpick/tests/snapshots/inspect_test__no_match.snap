@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: no host matches "zzz"
+Fix: list every host with `sshpick ls`.
