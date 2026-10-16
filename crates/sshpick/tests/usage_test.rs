@@ -146,6 +146,23 @@ fn colour_follows_the_environment_not_just_the_terminal() {
 }
 
 #[test]
+fn a_usage_error_honours_no_color_until_a_double_dash() {
+    let escapes = |args: &[&str]| {
+        let out = sshpick("home")
+            .args(args)
+            .env("CLICOLOR_FORCE", "1")
+            .assert()
+            .code(2)
+            .stdout("");
+        stderr(&out).contains('\x1b')
+    };
+    assert!(escapes(&["--bogus"]), "forced colour reaches the error");
+    assert!(!escapes(&["--bogus", "--no-color"]));
+    assert!(!escapes(&["--no-color", "--bogus"]));
+    assert!(escapes(&["--bogus", "--", "--no-color"]));
+}
+
+#[test]
 fn no_color_removes_the_hue_even_when_colour_is_forced() {
     let out = sshpick("home")
         .args(["--no-color", "--help"])

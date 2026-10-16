@@ -3,7 +3,7 @@ use std::io::Write;
 
 use sshpick_ui::Output;
 
-use self::args::Command;
+use self::args::{Args, Command};
 use crate::commands::{CommandBase, inspect, list, pick};
 
 mod args;
@@ -17,9 +17,9 @@ mod test;
 pub(crate) use self::error::{Error, Exit};
 
 pub(crate) fn run(argv: impl IntoIterator<Item = OsString>) -> u8 {
-    let argv: Vec<OsString> = argv.into_iter().collect();
-    let output = Output::new(args::wants_no_color(&argv));
-    match dispatch(argv, &output) {
+    let args = args::parse(argv);
+    let output = Output::new(args.global.no_color);
+    match dispatch(args, &output) {
         Ok(code) => code,
         Err(error) => {
             output.error(&error, error.fix().as_deref(), error.docs());
@@ -28,10 +28,9 @@ pub(crate) fn run(argv: impl IntoIterator<Item = OsString>) -> u8 {
     }
 }
 
-fn dispatch(argv: Vec<OsString>, output: &Output) -> Result<u8, Error> {
-    let args = args::parse(argv)?;
+fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
     let non_interactive = args.global.non_interactive;
-    match args.command {
+    match args.command? {
         Command::Help { topic } => {
             let spec = topic.and_then(spec::command);
             print(

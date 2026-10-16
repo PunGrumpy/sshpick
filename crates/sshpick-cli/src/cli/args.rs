@@ -5,7 +5,7 @@ use super::spec::{self, CommandSpec};
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Args {
     pub(crate) global: GlobalArgs,
-    pub(crate) command: Command,
+    pub(crate) command: Result<Command, UsageError>,
     pub(crate) typed: Option<String>,
 }
 
@@ -58,18 +58,10 @@ struct Flags {
     non_interactive: bool,
 }
 
-/// True when `--no-color` appears before a bare `--`, so a usage error can honour it before the
-/// strict parse has run.
-pub(crate) fn wants_no_color(argv: &[OsString]) -> bool {
-    argv.iter()
-        .take_while(|arg| *arg != "--")
-        .any(|arg| arg == "--no-color")
-}
-
 /// Options are accepted anywhere before a bare `--`. The first positional selects a command when
 /// it names one; otherwise every positional is `pick`'s query. Everything after `--` is query
 /// text. `--help` beats every other error, and `--version` counts only when no command is named.
-pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<Args, UsageError> {
+pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
     let mut argv = argv
         .into_iter()
         .map(|arg| arg.to_string_lossy().into_owned());
@@ -121,24 +113,24 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Result<Args, Us
         non_interactive: flags.non_interactive,
     };
     let command = if flags.help {
-        Command::Help {
+        Ok(Command::Help {
             topic: named.map(|spec| spec.name),
-        }
+        })
     } else if let Some(option) = unknown {
-        return Err(UsageError::Option {
+        Err(UsageError::Option {
             option,
             command: named.map(|spec| spec.name),
-        });
+        })
     } else if flags.version && named.is_none() {
-        Command::Version
+        Ok(Command::Version)
     } else {
-        route(named, words, flags.list, json)?
+        route(named, words, flags.list, json)
     };
-    Ok(Args {
+    Args {
         global,
         command,
         typed,
-    })
+    }
 }
 
 fn route(

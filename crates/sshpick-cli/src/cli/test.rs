@@ -5,7 +5,7 @@ use insta::assert_snapshot;
 use sshpick_ui::ColorConfig;
 use test_case::test_case;
 
-use super::args::{self, Command, UsageError, parse};
+use super::args::{Command, UsageError, parse};
 use super::error::{Error, Exit};
 use super::help::{self, MAX_WIDTH};
 use super::spec::{self, COMMANDS, GLOBAL};
@@ -18,7 +18,7 @@ fn argv(args: &[&str]) -> Vec<OsString> {
 }
 
 fn command(args: &[&str]) -> Result<Command, UsageError> {
-    parse(argv(args)).map(|parsed| parsed.command)
+    parse(argv(args)).command
 }
 
 fn pick_for(query: &str) -> Result<Command, UsageError> {
@@ -141,12 +141,12 @@ fn argv_selects_a_command(args: &[&str]) -> Result<Command, UsageError> {
 #[test_case(&["inspect", "x"] => Some("inspect".to_owned()); "inspect as typed")]
 #[test_case(&["x", "--", "list"] => None; "after the double dash")]
 fn the_command_word_is_kept_as_typed(args: &[&str]) -> Option<String> {
-    parse(argv(args)).unwrap().typed
+    parse(argv(args)).typed
 }
 
 #[test]
 fn global_flags_are_read_wherever_they_stand() {
-    let global = |args: &[&str]| parse(argv(args)).unwrap().global;
+    let global = |args: &[&str]| parse(argv(args)).global;
     assert!(global(&["--non-interactive"]).non_interactive);
     assert!(global(&["ls", "--non-interactive"]).non_interactive);
     assert!(!global(&["--", "--non-interactive"]).non_interactive);
@@ -154,14 +154,17 @@ fn global_flags_are_read_wherever_they_stand() {
     assert!(global(&["db", "--no-color"]).no_color);
 }
 
-#[test]
-fn no_color_is_read_before_the_strict_parse() {
-    assert!(parse(argv(&["--no-color"])).unwrap().global.no_color);
-    assert!(!parse(argv(&["db"])).unwrap().global.no_color);
-    assert!(args::wants_no_color(&argv(&["--bogus", "--no-color"])));
-    assert!(args::wants_no_color(&argv(&["ls", "--no-color"])));
-    assert!(!args::wants_no_color(&argv(&["--", "--no-color"])));
-    assert!(!args::wants_no_color(&argv(&["--no-colour"])));
+#[test_case(&["--no-color"], true; "alone")]
+#[test_case(&["ls", "--no-color"], true; "after a command")]
+#[test_case(&["--bogus", "--no-color"], true; "beside an unknown option")]
+#[test_case(&["--no-color", "--bogus"], true; "before an unknown option")]
+#[test_case(&["inspect", "--no-color"], true; "beside a missing query")]
+#[test_case(&["--", "--no-color"], false; "after -- it is query text")]
+#[test_case(&["--bogus", "--", "--no-color"], false; "after -- on a failed parse")]
+#[test_case(&["--no-colour"], false; "only the exact spelling")]
+#[test_case(&["db"], false; "absent")]
+fn no_color_is_read_whether_or_not_the_command_line_parses(args: &[&str], want: bool) {
+    assert_eq!(parse(argv(args)).global.no_color, want, "{args:?}");
 }
 
 #[test]
