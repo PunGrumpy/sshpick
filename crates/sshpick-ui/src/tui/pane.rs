@@ -2,7 +2,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Paragraph, Wrap};
-use sshpick_core::{Host, Slot};
+use sshpick_core::{Host, Run, Slot};
 
 use super::style::DIM;
 use crate::text::{columns, fit};
@@ -88,12 +88,16 @@ fn key_values<'a>(
         .map(|(key, value)| {
             let gap = KEY_WIDTH.saturating_sub(columns(key)).max(1);
             let key = format!("{key}{}", " ".repeat(gap));
+            let value = [Run {
+                text: value,
+                matched: false,
+            }];
             let value = match room {
-                Some(room) => fit(&[(value, false)], room),
-                None => vec![(value, false)],
+                Some(room) => fit(&value, room),
+                None => value.to_vec(),
             };
             let mut spans = vec![Span::styled(key, DIM)];
-            spans.extend(value.into_iter().map(|(text, _)| Span::raw(text)));
+            spans.extend(value.into_iter().map(|run| Span::raw(run.text)));
             Line::from(spans)
         })
         .collect()

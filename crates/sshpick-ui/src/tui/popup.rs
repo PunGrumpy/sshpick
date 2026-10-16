@@ -2,7 +2,7 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Padding, Paragraph};
-use sshpick_core::BINDINGS;
+use sshpick_core::{BINDINGS, Run};
 
 use super::style::{BOLD, DIM};
 use crate::text::{columns, fit, plural};
@@ -76,9 +76,13 @@ pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
         lines.push(Line::default());
         lines.push(Line::styled(WARNINGS_TITLE, BOLD));
         for text in warnings {
-            let cut: String = fit(&[(text, false)], text_width)
+            let whole = Run {
+                text,
+                matched: false,
+            };
+            let cut: String = fit(&[whole], text_width)
                 .iter()
-                .map(|&(part, _)| part)
+                .map(|run| run.text)
                 .collect();
             lines.push(Line::raw(cut));
         }

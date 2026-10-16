@@ -52,13 +52,17 @@ pub struct View<'a> {
     pub below: usize,
 }
 
-/// One visible row. Each column is its text cut into `(text, matched)` runs, in order, so the
-/// UI can style matched characters without knowing how the haystack was laid out.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Run<'a> {
+    pub text: &'a str,
+    pub matched: bool,
+}
+
 #[derive(Debug)]
 pub struct Row<'a> {
-    pub env: Vec<(&'a str, bool)>,
-    pub host: Vec<(&'a str, bool)>,
-    pub what: Vec<(&'a str, bool)>,
+    pub env: Vec<Run<'a>>,
+    pub host: Vec<Run<'a>>,
+    pub what: Vec<Run<'a>>,
     pub selected: bool,
 }
 
@@ -276,18 +280,27 @@ fn follow(scroll: usize, cursor: usize, height: usize, len: usize) -> usize {
     scroll.min(len.saturating_sub(height))
 }
 
-fn runs<'a>(text: &'a str, hits: &[Range<usize>]) -> Vec<(&'a str, bool)> {
+fn runs<'a>(text: &'a str, hits: &[Range<usize>]) -> Vec<Run<'a>> {
     let mut runs = Vec::new();
     let mut at = 0;
     for hit in hits {
         if hit.start > at {
-            runs.push((&text[at..hit.start], false));
+            runs.push(Run {
+                text: &text[at..hit.start],
+                matched: false,
+            });
         }
-        runs.push((&text[hit.clone()], true));
+        runs.push(Run {
+            text: &text[hit.clone()],
+            matched: true,
+        });
         at = hit.end;
     }
     if at < text.len() {
-        runs.push((&text[at..], false));
+        runs.push(Run {
+            text: &text[at..],
+            matched: false,
+        });
     }
     runs
 }
@@ -305,6 +318,10 @@ fn delete_word(query: &mut String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn run(text: &str, matched: bool) -> Run<'_> {
+        Run { text, matched }
+    }
 
     fn entries(hosts: &[&str]) -> Vec<Entry> {
         hosts
@@ -337,7 +354,7 @@ mod tests {
         let hosts = view
             .rows
             .iter()
-            .map(|r| r.host.iter().map(|(text, _)| *text).collect())
+            .map(|r| r.host.iter().map(|run| run.text).collect())
             .collect();
         (hosts, view.rows.iter().position(|r| r.selected))
     }
@@ -677,9 +694,9 @@ mod tests {
         let view = picker.view(3);
         assert_eq!((view.matched, view.total, view.query), (1, 1, "^lab box"));
         let row = &view.rows[0];
-        assert_eq!(row.env, [("LAB", true)]);
-        assert_eq!(row.host, [("lab-a", false)]);
-        assert_eq!(row.what, [("build ", false), ("box", true)]);
+        assert_eq!(row.env, [run("LAB", true)]);
+        assert_eq!(row.host, [run("lab-a", false)]);
+        assert_eq!(row.what, [run("build ", false), run("box", true)]);
         assert!(row.selected);
     }
 
@@ -738,11 +755,16 @@ mod tests {
         let got = runs("LAB — x", &[0..1, 4..7]);
         assert_eq!(
             got,
-            [("L", true), ("AB ", false), ("—", true), (" x", false)]
+            [
+                run("L", true),
+                run("AB ", false),
+                run("—", true),
+                run(" x", false)
+            ]
         );
         assert_eq!(runs("", &[]), []);
-        assert_eq!(runs("abc", &[]), [("abc", false)]);
+        assert_eq!(runs("abc", &[]), [run("abc", false)]);
         let all = 0..3;
-        assert_eq!(runs("abc", std::slice::from_ref(&all)), [("abc", true)]);
+        assert_eq!(runs("abc", std::slice::from_ref(&all)), [run("abc", true)]);
     }
 }

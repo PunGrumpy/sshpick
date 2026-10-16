@@ -8,6 +8,6 @@ mod ssh;
 
 pub use config::{Entry, Host, LoadError, Loaded, Warning, load};
 pub use keymap::{BINDINGS, Binding};
-pub use picker::{Key, Outcome, Picker, Resolution, Row, View};
+pub use picker::{Key, Outcome, Picker, Resolution, Row, Run, View};
 pub use preview::{Previews, Slot};
 pub use ssh::{Preview, ResolveError, command, exec, resolve};
