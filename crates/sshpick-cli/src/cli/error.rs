@@ -5,7 +5,8 @@ use super::spec;
 use super::suggest;
 use crate::commands::{inspect, list, pick};
 
-const CONFIG_DOCS: &str = "https://github.com/PunGrumpy/sshpick#config-conventions";
+const CONFIG_DOCS: &str =
+    "https://github.com/PunGrumpy/sshpick/blob/main/docs/configuration.md#config-conventions";
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Exit {

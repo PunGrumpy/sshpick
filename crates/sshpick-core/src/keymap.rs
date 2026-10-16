@@ -159,13 +159,13 @@ mod tests {
     }
 
     #[test]
-    fn the_readme_lists_every_row() {
-        let readme = include_str!("../../../README.md");
+    fn the_docs_list_every_row() {
+        let docs = include_str!("../../../docs/picker.md");
         for binding in BINDINGS {
-            let listed = readme
+            let listed = docs
                 .lines()
                 .any(|line| line.contains(binding.keys) && line.contains(binding.does));
-            assert!(listed, "the README's key table lacks: {binding:?}");
+            assert!(listed, "the key table in docs/picker.md lacks: {binding:?}");
         }
     }
 }

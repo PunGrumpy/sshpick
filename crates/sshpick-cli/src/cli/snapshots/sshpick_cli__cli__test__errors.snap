@@ -63,7 +63,7 @@ Error: ssh -G gave no answer within 2 s
 $ sshpick  # no Host lines
 Error: no hosts found in ~/.ssh/config or the files it Includes
 Fix: add `Host` lines; ENV and WHAT come from comments.
-Learn More: https://github.com/PunGrumpy/sshpick#config-conventions
+Learn More: https://github.com/PunGrumpy/sshpick/blob/main/docs/configuration.md#config-conventions
 
 $ sshpick  # no ~/.ssh/config
 Error: cannot read /nonexistent-home/.ssh/config: No such file or directory (os error 2)
