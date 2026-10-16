@@ -1,6 +1,7 @@
 use std::ffi::OsString;
 
 use super::spec::{self, CommandSpec};
+use crate::commands::list::ListFormat;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Args {
@@ -17,22 +18,10 @@ pub(crate) struct GlobalArgs {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
-    Pick {
-        query: String,
-    },
-    List {
-        query: String,
-        json: bool,
-        /// `-l/--list`: tab-separated rows whatever the terminal is, for scripts.
-        machine: bool,
-    },
-    Inspect {
-        query: String,
-        json: bool,
-    },
-    Help {
-        topic: Option<&'static str>,
-    },
+    Pick { query: String },
+    List { query: String, format: ListFormat },
+    Inspect { query: String, json: bool },
+    Help { topic: Option<&'static str> },
     Version,
 }
 
@@ -158,11 +147,12 @@ fn route(
         return Ok(Command::Inspect { query, json });
     }
     Ok(if name == spec::LIST.name || list {
-        Command::List {
-            query,
-            json,
-            machine: list,
-        }
+        let format = match (json, list) {
+            (true, _) => ListFormat::Json,
+            (false, true) => ListFormat::Tsv,
+            (false, false) => ListFormat::Auto,
+        };
+        Command::List { query, format }
     } else {
         Command::Pick { query }
     })

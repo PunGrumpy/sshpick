@@ -39,16 +39,11 @@ fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
             )
         }
         Command::Version => print(output, concat!("sshpick ", env!("CARGO_PKG_VERSION"), "\n")),
-        Command::List {
-            query,
-            json,
-            machine,
-        } => list::run(
+        Command::List { query, format } => list::run(
             &CommandBase::new(output, non_interactive)?,
             &list::Request {
                 query: &query,
-                json,
-                machine,
+                format,
                 typed: args.typed.as_deref(),
             },
         ),

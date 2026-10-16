@@ -13,12 +13,16 @@ pub(crate) enum Error {
     Write(#[source] io::Error),
 }
 
-/// What `list` was asked for. `machine` is the hidden `--list`: tab-separated rows whatever
-/// stdout is. `json` wins over it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ListFormat {
+    Auto,
+    Tsv,
+    Json,
+}
+
 pub(crate) struct Request<'a> {
     pub(crate) query: &'a str,
-    pub(crate) json: bool,
-    pub(crate) machine: bool,
+    pub(crate) format: ListFormat,
     pub(crate) typed: Option<&'a str>,
 }
 
@@ -59,11 +63,10 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
     base.warn_all(&loaded.warnings);
     let Request {
         query,
-        json,
-        machine,
+        format,
         typed,
     } = *request;
-    let human = !json && !machine;
+    let human = format == ListFormat::Auto;
     if let Some(word) = typed.filter(|_| human) {
         base.note_if_also_a_host(word, &loaded.entries);
     }
@@ -79,7 +82,7 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
     } else {
         Exit::Success
     };
-    if json {
+    if format == ListFormat::Json {
         let view = View {
             query,
             total,
