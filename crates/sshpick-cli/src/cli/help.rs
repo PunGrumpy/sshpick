@@ -139,7 +139,8 @@ impl Page {
     fn options(&self, title: &str, options: &[OptionSpec]) -> Vec<String> {
         let mut shown: Vec<(&OptionSpec, &str)> = options
             .iter()
-            .filter_map(|option| Some((option, option.description?)))
+            .filter(|option| !option.hidden)
+            .map(|option| (option, option.description))
             .collect();
         shown.sort_by_key(|(option, _)| option.long);
         let cells: Vec<(String, String)> = shown

@@ -283,7 +283,7 @@ fn help_fits_a_100_column_terminal() {
 fn hidden_options_parse_but_stay_out_of_help() {
     let hidden: Vec<&str> = GLOBAL
         .iter()
-        .filter(|option| option.description.is_none())
+        .filter(|option| option.hidden)
         .map(|option| option.long)
         .collect();
     assert_eq!(hidden, ["list"]);

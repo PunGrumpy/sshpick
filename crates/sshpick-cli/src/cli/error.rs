@@ -101,7 +101,7 @@ fn accepted_options(option: &str, command: Option<&'static str>) -> String {
     let options = spec::options_of(command);
     let mut visible: Vec<String> = options
         .iter()
-        .filter(|option| option.description.is_some())
+        .filter(|option| !option.hidden)
         .map(|option| format!("--{}", option.long))
         .collect();
     visible.sort_unstable();
