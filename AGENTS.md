@@ -42,7 +42,7 @@
   gets no escape bytes unless `CLICOLOR_FORCE` is set.
 - Never prompt under `--non-interactive`. The picker is the only prompt.
 - Command names, flags, exit codes, environment variables and TSV columns are a contract. Change
-  one only with a test and a README line.
+  one only with a test and a line in `docs`.
 - Add a command or flag to `cli/spec.rs` first. Parsing, help and suggestions follow from it.
 - A typo suggestion needs exactly one single-edit candidate (`cli/suggest.rs`). No similarity
   scores.
