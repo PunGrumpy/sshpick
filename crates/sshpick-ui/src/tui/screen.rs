@@ -59,6 +59,7 @@ impl Screen {
         ])
         .areas(content);
 
+        picker.follow(list.height.into());
         let view = picker.view(list.height.into());
         prompt_row(frame, prompt, &view);
         self.table.list(frame, list, &view);

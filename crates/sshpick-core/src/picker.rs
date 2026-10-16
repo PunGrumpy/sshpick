@@ -146,15 +146,16 @@ impl Picker {
         None
     }
 
-    /// The rows that fit in `height` lines, scrolled so the cursor is visible, plus the prompt
-    /// and count. Takes `&mut self` because it moves the scroll window.
-    pub fn view(&mut self, height: usize) -> View<'_> {
-        self.scroll = follow(
+    pub fn follow(&mut self, height: usize) {
+        self.scroll = scroll_to_show(
             self.scroll,
             self.matches.cursor(),
             height,
             self.matches.len(),
         );
+    }
+
+    pub fn view(&self, height: usize) -> View<'_> {
         let rows: Vec<_> = self
             .matches
             .ranked()
@@ -267,7 +268,7 @@ impl Matches {
     }
 }
 
-fn follow(scroll: usize, cursor: usize, height: usize, len: usize) -> usize {
+fn scroll_to_show(scroll: usize, cursor: usize, height: usize, len: usize) -> usize {
     if height == 0 {
         return scroll;
     }
@@ -345,11 +346,17 @@ mod tests {
         }
     }
 
+    fn below(picker: &mut Picker, height: usize) -> usize {
+        picker.follow(height);
+        picker.view(height).below
+    }
+
     fn selected(picker: &Picker) -> &str {
         picker.selected().map_or("", Host::as_str)
     }
 
     fn drawn(picker: &mut Picker, height: usize) -> (Vec<String>, Option<usize>) {
+        picker.follow(height);
         let view = picker.view(height);
         let hosts = view
             .rows
@@ -690,7 +697,7 @@ mod tests {
             what: "build box".to_owned(),
             aliases: Vec::new(),
         };
-        let mut picker = Picker::new(vec![entry], "^lab box");
+        let picker = Picker::new(vec![entry], "^lab box");
         let view = picker.view(3);
         assert_eq!((view.matched, view.total, view.query), (1, 1, "^lab box"));
         let row = &view.rows[0];
@@ -720,24 +727,44 @@ mod tests {
     #[test]
     fn view_counts_the_matches_below_the_window() {
         let mut picker = picker(&["a", "b", "c", "d", "e"]);
-        assert_eq!(picker.view(5).below, 0, "all fit");
-        assert_eq!(picker.view(3).below, 2);
+        assert_eq!(below(&mut picker, 5), 0, "all fit");
+        assert_eq!(below(&mut picker, 3), 2);
         for _ in 0..3 {
             picker.handle(Key::Down);
         }
-        assert_eq!(picker.view(3).below, 1, "the window followed the cursor");
+        assert_eq!(below(&mut picker, 3), 1, "the window followed the cursor");
         picker.handle(Key::Down);
+        picker.follow(3);
         let view = picker.view(3);
         assert_eq!((view.below, view.matched), (0, 5), "scrolled to the end");
-        assert_eq!(picker.view(1).below, 0, "the cursor row is the last one");
+        assert_eq!(below(&mut picker, 1), 0, "the cursor row is the last one");
         picker.handle(Key::Up);
-        assert_eq!(picker.view(1).below, 1);
+        assert_eq!(below(&mut picker, 1), 1);
         type_text(&mut picker, "zzzz");
-        assert_eq!(picker.view(3).below, 0, "nothing matched");
+        assert_eq!(below(&mut picker, 3), 0, "nothing matched");
     }
 
     #[test]
-    fn follow_scrolls_like_fzf() {
+    fn the_window_moves_on_follow_and_view_leaves_it_alone() {
+        let mut picker = picker(&["a", "b", "c", "d", "e"]);
+        for _ in 0..4 {
+            picker.handle(Key::Down);
+        }
+        let before = picker.view(2);
+        assert!(
+            before.rows.iter().all(|row| !row.selected),
+            "view alone does not scroll to the cursor"
+        );
+        assert_eq!(before.below, 3);
+        assert_eq!(
+            drawn(&mut picker, 2),
+            (strings(&["d", "e"]), Some(1)),
+            "follow brings the cursor into view"
+        );
+    }
+
+    #[test]
+    fn scrolling_keeps_the_cursor_in_view_like_fzf() {
         let cases = [
             ((0, 0, 5, 20), 0),
             ((0, 5, 5, 20), 1),
@@ -746,7 +773,7 @@ mod tests {
             ((4, 4, 0, 20), 4),
         ];
         for ((scroll, cursor, height, len), want) in cases {
-            assert_eq!(follow(scroll, cursor, height, len), want);
+            assert_eq!(scroll_to_show(scroll, cursor, height, len), want);
         }
     }
 

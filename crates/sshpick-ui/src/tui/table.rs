@@ -160,6 +160,7 @@ mod tests {
 
     fn rows(query: &str, height: usize, warnings: usize) -> [String; 2] {
         let mut picker = Picker::new(entries("ui"), query);
+        picker.follow(height);
         footer_rows(&picker.view(height), warnings)
     }
 

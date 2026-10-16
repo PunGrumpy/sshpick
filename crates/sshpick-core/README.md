@@ -18,7 +18,8 @@ sshpick-core
     ├── rank.rs - Ranker: nucleo's fuzzy match over ENV, HOST, WHAT and aliases, with the matched
     │   ranges per column
     ├── picker.rs - Picker: query, matches, cursor and scroll; resolve() settles a query before any
-    │   terminal, handle(Key) returns an Outcome, view() is the rows of one frame
+    │   terminal, handle(Key) returns an Outcome, follow(height) scrolls to the cursor and view()
+    │   is the rows of one frame
     ├── keymap.rs - BINDINGS: every key Picker::handle acts on, which the popup, `sshpick pick
     │   --help` and the README table read; tests tie it to the picker
     ├── preview.rs - Previews: one worker thread that runs ssh -G, and a Slot per host

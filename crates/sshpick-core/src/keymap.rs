@@ -91,13 +91,13 @@ mod tests {
                 if help {
                     picker.handle(Key::F(1));
                 }
-                let before = state(&mut picker);
-                picker.handle(key).is_some() || state(&mut picker) != before
+                let before = state(&picker);
+                picker.handle(key).is_some() || state(&picker) != before
             })
         })
     }
 
-    fn state(picker: &mut Picker) -> (String, Option<String>, bool) {
+    fn state(picker: &Picker) -> (String, Option<String>, bool) {
         (
             picker.view(10).query.to_owned(),
             picker.selected().map(ToString::to_string),
