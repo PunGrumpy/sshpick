@@ -9,7 +9,7 @@
 </p>
 
 sshpick is a fuzzy picker for the hosts in your ssh config, with a live `ssh -G` preview of where
-each host really goes.
+each host really goes. It runs on macOS and Linux.
 
 ## Getting Started
 
