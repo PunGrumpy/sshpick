@@ -704,7 +704,7 @@ mod tests {
     fn a_control_character_from_the_config_never_reaches_the_report() {
         let mut facts = facts();
         facts.probe = Some(Probe {
-            host: Host::literal("a\u{1b}[2Jb").unwrap(),
+            host: Host::literal("a").unwrap(),
             result: Err(ssh_said("bad\u{7}option")),
             took: Duration::ZERO,
         });

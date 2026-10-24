@@ -9,11 +9,11 @@ On a terminal `ls` prints an aligned table with a dim header, the way the picker
 and a line on stderr such as `> 4 of 12 hosts match "consul"`. ENV is left out when no host has
 one, and WHAT is cut with `…` to the width of the terminal.
 
-When stdout is not a terminal `ls` prints the matching hosts as `ENV`, `HOST` and `WHAT`,
-separated by tabs, with no header and no styling. The order is the picker's list read top to
-bottom, best match first; with no query it is the order of the config. There are always three
-columns, so `cut -f2` gives the host names even when ENV is empty. Tabs inside a comment become
-spaces. Warnings go to stderr. The exit status is 1 when nothing matches.
+When stdout is not a terminal `ls` prints the matching hosts as `ENV`, `HOST` and `WHAT`, separated
+by tabs, with no header and no styling. The order is the picker's list read top to bottom, best
+match first; with no query it is the order of the config. There are always three columns, so
+`cut -f2` gives the host names even when ENV is empty. Tabs and other control characters inside a
+comment become spaces. Warnings go to stderr. The exit status is 1 when nothing matches.
 
 `--list` and `-l` stay as hidden spellings of `ls` that always print the tab-separated rows,
 even on a terminal, so `sshpick --list | fzf` keeps working.

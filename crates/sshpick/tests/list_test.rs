@@ -41,6 +41,15 @@ fn list_keeps_three_columns_when_env_is_empty() {
 }
 
 #[test]
+fn control_characters_in_the_config_print_as_spaces() {
+    sshpick("controls")
+        .arg("--list")
+        .assert()
+        .code(0)
+        .stdout(" [1mBOLD [0m\tplain-host\tred  [31mtext \n");
+}
+
+#[test]
 fn list_with_no_match_prints_nothing_and_exits_one() {
     sshpick("ui")
         .args(["--list", "zzz"])

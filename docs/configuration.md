@@ -41,3 +41,6 @@ Host stg-consul1 consul1.stg
 - `stg-consul1` is the row. `consul1.stg` is searchable, so typing it finds the row.
 - `Host` follows ssh syntax: any case, tabs, `Host=x`, indentation. A name listed twice
   makes one row.
+- Control characters (a tab, an escape sequence) in comments, file names and `ssh -G` output show as
+  spaces, and a `Host` name that contains one is skipped, so nothing in a config can drive your
+  terminal.
