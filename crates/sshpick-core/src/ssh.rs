@@ -251,6 +251,29 @@ mod tests {
     }
 
     #[test]
+    fn a_timed_out_ssh_is_killed_and_reaped() {
+        let dir = std::env::temp_dir().join(format!("sshpick-reap-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let pid_file = dir.join("pid");
+        let error = resolve_with(
+            fake("ssh-hang-pid").as_os_str(),
+            &host(pid_file.to_str().unwrap()),
+            Duration::from_millis(500),
+        )
+        .unwrap_err();
+        assert!(matches!(error, ResolveError::Timeout), "{error:?}");
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        let alive = Command::new("kill")
+            .args(["-0", pid.trim()])
+            .stderr(Stdio::null())
+            .status()
+            .unwrap()
+            .success();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(!alive, "pid {} outlived the timeout", pid.trim());
+    }
+
+    #[test]
     fn resolve_reports_a_missing_program() {
         let error = resolve_with(
             OsStr::new("/nonexistent/ssh"),
