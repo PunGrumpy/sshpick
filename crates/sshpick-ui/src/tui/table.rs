@@ -6,9 +6,7 @@ use ratatui::widgets::{HighlightSpacing, Paragraph, Row as TableRow, Table, Tabl
 use sshpick_core::{Entry, View};
 
 use super::style::{BOLD, DIM, REVERSED, cell};
-use crate::text::{fit, plural, width};
-
-const TITLES: [&str; 3] = ["ENV", "HOST", "WHAT"];
+use crate::text::{ColumnWidths, TITLES, fit, plural, width};
 
 const MARKER: &str = "▌ ";
 const GUTTER: &str = "  ";
@@ -31,21 +29,11 @@ pub(super) struct HostTable {
 
 impl HostTable {
     pub(super) fn new(entries: &[Entry]) -> HostTable {
-        let widest = |text: fn(&Entry) -> &str| {
-            entries
-                .iter()
-                .map(|entry| width(text(entry)))
-                .max()
-                .unwrap_or(0)
-        };
-        let env = widest(|entry| &entry.env);
+        let widths = ColumnWidths::of(entries);
+        let cells = |n: usize| u16::try_from(n).unwrap_or(u16::MAX);
         HostTable {
-            env: if env == 0 {
-                0
-            } else {
-                env.max(width(TITLES[0]))
-            },
-            host: widest(|entry| entry.host.as_str()).max(width(TITLES[1])),
+            env: widths.env.map_or(0, cells),
+            host: cells(widths.host),
         }
     }
 
