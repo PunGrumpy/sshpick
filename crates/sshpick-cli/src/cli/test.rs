@@ -299,6 +299,36 @@ fn hidden_options_parse_but_stay_out_of_help() {
     }
 }
 
+#[test]
+fn every_option_in_the_table_parses() {
+    let spellings = |option: &spec::OptionSpec| {
+        let mut words = vec![format!("--{}", option.long)];
+        words.extend(option.short.map(|short| format!("-{short}")));
+        words.extend(option.aliases.iter().map(|alias| (*alias).to_owned()));
+        words
+    };
+    let mut cases: Vec<Vec<String>> = GLOBAL
+        .iter()
+        .flat_map(spellings)
+        .map(|word| vec![word])
+        .collect();
+    for spec in COMMANDS {
+        for option in spec.options {
+            for word in spellings(option) {
+                cases.push(vec![spec.name.to_owned(), word]);
+            }
+        }
+    }
+    for args in cases {
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        let parsed = command(&args);
+        assert!(
+            !matches!(parsed, Err(UsageError::Option { .. })),
+            "{args:?} is in spec.rs but does not parse: {parsed:?}"
+        );
+    }
+}
+
 fn strip_escapes(text: &str) -> String {
     let mut plain = String::new();
     let mut chars = text.chars();
