@@ -175,7 +175,11 @@ impl<'a> Walk<'a> {
         let Some(pattern) = self.pattern(arg) else {
             return Vec::new();
         };
-        let paths = match glob::glob(&pattern) {
+        let options = glob::MatchOptions {
+            require_literal_leading_dot: true,
+            ..glob::MatchOptions::new()
+        };
+        let paths = match glob::glob_with(&pattern, options) {
             Ok(paths) => paths,
             Err(error) => {
                 let (arg, reason) = (arg.to_owned(), error.to_string());
@@ -402,6 +406,11 @@ mod tests {
         assert!(
             walk.expand("config.d").is_empty(),
             "directories are not files"
+        );
+        assert_eq!(
+            walk.expand("config.d/.hidden.conf").len(),
+            1,
+            "a name that spells out the dot still matches"
         );
         assert!(walk.out.warnings.is_empty());
     }

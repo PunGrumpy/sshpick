@@ -14,8 +14,9 @@ config shows ssh's own error there. Each host is resolved once per session.
 
 ## Config conventions
 
-sshpick reads `~/.ssh/config` and follows its `Include` lines in the order ssh does. Two
-comment conventions fill the columns. Nothing else in the config needs to change.
+sshpick reads `~/.ssh/config` and follows its `Include` lines in the order ssh does; like ssh, a
+wildcard such as `config.d/*` skips hidden files. Two comment conventions fill the columns.
+Nothing else in the config needs to change.
 
 ```text
 # STAGING — shared test environment (rotates quarterly)
