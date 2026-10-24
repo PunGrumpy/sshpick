@@ -4,7 +4,8 @@
 
 The command line of sshpick: it parses argv, runs the command, prints what went wrong and picks
 the exit code. The `sshpick` binary is one call into `sshpick_cli::main`. Rules live in
-`sshpick-core`; everything the user sees is drawn by `sshpick-ui`.
+`sshpick-core`; `sshpick-ui` owns the terminal, the colour and the host table, while the help and
+`inspect` text is written here.
 
 ## Architecture
 
