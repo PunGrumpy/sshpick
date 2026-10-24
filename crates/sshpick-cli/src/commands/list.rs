@@ -162,5 +162,13 @@ mod tests {
             reason: "${X} is not set".to_owned(),
         });
         assert_eq!((bad.kind, bad.path), ("bad_include", None));
+        let unreadable = WarningView::of(&Warning::Unreadable {
+            path: std::path::PathBuf::from("/h/.ssh/b.conf"),
+            source: io::Error::from(io::ErrorKind::PermissionDenied),
+        });
+        assert_eq!(
+            (unreadable.kind, unreadable.path.as_deref()),
+            ("unreadable", Some("/h/.ssh/b.conf"))
+        );
     }
 }
