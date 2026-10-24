@@ -15,8 +15,9 @@ config shows ssh's own error there. Each host is resolved once per session.
 ## Config conventions
 
 sshpick reads `~/.ssh/config` and follows its `Include` lines in the order ssh does; like ssh, a
-wildcard such as `config.d/*` skips hidden files. Two comment conventions fill the columns.
-Nothing else in the config needs to change.
+wildcard such as `config.d/*` skips hidden files. An `Include` that uses a `%` token other than
+`%d` or `%%` is skipped with a warning, since most of those tokens depend on the host. Two comment
+conventions fill the columns. Nothing else in the config needs to change.
 
 ```text
 # STAGING — shared test environment (rotates quarterly)

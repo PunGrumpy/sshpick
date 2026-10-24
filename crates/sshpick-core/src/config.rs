@@ -220,6 +220,11 @@ impl<'a> Walk<'a> {
             } else if let Some(after) = rest.strip_prefix("%d") {
                 pattern.push_str(&home);
                 rest = after;
+            } else if let Some(after) = rest.strip_prefix('%') {
+                return match after.chars().next() {
+                    Some(token) => self.bad_include(arg, format!("%{token} is not supported")),
+                    None => self.bad_include(arg, "a lone % at the end".to_owned()),
+                };
             } else if let Some(after) = rest.strip_prefix("${") {
                 let Some((name, after)) = after.split_once('}') else {
                     return self.bad_include(arg, "unterminated ${".to_owned());
@@ -453,6 +458,30 @@ mod tests {
         let var = |_: &str| None;
         let mut walk = Walk::new(Path::new("/h[1]"), &var);
         assert_eq!(walk.pattern("~/x").as_deref(), Some("/h[[]1[]]/x"));
+    }
+
+    #[test]
+    fn a_percent_token_sshpick_cannot_expand_skips_the_include_with_a_warning() {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        assert_eq!(walk.pattern("hosts/%h.conf"), None);
+        assert_eq!(walk.pattern("%u/x"), None);
+        assert_eq!(walk.pattern("tail%"), None);
+        assert_eq!(walk.pattern("%%h").as_deref(), Some("/h/.ssh/%h"));
+        let reasons: Vec<_> = walk
+            .out
+            .warnings
+            .iter()
+            .map(|warning| warning.to_string())
+            .collect();
+        assert_eq!(
+            reasons,
+            [
+                "Include hosts/%h.conf: skipped, %h is not supported",
+                "Include %u/x: skipped, %u is not supported",
+                "Include tail%: skipped, a lone % at the end",
+            ]
+        );
     }
 
     #[test]
