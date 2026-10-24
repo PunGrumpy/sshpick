@@ -74,7 +74,11 @@ fn help_and_version_exit_zero_when_stdout_closes_early() {
 fn help_goes_to_stdout_and_leads_with_the_version() {
     let out = sshpick("home").arg("--help").assert().code(0).stderr("");
     let text = String::from_utf8_lossy(&out.get_output().stdout).into_owned();
-    assert!(text.starts_with("sshpick 0.1.0\n\n  ▌ sshpick [options] [command | query ...]\n"));
+    let lead = format!(
+        "sshpick {}\n\n  ▌ sshpick [options] [command | query ...]\n",
+        env!("CARGO_PKG_VERSION")
+    );
+    assert!(text.starts_with(&lead));
     assert!(!text.contains('\x1b'), "a pipe gets no escape bytes");
     assert!(text.lines().all(|line| !line.ends_with(' ')));
 }
@@ -118,7 +122,7 @@ fn version_prints_one_line_and_a_hidden_lowercase_alias_agrees() {
             .arg(flag)
             .assert()
             .code(0)
-            .stdout("sshpick 0.1.0\n")
+            .stdout(format!("sshpick {}\n", env!("CARGO_PKG_VERSION")))
             .stderr("");
     }
 }

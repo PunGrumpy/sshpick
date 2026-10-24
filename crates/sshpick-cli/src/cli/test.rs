@@ -219,9 +219,16 @@ fn page(topic: &str, width: usize) -> String {
     help::render(spec::command(topic), width, PLAIN)
 }
 
+fn versionless(text: String) -> String {
+    text.replace(
+        concat!("sshpick ", env!("CARGO_PKG_VERSION")),
+        "sshpick [version]",
+    )
+}
+
 #[test]
 fn the_root_help() {
-    assert_snapshot!("help_root", help::render(None, 80, PLAIN));
+    assert_snapshot!("help_root", versionless(help::render(None, 80, PLAIN)));
 }
 
 #[test_case("pick")]
@@ -237,7 +244,7 @@ fn each_commands_help(topic: &str) {
 fn the_root_help_wraps_to_the_width(width: usize) {
     assert_snapshot!(
         format!("help_root_{width}"),
-        help::render(None, width, PLAIN)
+        versionless(help::render(None, width, PLAIN))
     );
 }
 
