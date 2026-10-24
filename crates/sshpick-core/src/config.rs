@@ -346,8 +346,8 @@ fn arguments(text: &str) -> Vec<String> {
     args
 }
 
-/// Turns every control character into a space, so text from the config cannot drive a terminal
-/// when it is shown. For display only: what reaches `ssh` is the text as written.
+/// Turns every control character into a space, so text from the config or from ssh cannot drive
+/// a terminal when it is shown. For display only: what reaches `ssh` is the text as written.
 pub fn printable(text: &str) -> String {
     text.chars()
         .map(|c| if c.is_control() { ' ' } else { c })

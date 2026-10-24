@@ -5,7 +5,7 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use crate::config::Host;
+use crate::config::{Host, printable};
 
 pub(crate) const SSH: &str = "ssh";
 
@@ -155,10 +155,11 @@ pub(crate) fn resolve_with(
     if status.success() {
         return Ok(parse_g(&stdout));
     }
-    let said: Vec<&str> = stderr
+    let said: Vec<String> = stderr
         .lines()
         .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with(TTY_NOTICE))
+        .map(printable)
         .collect();
     Err(ResolveError::Ssh {
         code: status.code(),
@@ -258,7 +259,7 @@ fn parse_g(stdout: &str) -> Preview {
     let lines = stdout.lines().filter_map(|line| {
         let (word, value) = line.split_once(' ')?;
         let key = KEYS.iter().find(|key| **key == word)?;
-        Some((*key, value.to_owned()))
+        Some((*key, printable(value)))
     });
     Preview(lines.collect())
 }
@@ -467,6 +468,13 @@ mod tests {
         let got: Vec<_> = preview.lines().collect();
         assert_eq!(got, [("proxyjump", "a, b")]);
         assert_eq!(parse_g("").lines().count(), 0);
+    }
+
+    #[test]
+    fn parse_g_turns_control_characters_into_spaces() {
+        let preview = parse_g("remotecommand echo \u{1b}[31mhi\u{7}\n");
+        let got: Vec<_> = preview.lines().collect();
+        assert_eq!(got, [("remotecommand", "echo  [31mhi ")]);
     }
 
     #[test]
