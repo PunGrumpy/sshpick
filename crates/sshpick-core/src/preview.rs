@@ -76,7 +76,8 @@ impl Previews {
         self.fetch(host);
     }
 
-    pub fn busy(&self) -> bool {
+    pub fn busy(&mut self) -> bool {
+        self.drain();
         self.slots
             .values()
             .any(|slot| matches!(slot, Slot::Waiting))
@@ -215,5 +216,21 @@ mod tests {
         let a = host("a");
         assert_eq!(settled(&mut previews, &a), "spawn");
         assert_eq!(kind(previews.fetch(&a)), "spawn");
+    }
+
+    #[test]
+    fn a_reply_clears_busy_without_another_fetch() {
+        let mut previews = Previews::start(fake("ssh-ok"), PATIENT).unwrap();
+        let a = host("a");
+        assert_eq!(kind(previews.fetch(&a)), "waiting");
+        let give_up = Instant::now() + Duration::from_secs(60);
+        while previews.busy() && Instant::now() < give_up {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            !previews.busy(),
+            "the reply is read even when nothing fetches again"
+        );
+        assert_eq!(kind(previews.fetch(&a)), "ready");
     }
 }
