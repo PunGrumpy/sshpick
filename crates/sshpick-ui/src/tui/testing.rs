@@ -5,7 +5,7 @@ use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::style::Modifier;
 use ratatui::text::Line;
-use sshpick_core::{Entry, Picker, Preview, Slot, Warning};
+use sshpick_core::{Entry, Picker, Preview, Slot};
 
 use super::screen::Screen;
 
@@ -17,12 +17,8 @@ pub(super) fn entries(home: &str) -> Vec<Entry> {
 }
 
 pub(super) fn setup(home: &str, query: &str) -> (Screen, Picker) {
-    setup_with(home, query, &[])
-}
-
-pub(super) fn setup_with(home: &str, query: &str, warnings: &[Warning]) -> (Screen, Picker) {
     let entries = entries(home);
-    (Screen::new(&entries, warnings), Picker::new(entries, query))
+    (Screen::new(&entries), Picker::new(entries, query))
 }
 
 pub(super) fn terminal(width: u16, height: u16) -> Terminal<TestBackend> {

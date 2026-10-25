@@ -1,7 +1,7 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::widgets::{Block, Borders};
-use sshpick_core::{Entry, Picker, Warning};
+use sshpick_core::{Entry, Picker};
 
 use super::pane::{self, Pane};
 use super::popup::popup;
@@ -13,14 +13,12 @@ use super::table::{FOOTER_ROWS, HostTable, footer, prompt_row};
 #[derive(Debug)]
 pub struct Screen {
     table: HostTable,
-    warnings: Vec<String>,
 }
 
 impl Screen {
-    pub fn new(entries: &[Entry], warnings: &[Warning]) -> Screen {
+    pub fn new(entries: &[Entry]) -> Screen {
         Screen {
             table: HostTable::new(entries),
-            warnings: warnings.iter().map(ToString::to_string).collect(),
         }
     }
 
@@ -65,7 +63,7 @@ impl Screen {
         self.table.list(frame, list, &view);
         if framed {
             self.table.header(frame, header);
-            footer(frame, footer_area, &view, self.warnings.len());
+            footer(frame, footer_area, &view);
         }
         if let Some(right) = right {
             let [_, preview] =
@@ -77,22 +75,20 @@ impl Screen {
             pane::stacked(frame, stacked, pane);
         }
         if picker.help_open() {
-            popup(frame, &self.warnings);
+            popup(frame);
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
     use insta::assert_snapshot;
     use ratatui::style::Color;
-    use sshpick_core::{Key, Preview, ResolveError, Slot, Warning};
+    use sshpick_core::{Key, Preview, ResolveError, Slot};
 
     use super::*;
     use crate::tui::testing::{
-        bold, cell, dim, frame, ready, render, reversed, setup, setup_with, styles, terminal,
+        bold, cell, dim, frame, ready, render, reversed, setup, styles, terminal,
     };
 
     #[test]
@@ -195,11 +191,8 @@ mod tests {
 
     #[test]
     fn the_screen_uses_no_colour_so_there_is_none_to_turn_off() {
-        let warnings = [Warning::Cycle {
-            path: PathBuf::from("/x"),
-        }];
         for (query, width, height) in [("", 120, 30), ("consul", 80, 24), ("zzzz", 100, 12)] {
-            let (screen, mut picker) = setup_with("ui", query, &warnings);
+            let (screen, mut picker) = setup("ui", query);
             picker.handle(Key::F(1));
             let mut terminal = terminal(width, height);
             render(&mut terminal, &screen, &mut picker, &ready());
@@ -390,10 +383,7 @@ mod tests {
 
     #[test]
     fn zero_matches_say_no_match_on_the_first_row_and_the_footer_offers_only_quit() {
-        let warnings = [Warning::Cycle {
-            path: PathBuf::from("/x"),
-        }];
-        let (screen, mut picker) = setup_with("ui", "zzzz", &warnings);
+        let (screen, mut picker) = setup("ui", "zzzz");
         let mut wide = terminal(120, 14);
         let lines = render(&mut wide, &screen, &mut picker, &ready());
         assert_snapshot!("no_match_120x14", frame(&lines));
@@ -444,7 +434,7 @@ mod tests {
     }
 
     #[test]
-    fn the_footer_offers_the_key_that_works_now_and_counts_warnings() {
+    fn the_footer_offers_the_key_that_works_now() {
         let (screen, mut picker) = setup("ui", "");
         let last = |picker: &mut Picker, screen: &Screen| {
             let lines = render(&mut terminal(60, 14), screen, picker, &Slot::Waiting);
@@ -453,21 +443,6 @@ mod tests {
         assert_eq!(last(&mut picker, &screen), "? - More binds");
         picker.handle(Key::Char('c'));
         assert_eq!(last(&mut picker, &screen), "F1 - More binds");
-
-        let warnings = [Warning::Cycle {
-            path: PathBuf::from("/x"),
-        }];
-        let (screen, mut picker) = setup_with("home", "", &warnings);
-        let lines = render(&mut terminal(100, 12), &screen, &mut picker, &Slot::Waiting);
-        assert!(
-            lines[11].starts_with("? - More binds   1 warning "),
-            "{:?}",
-            lines[11]
-        );
-        assert!(
-            !lines.concat().contains("include cycle"),
-            "the text is in the popup"
-        );
     }
 
     #[test]

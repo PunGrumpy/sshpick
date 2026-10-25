@@ -65,7 +65,8 @@ fn several(count: &usize, query: &str, refusal: &Refusal) -> String {
 
 pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     let loaded = base.load()?;
-    let screen = Screen::new(&loaded.entries, &loaded.warnings);
+    base.warn_all(&loaded.warnings);
+    let screen = Screen::new(&loaded.entries);
     let mut picker = Picker::new(loaded.entries, query);
     let refusal = if base.non_interactive {
         Some(Refusal::NonInteractive)
@@ -75,19 +76,14 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
         None
     };
     match (picker.resolve(), refusal) {
-        (Resolution::One(host), _) => {
-            base.warn_all(&loaded.warnings);
-            return exec(host);
-        }
+        (Resolution::One(host), _) => return exec(host),
         (Resolution::NoMatch, Some(_)) => {
-            base.warn_all(&loaded.warnings);
             return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
                 did_you_mean: did_you_mean(query),
             });
         }
         (Resolution::Many(count), Some(refusal)) => {
-            base.warn_all(&loaded.warnings);
             return Err(Error::Several {
                 count,
                 query: query.to_owned(),
@@ -97,13 +93,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
         }
         (Resolution::NoMatch | Resolution::Many(_), None) => {}
     }
-    let mut previews = match Previews::spawn() {
-        Ok(previews) => previews,
-        Err(error) => {
-            base.warn_all(&loaded.warnings);
-            return Err(Error::Previews(error).into());
-        }
-    };
+    let mut previews = Previews::spawn().map_err(Error::Previews)?;
     if let Some(host) = picker.selected() {
         previews.prefetch(host);
     }
@@ -112,10 +102,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
         Ok(Outcome::Pick(host)) => exec(&host),
         Ok(Outcome::Cancel) => Ok(Exit::Cancelled.code()),
         Ok(Outcome::NoMatch) => Ok(Exit::NoMatch.code()),
-        Err(error) => {
-            base.warn_all(&loaded.warnings);
-            Err(Error::Terminal(error).into())
-        }
+        Err(error) => Err(Error::Terminal(error).into()),
     }
 }
 

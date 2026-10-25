@@ -2,6 +2,7 @@ mod common;
 
 use common::{sshpick, stderr};
 use insta::assert_snapshot;
+use test_case::test_case;
 
 #[test]
 fn one_match_execs_ssh_with_double_dash_and_no_tty() {
@@ -88,6 +89,22 @@ fn a_missing_ssh_exits_127_and_says_how_to_fix_it() {
 fn a_warning_is_a_bang_line_and_the_run_goes_on() {
     let out = sshpick("cycle").assert().code(0).stdout("ssh -- solo\n");
     assert_snapshot!("warning", stderr(&out));
+}
+
+#[test_case(&[], 2; "several matches")]
+#[test_case(&["zzz"], 1; "no match")]
+#[test_case(&["warm-a"], 0; "one match")]
+#[test_case(&["--non-interactive"], 2; "refused")]
+fn a_warning_is_printed_once_and_before_everything_else(args: &[&str], code: i32) {
+    let out = sshpick("warns").args(args).assert().code(code);
+    let text = stderr(&out);
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(
+        lines.first().copied(),
+        Some("! <fixtures>/warns/.ssh/config: skipped, include cycle"),
+        "{text}"
+    );
+    assert_eq!(text.matches("include cycle").count(), 1, "{text}");
 }
 
 #[test]

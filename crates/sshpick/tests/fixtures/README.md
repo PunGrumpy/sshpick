@@ -8,6 +8,8 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
 - `words/.ssh/config`: hosts named `list` and `web`, so `pick list` and `-- list` can be shown to
   reach a host whose name is also a command.
 - `cycle/.ssh/config`: one host and an `Include` of itself, so the run has one warning to show.
+- `warns/.ssh/config`: two hosts and an `Include` of itself, so a run that does not connect shows
+  one warning above its error, and the picker has something to open on.
 - `inspect/.ssh/`: `stg-consul1` (alias `consul1.stg`, label STAGING), `stg-consul2`, `stg-broken`
   (the fake `ssh -G` fails for it) and a host named `list`, for `inspect` and `list --json`.
 - `empty/.ssh/config`: no literal host (only `Host *`), so `sshpick` has nothing to pick.
