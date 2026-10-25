@@ -1,0 +1,12 @@
+---
+source: crates/sshpick/tests/doctor_test.rs
+expression: text
+---
+[doctor] ok=4 warn=2 fail=0
+[doctor] config=<fixtures>/cycle/.ssh/config
+[ok] config: read <fixtures>/cycle/.ssh/config
+[ok] hosts: 1 host, 0 with an ENV label, 0 with a WHAT comment
+[warn] include: <fixtures>/cycle/.ssh/config: skipped, include cycle; remove the Include that points back
+[ok] ssh: OpenSSH_9.6p1 Ubuntu-3ubuntu13.5, OpenSSL 3.0.13 30 Jan 2024
+[ok] resolve: ssh -G answered for solo in <n> ms
+[warn] terminal: TERM is not set, colour off (stdout is not a terminal); the picker needs an interactive terminal; `sshpick <query>` still connects when one host matches

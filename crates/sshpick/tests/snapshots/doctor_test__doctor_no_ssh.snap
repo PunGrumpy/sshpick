@@ -1,0 +1,10 @@
+---
+source: crates/sshpick/tests/doctor_test.rs
+expression: stdout(&out)
+---
+[doctor] ok=2 warn=1 fail=1
+[doctor] config=<fixtures>/ui/.ssh/config
+[ok] config: read <fixtures>/ui/.ssh/config and 2 included files
+[ok] hosts: 5 hosts, 5 with an ENV label, 4 with a WHAT comment
+[fail] ssh: not found on PATH; install OpenSSH, or put `ssh` on your PATH
+[warn] terminal: TERM is not set, colour off (stdout is not a terminal); the picker needs an interactive terminal; `sshpick <query>` still connects when one host matches

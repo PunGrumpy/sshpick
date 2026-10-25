@@ -3,7 +3,7 @@ use std::io::{self, Write};
 use serde::Serialize;
 use sshpick_core::{Entry, Picker, Warning};
 
-use super::{CommandBase, HostView, write_json};
+use super::{CommandBase, HostView, note_if_also_a_host, write_json};
 use crate::cli;
 use crate::cli::Exit;
 
@@ -68,7 +68,7 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
     } = *request;
     let human = format == ListFormat::Auto;
     if let Some(word) = typed.filter(|_| human) {
-        base.note_if_also_a_host(word, &loaded.entries);
+        note_if_also_a_host(base.output, word, &loaded.entries);
     }
     let total = loaded.entries.len();
     let picker = Picker::new(loaded.entries, query);

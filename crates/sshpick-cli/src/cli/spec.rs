@@ -151,6 +151,32 @@ pub(crate) const INSPECT: CommandSpec = CommandSpec {
     ],
 };
 
+pub(crate) const DOCTOR: CommandSpec = CommandSpec {
+    name: "doctor",
+    aliases: &[],
+    default: false,
+    summary: "Check the config, ssh and this terminal",
+    description: "Check the ssh config, ssh itself and this terminal. Changes nothing, and exits 2 \
+                  when a check fails.",
+    arguments: &[],
+    options: &[JSON],
+    keys: &[],
+    examples: &[
+        Example {
+            name: "Check the setup",
+            command: "sshpick doctor",
+        },
+        Example {
+            name: "List what is not fine, in a script",
+            command: "sshpick doctor --json | jq -r '.checks[] | select(.status != \"ok\") | .detail'",
+        },
+        Example {
+            name: "Connect only when the setup is sound",
+            command: "sshpick doctor && sshpick",
+        },
+    ],
+};
+
 pub(crate) const HELP: CommandSpec = CommandSpec {
     name: "help",
     aliases: &[],
@@ -170,7 +196,11 @@ pub(crate) const HELP: CommandSpec = CommandSpec {
     }],
 };
 
-pub(crate) const COMMANDS: &[&CommandSpec] = &[&PICK, &HELP, &INSPECT, &LIST];
+/// What you do most, then what you do next, then what helps.
+pub(crate) const COMMANDS: &[&CommandSpec] = &[&PICK, &LIST, &INSPECT, &DOCTOR, &HELP];
+
+pub(crate) const READ_ONLY: &str =
+    "Scripts and agents: ls, inspect and doctor take --json and change nothing.";
 
 pub(crate) const GLOBAL: &[OptionSpec] = &[
     OptionSpec {
@@ -231,6 +261,10 @@ pub(crate) const ROOT_EXAMPLES: &[Example] = &[
         name: "Search for a word that is also a command name",
         command: "sshpick pick list",
     },
+    Example {
+        name: "Check the setup",
+        command: "sshpick doctor",
+    },
 ];
 
 pub(crate) const ENVIRONMENT: &[Row] = &[
@@ -250,7 +284,7 @@ pub(crate) const EXIT_STATUS: &[Row] = &[
     ("1", "No host matches"),
     (
         "2",
-        "Usage, config or ssh -G error; several matches where one is needed",
+        "Usage, config or ssh error; a failed doctor check; several matches where one is needed",
     ),
     ("127", "ssh could not be run"),
     ("130", "Cancelled"),

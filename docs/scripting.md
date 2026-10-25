@@ -73,14 +73,95 @@ order:
 
 `COLUMNS` sets the width of help when stdout is not a terminal (80 if unset).
 
+## Doctor
+
+`sshpick doctor` checks the config, ssh and this terminal, and changes nothing. It reads the config,
+runs `ssh -V` and one `ssh -G` for the first host, and prints a report on stdout. stderr stays
+empty, also when a check fails; a terminal gets one `>` note only when a host is named `doctor`.
+
+    $ sshpick doctor
+    [doctor] ok=5 warn=1 fail=0
+    [doctor] config=/home/me/.ssh/config
+    [ok] config: read /home/me/.ssh/config and 2 included files
+    [ok] hosts: 29 hosts, 24 with an ENV label, 17 with a WHAT comment
+    [warn] include: /home/me/.ssh/config.d/9-late.conf: skipped, include cycle; remove the Include that points back
+    [ok] ssh: OpenSSH_9.6p1 Ubuntu-3ubuntu13.5, OpenSSL 3.0.13 30 Jan 2024
+    [ok] resolve: ssh -G answered for prod-web1 in 14 ms
+    [ok] terminal: 120x30, TERM=xterm-256color, colour on (stdout is a terminal); the picker can open here
+
+There is one line per check, `[ok]`, `[warn]` or `[fail]` and the check's name, so
+`sshpick doctor | grep '^\[fail\]'` finds what broke. A check that is not `ok` ends with a next
+step after `; `, with the command in backticks. `[doctor] config=` is left out when there is no
+home directory. Only the bracketed token is coloured, yellow or red, and only when stdout is a
+terminal with colour on.
+
+A `warn` is something the picker survives: an `Include` that was skipped, or a terminal where the
+picker would not open (`sshpick <query>` still connects when one host matches). A `fail` is
+something that stops sshpick from working. The exit status is 2 when any check is `fail`, after the
+report is printed, and 0 otherwise, so `sshpick doctor && sshpick` runs the picker only when the
+setup is sound. `--non-interactive` is part of the terminal check: with it the picker is closed.
+
+### `doctor --json`
+
+`doctor --json` prints the same report as one JSON object, indented by two spaces, with a trailing
+newline. `config` is left out when there is no home directory, and so is a check's `fix` when it
+has none. `status` is `ok`, `warn` or `fail`; `summary` counts them.
+
+    $ sshpick doctor --json
+    {
+      "config": "/home/me/.ssh/config",
+      "summary": {
+        "ok": 1,
+        "warn": 1,
+        "fail": 2
+      },
+      "checks": [
+        {
+          "name": "config",
+          "status": "ok",
+          "detail": "read /home/me/.ssh/config"
+        },
+        {
+          "name": "hosts",
+          "status": "fail",
+          "detail": "no hosts found in the config or the files it Includes",
+          "fix": "add `Host` lines; ENV and WHAT come from comments"
+        },
+        {
+          "name": "ssh",
+          "status": "fail",
+          "detail": "not found on PATH",
+          "fix": "install OpenSSH, or put `ssh` on your PATH"
+        },
+        {
+          "name": "terminal",
+          "status": "warn",
+          "detail": "TERM=xterm-256color, colour off (stdout is not a terminal); the picker needs an interactive terminal",
+          "fix": "`sshpick <query>` still connects when one host matches"
+        }
+      ]
+    }
+
+`name` is one of a fixed set, listed in the order a report has them. `name` and `status` are for
+scripts; `detail` and `fix` are for people and may be reworded.
+
+| Check      | Status                                                                              |
+|------------|-------------------------------------------------------------------------------------|
+| `config`   | `fail` when there is no home directory or the root config cannot be read            |
+| `hosts`    | `fail` when no `Host` line names a host                                             |
+| `include`  | one `warn` per config warning, left out when there are none                         |
+| `ssh`      | `fail` when `ssh -V` cannot run                                                     |
+| `resolve`  | `fail` when `ssh -G` fails for the first host; left out when there is no host       |
+| `terminal` | `warn` when the picker would not open here, as `pick` would refuse it               |
+
 ## Exit status
 
 | Status      | Meaning                                                                     |
 |-------------|-----------------------------------------------------------------------------|
-| 0           | `ls`, `inspect`, `--help` or `--version` succeeded                          |
+| 0           | `ls`, `inspect`, `doctor`, `--help` or `--version` succeeded                |
 | `ssh`'s own | after a pick (sshpick becomes `ssh`)                                        |
 | 1           | Enter with no match, or no match without the picker (`ls`, `inspect`)       |
 | 2           | config error, no hosts found, unknown option or command, a failed `ssh -G`, |
-|             | or several matches where one is needed                                      |
+|             | a failed `doctor` check, or several matches where one is needed             |
 | 127         | `ssh` could not be run                                                      |
 | 130         | cancelled                                                                   |

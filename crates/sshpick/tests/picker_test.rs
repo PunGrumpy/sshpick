@@ -605,3 +605,36 @@ fn a_dumb_terminal_never_gets_the_picker_or_an_escape_byte(
     assert!(!frame.has("type to filter"), "{frame}");
     assert!(!session.output().contains(&0x1b), "{frame}");
 }
+
+#[test]
+fn doctor_on_a_terminal_sees_its_size_and_colour_and_notes_a_host_named_doctor() {
+    let mut options = Options::new("named-doctor");
+    options.args = &["doctor"];
+    options.shell = &["$ sshpick doctor"];
+    options.cols = 300;
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(0));
+    let frame = session.frame();
+    assert_eq!(frame.rows[0], "$ sshpick doctor", "{frame}");
+    assert_eq!(
+        frame.rows[1], "> NOTE: \"doctor\" is also a host. Connect with `sshpick pick doctor`.",
+        "{frame}"
+    );
+    assert_eq!(frame.rows[2], "[doctor] ok=5 warn=0 fail=0", "{frame}");
+    assert!(
+        frame.has(
+            "[ok] terminal: 300x24, TERM=xterm-256color, colour on (stdout is a terminal); the picker can open here"
+        ),
+        "{frame}"
+    );
+    assert!(
+        frame.has("[ok] resolve: ssh -G answered for doctor in "),
+        "{frame}"
+    );
+    let bytes = String::from_utf8_lossy(&session.output()).into_owned();
+    assert!(
+        bytes.contains("\x1b[90m>\x1b[39m"),
+        "the note's arrow is gray"
+    );
+    assert!(!bytes.contains("\x1b[33m"), "no warning, so no yellow");
+}

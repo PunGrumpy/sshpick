@@ -1,9 +1,9 @@
-use std::io::{self, IsTerminal};
+use std::io;
 
-use sshpick_core::{Host, Interaction, Outcome, Picker, Previews, Refusal, Resolution};
+use sshpick_core::{Host, Outcome, Picker, Previews, Refusal, Resolution};
 use sshpick_ui::Screen;
 
-use super::{CommandBase, did_you_mean};
+use super::{CommandBase, did_you_mean, interaction};
 use crate::cli;
 use crate::cli::Exit;
 
@@ -58,12 +58,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     base.warn_all(&loaded.warnings);
     let screen = Screen::new(&loaded.entries);
     let mut picker = Picker::new(loaded.entries, query);
-    let refusal = sshpick_core::refusal(&Interaction {
-        non_interactive: base.non_interactive,
-        stdin_is_terminal: io::stdin().is_terminal(),
-        stdout_is_terminal: io::stdout().is_terminal(),
-        dumb: std::env::var_os("TERM").is_some_and(|term| term == "dumb"),
-    });
+    let refusal = sshpick_core::refusal(&interaction(base.non_interactive));
     match (picker.resolve(), refusal) {
         (Resolution::One(host), _) => return exec(base, host),
         (Resolution::NoMatch, Some(_)) => {

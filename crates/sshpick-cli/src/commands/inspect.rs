@@ -5,7 +5,7 @@ use serde::Serialize;
 use sshpick_core::{Entry, Picker, Preview, Resolution};
 use sshpick_ui::ColorConfig;
 
-use super::{CommandBase, HostView, did_you_mean, write_json};
+use super::{CommandBase, HostView, did_you_mean, note_if_also_a_host, write_json};
 use crate::cli;
 use crate::cli::Exit;
 
@@ -102,7 +102,7 @@ pub(crate) fn run(
     let loaded = base.load()?;
     base.warn_all(&loaded.warnings);
     if !json {
-        base.note_if_also_a_host(typed, &loaded.entries);
+        note_if_also_a_host(base.output, typed, &loaded.entries);
     }
     let picker = Picker::new(loaded.entries, query);
     let listing = picker.listing();

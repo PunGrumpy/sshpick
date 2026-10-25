@@ -1,0 +1,11 @@
+---
+source: crates/sshpick/tests/doctor_test.rs
+expression: "report(\"ui\", 0)"
+---
+[doctor] ok=4 warn=1 fail=0
+[doctor] config=<fixtures>/ui/.ssh/config
+[ok] config: read <fixtures>/ui/.ssh/config and 2 included files
+[ok] hosts: 5 hosts, 5 with an ENV label, 4 with a WHAT comment
+[ok] ssh: OpenSSH_9.6p1 Ubuntu-3ubuntu13.5, OpenSSL 3.0.13 30 Jan 2024
+[ok] resolve: ssh -G answered for lab-a in <n> ms
+[warn] terminal: TERM is not set, colour off (stdout is not a terminal); the picker needs an interactive terminal; `sshpick <query>` still connects when one host matches

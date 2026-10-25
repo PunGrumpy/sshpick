@@ -9,9 +9,9 @@ use test_case::test_case;
 use super::args::{Command, UsageError, parse};
 use super::error::{Error, Exit};
 use super::help::{self, MAX_WIDTH};
-use super::spec::{self, COMMANDS, GLOBAL};
+use super::spec::{self, COMMANDS, EXIT_STATUS, GLOBAL};
 use crate::commands::list::ListFormat;
-use crate::commands::{inspect, list, pick};
+use crate::commands::{doctor, inspect, list, pick};
 
 const PLAIN: ColorConfig = ColorConfig::none();
 
@@ -44,6 +44,17 @@ fn inspect_for(query: &str, json: bool) -> Result<Command, UsageError> {
     Ok(Command::Inspect {
         query: query.to_owned(),
         json,
+    })
+}
+
+fn doctor_for(json: bool) -> Result<Command, UsageError> {
+    Ok(Command::Doctor { json })
+}
+
+fn unexpected(command: &'static str, word: &str) -> Result<Command, UsageError> {
+    Err(UsageError::Unexpected {
+        command,
+        word: word.to_owned(),
     })
 }
 
@@ -86,6 +97,18 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["inspect"] => Err(UsageError::MissingQuery("inspect")); "inspect needs a query")]
 #[test_case(&["inspekt", "x"] => pick_for("inspekt x"); "a misspelt command is a query")]
 #[test_case(&["pick", "inspect"] => pick_for("inspect"); "pick makes inspect a query")]
+#[test_case(&["doctor"] => doctor_for(false); "doctor")]
+#[test_case(&["doctor", "--json"] => doctor_for(true); "doctor as json")]
+#[test_case(&["--json", "doctor"] => doctor_for(true); "json before the command")]
+#[test_case(&["doctor", "-l"] => doctor_for(false); "doctor ignores --list like inspect does")]
+#[test_case(&["doctor", "extra"] => unexpected("doctor", "extra"); "doctor takes no arguments")]
+#[test_case(&["doctor", "a", "b"] => unexpected("doctor", "a"); "the first extra word is named")]
+#[test_case(&["doctor", "--", "extra"] => unexpected("doctor", "extra"); "doctor takes no query after -- either")]
+#[test_case(&["doctor", "--bogus"] => unknown_option_of(Some("doctor"), "--bogus"); "doctor remembers itself in an unknown option")]
+#[test_case(&["pick", "doctor"] => pick_for("doctor"); "pick makes doctor a query")]
+#[test_case(&["--", "doctor"] => pick_for("doctor"); "after -- doctor is a query")]
+#[test_case(&["db", "doctor"] => pick_for("db doctor"); "a doctor later on is a query")]
+#[test_case(&["doctr"] => pick_for("doctr"); "a misspelt doctor is a query")]
 #[test_case(&["list", "--json"] => list_json(""); "list as json")]
 #[test_case(&["--json", "ls", "new"] => list_json("new"); "ls as json")]
 #[test_case(&["list", "--list", "--json"] => list_json(""); "json beats --list on list")]
@@ -108,6 +131,9 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["--help", "ls"] => help_for(Some("list")); "help before the command")]
 #[test_case(&["help"] => help_for(None); "the help command")]
 #[test_case(&["help", "ls"] => help_for(Some("list")); "help ls")]
+#[test_case(&["help", "doctor"] => help_for(Some("doctor")); "help doctor")]
+#[test_case(&["doctor", "--help"] => help_for(Some("doctor")); "help for doctor")]
+#[test_case(&["doctor", "extra", "-h"] => help_for(Some("doctor")); "help beats an extra argument")]
 #[test_case(&["help", "list"] => help_for(Some("list")); "help list")]
 #[test_case(&["help", "--help"] => help_for(Some("help")); "help for help")]
 #[test_case(&["help", "lst"] => unknown_command("lst"); "help for an unknown command")]
@@ -138,6 +164,7 @@ fn argv_selects_a_command(args: &[&str]) -> Result<Command, UsageError> {
 #[test_case(&["list"] => Some("list".to_owned()); "list as typed")]
 #[test_case(&["ls", "x"] => Some("ls".to_owned()); "ls as typed")]
 #[test_case(&["inspect", "x"] => Some("inspect".to_owned()); "inspect as typed")]
+#[test_case(&["doctor"] => Some("doctor".to_owned()); "doctor as typed")]
 #[test_case(&["x", "--", "list"] => None; "after the double dash")]
 fn the_command_word_is_kept_as_typed(args: &[&str]) -> Option<String> {
     parse(argv(args)).typed
@@ -185,6 +212,8 @@ fn the_table_has_no_two_commands_with_the_same_name() {
 #[test_case(Error::Usage(UsageError::Option { option: "--x".to_owned(), command: None }), 2; "usage")]
 #[test_case(no_match("x"), 1; "no match")]
 #[test_case(Error::Usage(UsageError::MissingQuery("inspect")), 2; "missing query")]
+#[test_case(Error::Usage(UsageError::Unexpected { command: "doctor", word: "x".to_owned() }), 2; "unexpected argument")]
+#[test_case(Error::Doctor(doctor::Error::Write(io::Error::other("x"))), 2; "doctor write")]
 #[test_case(Error::Inspect(inspect::Error::Several { count: 2, query: "x".to_owned(), names: vec![] }), 2; "inspect several")]
 #[test_case(Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Timeout)), 2; "ssh -G failed")]
 #[test_case(Error::Inspect(inspect::Error::Write(io::Error::other("x"))), 2; "inspect write")]
@@ -217,6 +246,62 @@ fn exit_codes_are_the_documented_ones() {
     }
 }
 
+#[test]
+fn the_docs_list_every_command_word() {
+    let docs = include_str!("../../../../docs/commands.md");
+    let sentence: String = docs
+        .lines()
+        .skip_while(|line| !line.contains("are command words when they come first"))
+        .take_while(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    for (word, _) in spec::command_words() {
+        assert!(
+            sentence.contains(&format!("`{word}`")),
+            "the command-words sentence in docs/commands.md lacks `{word}`"
+        );
+    }
+    for spec in COMMANDS {
+        let row = docs.lines().any(|line| {
+            line.starts_with('|')
+                && line
+                    .split('|')
+                    .nth(1)
+                    .is_some_and(|cell| cell.contains(&format!("`{}", spec.name)))
+        });
+        assert!(
+            row,
+            "the command table in docs/commands.md lacks {}",
+            spec.name
+        );
+    }
+}
+
+#[test]
+fn the_docs_exit_table_has_the_codes_of_the_help_and_names_a_failed_doctor_check() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    let table: Vec<&str> = docs
+        .lines()
+        .skip_while(|line| !line.starts_with("| Status"))
+        .skip(2)
+        .take_while(|line| line.starts_with('|'))
+        .collect();
+    let codes: Vec<&str> = table
+        .iter()
+        .filter_map(|row| row.split('|').nth(1))
+        .map(str::trim)
+        .filter(|cell| !cell.is_empty() && cell.chars().all(|c| c.is_ascii_digit()))
+        .collect();
+    let want: Vec<&str> = EXIT_STATUS.iter().map(|(code, _)| *code).collect();
+    assert_eq!(codes, want, "the exit table in docs/scripting.md");
+    assert!(table.join("\n").contains("a failed `doctor` check"));
+    assert!(root_help().contains("a failed doctor check"));
+}
+
+fn root_help() -> String {
+    help::render(None, 100, PLAIN)
+}
+
 fn page(topic: &str, width: usize) -> String {
     help::render(spec::command(topic), width, PLAIN)
 }
@@ -236,6 +321,7 @@ fn the_root_help() {
 #[test_case("pick")]
 #[test_case("list")]
 #[test_case("inspect")]
+#[test_case("doctor")]
 #[test_case("help")]
 fn each_commands_help(topic: &str) {
     assert_snapshot!(format!("help_{topic}"), page(topic, 80));
@@ -302,7 +388,8 @@ fn hidden_options_parse_but_stay_out_of_help() {
         assert!(!text.contains("--list"), "{text}");
         assert_eq!(
             text.contains("--json"),
-            topic.is_some_and(|spec| !spec.options.is_empty())
+            topic.is_none_or(|spec| !spec.options.is_empty()),
+            "the root page names --json once, in the line for scripts and agents"
         );
         assert!(!text.contains(" -v"), "{text}");
     }
@@ -454,6 +541,13 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
         (
             "sshpick inspect",
             Error::Usage(UsageError::MissingQuery("inspect")),
+        ),
+        (
+            "sshpick doctor extra",
+            Error::Usage(UsageError::Unexpected {
+                command: "doctor",
+                word: "extra".to_owned(),
+            }),
         ),
         (
             "sshpick inspect consul",

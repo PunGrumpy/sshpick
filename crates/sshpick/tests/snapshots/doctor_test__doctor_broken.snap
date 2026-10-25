@@ -1,0 +1,11 @@
+---
+source: crates/sshpick/tests/doctor_test.rs
+expression: "report(\"broken\", 2)"
+---
+[doctor] ok=3 warn=1 fail=1
+[doctor] config=<fixtures>/broken/.ssh/config
+[ok] config: read <fixtures>/broken/.ssh/config
+[ok] hosts: 1 host, 0 with an ENV label, 1 with a WHAT comment
+[ok] ssh: OpenSSH_9.6p1 Ubuntu-3ubuntu13.5, OpenSSL 3.0.13 30 Jan 2024
+[fail] resolve: ssh -G failed for stg-broken: /home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus; run `sshpick inspect stg-broken` for ssh's full answer
+[warn] terminal: TERM is not set, colour off (stdout is not a terminal); the picker needs an interactive terminal; `sshpick <query>` still connects when one host matches

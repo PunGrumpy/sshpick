@@ -1,0 +1,37 @@
+---
+source: crates/sshpick-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ sshpick doctor [options]
+
+  Check the ssh config, ssh itself and this terminal. Changes nothing, and exits
+  2 when a check fails.
+
+  Options:
+
+       --json  Output as JSON
+
+
+  Global Options:
+
+  -h,  --help             Output usage information
+       --no-color         No color mode (default off)
+       --non-interactive  Never open the picker; connect only when exactly one
+                          host matches
+  -V,  --version          Output the version number
+
+
+  Examples:
+
+  - Check the setup
+
+    $ sshpick doctor
+
+  - List what is not fine, in a script
+
+    $ sshpick doctor --json | jq -r '.checks[] | select(.status != "ok") | .detail'
+
+  - Connect only when the setup is sound
+
+    $ sshpick doctor && sshpick

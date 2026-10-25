@@ -7,15 +7,19 @@ sshpick [version]
   ▌ sshpick [options] [command | query ...]
 
   For picker help, run `sshpick pick --help`
+  Scripts and agents: ls, inspect and
+  doctor take --json and change nothing.
 
   Commands:
 
     pick       Pick a host and ssh to it
                (default)
-    help       Show help for a command
-    inspect    Show where a host resolves
     ls | list  List the hosts that match a
                query
+    inspect    Show where a host resolves
+    doctor     Check the config, ssh and this
+               terminal
+    help       Show help for a command
 
 
   Global Options:
@@ -51,9 +55,9 @@ sshpick [version]
   0    Success; after a pick, ssh's own
        status
   1    No host matches
-  2    Usage, config or ssh -G error;
-       several matches where one is
-       needed
+  2    Usage, config or ssh error; a
+       failed doctor check; several
+       matches where one is needed
   127  ssh could not be run
   130  Cancelled
 
@@ -79,6 +83,10 @@ sshpick [version]
   - Search for a word that is also a command name
 
     $ sshpick pick list
+
+  - Check the setup
+
+    $ sshpick doctor
 
   Documentation:
 

@@ -21,6 +21,7 @@ pub(crate) enum Command {
     Pick { query: String },
     List { query: String, format: ListFormat },
     Inspect { query: String, json: bool },
+    Doctor { json: bool },
     Help { topic: Option<&'static str> },
     Version,
 }
@@ -36,6 +37,8 @@ pub(crate) enum UsageError {
     Command(String),
     #[error("sshpick {0} needs a query")]
     MissingQuery(&'static str),
+    #[error("sshpick {command} takes no arguments, got \"{word}\"")]
+    Unexpected { command: &'static str, word: String },
 }
 
 #[derive(Default)]
@@ -138,6 +141,17 @@ fn route(
                 })
                 .ok_or_else(|| UsageError::Command(word.clone())),
         };
+    }
+    if let Some(spec) = named.filter(|spec| spec.arguments.is_empty())
+        && let Some(word) = words.first()
+    {
+        return Err(UsageError::Unexpected {
+            command: spec.name,
+            word: word.clone(),
+        });
+    }
+    if name == spec::DOCTOR.name {
+        return Ok(Command::Doctor { json });
     }
     let query = words.join(" ");
     if name == spec::INSPECT.name {
