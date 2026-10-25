@@ -175,7 +175,11 @@ impl<'a> Walk<'a> {
         let Some(pattern) = self.pattern(arg) else {
             return Vec::new();
         };
-        let paths = match glob::glob(&pattern) {
+        let options = glob::MatchOptions {
+            require_literal_leading_dot: true,
+            ..glob::MatchOptions::new()
+        };
+        let paths = match glob::glob_with(&pattern, options) {
             Ok(paths) => paths,
             Err(error) => {
                 let (arg, reason) = (arg.to_owned(), error.to_string());
@@ -216,6 +220,11 @@ impl<'a> Walk<'a> {
             } else if let Some(after) = rest.strip_prefix("%d") {
                 pattern.push_str(&home);
                 rest = after;
+            } else if let Some(after) = rest.strip_prefix('%') {
+                return match after.chars().next() {
+                    Some(token) => self.bad_include(arg, format!("%{token} is not supported")),
+                    None => self.bad_include(arg, "a lone % at the end".to_owned()),
+                };
             } else if let Some(after) = rest.strip_prefix("${") {
                 let Some((name, after)) = after.split_once('}') else {
                     return self.bad_include(arg, "unterminated ${".to_owned());
@@ -403,6 +412,11 @@ mod tests {
             walk.expand("config.d").is_empty(),
             "directories are not files"
         );
+        assert_eq!(
+            walk.expand("config.d/.hidden.conf").len(),
+            1,
+            "a name that spells out the dot still matches"
+        );
         assert!(walk.out.warnings.is_empty());
     }
 
@@ -444,6 +458,30 @@ mod tests {
         let var = |_: &str| None;
         let mut walk = Walk::new(Path::new("/h[1]"), &var);
         assert_eq!(walk.pattern("~/x").as_deref(), Some("/h[[]1[]]/x"));
+    }
+
+    #[test]
+    fn a_percent_token_sshpick_cannot_expand_skips_the_include_with_a_warning() {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        assert_eq!(walk.pattern("hosts/%h.conf"), None);
+        assert_eq!(walk.pattern("%u/x"), None);
+        assert_eq!(walk.pattern("tail%"), None);
+        assert_eq!(walk.pattern("%%h").as_deref(), Some("/h/.ssh/%h"));
+        let reasons: Vec<_> = walk
+            .out
+            .warnings
+            .iter()
+            .map(|warning| warning.to_string())
+            .collect();
+        assert_eq!(
+            reasons,
+            [
+                "Include hosts/%h.conf: skipped, %h is not supported",
+                "Include %u/x: skipped, %u is not supported",
+                "Include tail%: skipped, a lone % at the end",
+            ]
+        );
     }
 
     #[test]
