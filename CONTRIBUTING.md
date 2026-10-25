@@ -31,7 +31,7 @@ new code goes.
 ## Building sshpick
 
 ```bash
-make setup     # once per clone: enables the pre-push hook
+make setup     # once per clone: a pre-push hook that runs cargo fmt and taplo
 make install   # builds and installs sshpick and sp to ~/.local/bin
 make fix       # cargo fmt and taplo format
 ```
@@ -41,6 +41,8 @@ make fix       # cargo fmt and taplo format
 ```bash
 make quality   # fmt, taplo, clippy -D warnings, cargo-deny and every test; CI runs the same
 ```
+
+The pre-push hook does not run clippy, cargo-deny or the tests. Run `make quality` before pushing.
 
 Tests read `crates/*/tests/fixtures`, never your `~/.ssh`, and put a fake `ssh` first on `PATH`.
 Help text, usage errors and rendered frames are [insta](https://insta.rs) snapshots. After a

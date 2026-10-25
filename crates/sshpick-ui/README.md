@@ -2,17 +2,19 @@
 
 ## Purpose
 
-Everything sshpick shows: the colour decision for each output stream, console output, and the
-picker. The picker owns raw mode and the alternate screen, draws with ratatui and maps crossterm
-key events to `sshpick_core::Key`. This is the only crate that names a ratatui or crossterm type.
-What a key does and which rows match live in `sshpick-core`; what to say lives in `sshpick-cli`.
+The terminal side of sshpick: the colour decision for each output stream, console output, the `ls`
+host table and the picker. The text of the help pages and of `inspect` is written in `sshpick-cli`,
+with a `ColorConfig` from here. The picker owns raw mode and the alternate screen, draws with
+ratatui and maps crossterm key events to `sshpick_core::Key`. This is the only crate that names a
+ratatui or crossterm type. What a key does and which rows match live in `sshpick-core`; what to
+say lives in `sshpick-cli`.
 
 ## Architecture
 
 ```
 sshpick-ui
     ├── color.rs - ColorConfig: colour and attributes for one stream, from --no-color, NO_COLOR,
-    │   CLICOLOR_FORCE and TERM, plus bold, dim, cyan and gray
+    │   CLICOLOR_FORCE and TERM, plus bold, dim, cyan, red, yellow and gray
     ├── output.rs - Output: results on a stdout that forgives a closed pipe; Error, Fix and Learn More
     │   lines and `!` warnings on stderr; built once per run and passed down
     ├── listing.rs - the host table `sshpick ls` prints on a terminal
