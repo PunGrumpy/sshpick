@@ -1,0 +1,13 @@
+#!/bin/sh
+case "$1" in
+  -V)
+    echo "OpenSSH_9.6p1 Ubuntu-3ubuntu13.5, OpenSSL 3.0.13 30 Jan 2024" >&2
+    exit 0
+    ;;
+  -G)
+    printf 'host %s\nuser ubuntu\nhostname 192.0.2.11\nport 22\n' "$3"
+    exit 0
+    ;;
+esac
+echo "ssh was asked to do more than read: $*" >&2
+exit 99

@@ -298,6 +298,95 @@ fn the_docs_exit_table_has_the_codes_of_the_help_and_names_a_failed_doctor_check
     assert!(root_help().contains("a failed doctor check"));
 }
 
+fn for_coding_agents() -> &'static str {
+    let readme = include_str!("../../../../README.md");
+    let section = readme
+        .split("\n## ")
+        .find(|section| section.starts_with("For coding agents"));
+    section.unwrap_or_else(|| panic!("README.md has no section for coding agents"))
+}
+
+fn code_spans(text: &str) -> impl Iterator<Item = &str> {
+    text.split('`').skip(1).step_by(2)
+}
+
+#[test]
+fn the_readme_for_agents_names_only_commands_and_flags_the_table_has() {
+    let mut named = 0;
+    for span in code_spans(for_coding_agents()) {
+        let words: Vec<&str> = span.split_whitespace().collect();
+        if let ["sshpick", word, ..] = words[..]
+            && !word.starts_with(['-', '<'])
+        {
+            let spec = spec::command(word);
+            assert!(spec.is_some(), "`{span}`: sshpick has no command {word}");
+            named += 1;
+            for flag in words.iter().filter(|word| word.starts_with("--")) {
+                let own = spec.is_some_and(|spec| spec.options.iter().any(|o| o.matches(flag)));
+                assert!(
+                    own || spec::option(flag).is_some(),
+                    "`{span}`: {word} has no option {flag}"
+                );
+            }
+        } else if words.first().is_some_and(|word| word.starts_with("--")) {
+            let flag = words[0];
+            assert!(
+                spec::option(flag).is_some() || spec::command_option(flag).is_some(),
+                "`{span}` is not an option in the table"
+            );
+        }
+    }
+    assert!(named >= 3, "the section names the three read-only commands");
+}
+
+#[test]
+fn the_readme_for_agents_lists_the_exit_codes_of_the_table() {
+    let section = for_coding_agents();
+    let sentence = section
+        .split("Exit codes:")
+        .nth(1)
+        .and_then(|rest| rest.split("\n\n").next())
+        .unwrap_or_default();
+    let codes: Vec<&str> = sentence
+        .split_whitespace()
+        .map(|word| word.trim_end_matches([',', '.']))
+        .filter(|word| !word.is_empty() && word.chars().all(|c| c.is_ascii_digit()))
+        .collect();
+    let want: Vec<&str> = EXIT_STATUS.iter().map(|(code, _)| *code).collect();
+    assert_eq!(codes, want, "the exit codes in README.md");
+    assert!(sentence.contains("a failed `doctor` check"), "{sentence}");
+}
+
+#[test]
+fn the_troubleshooting_page_is_linked_and_quotes_every_check_by_its_real_name() {
+    let page = include_str!("../../../../docs/troubleshooting.md");
+    assert!(include_str!("../../../../README.md").contains("docs/troubleshooting.md"));
+    assert!(include_str!("../../../../docs/README.md").contains("(troubleshooting.md)"));
+    let mut quoted = Vec::new();
+    for line in page.lines().filter(|line| line.starts_with('[')) {
+        let (token, rest) = line.split_once("] ").unwrap_or_default();
+        assert!(
+            ["[ok", "[warn", "[fail"].contains(&token),
+            "{line}: not a doctor status"
+        );
+        let name = rest.split(':').next().unwrap_or_default();
+        assert!(
+            sshpick_core::Name::ALL
+                .iter()
+                .any(|check| check.as_str() == name),
+            "{line}: {name} is not a check"
+        );
+        quoted.push(name);
+    }
+    for check in sshpick_core::Name::ALL {
+        assert!(
+            quoted.contains(&check.as_str()),
+            "no symptom on docs/troubleshooting.md quotes the {} check",
+            check.as_str()
+        );
+    }
+}
+
 fn root_help() -> String {
     help::render(None, 100, PLAIN)
 }

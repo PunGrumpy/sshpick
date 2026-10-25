@@ -22,3 +22,5 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
   `ssh -G -- host` answers like ssh (and fails for `stg-broken`); anything else prints how it was
   called. When its stdin is a terminal it first prints `COOKED` or `RAW` on stderr, from
   `stty -a`, for `picker_test.rs`.
+- `bin-read-only/ssh`: answers `-V` and `-G` like `bin/ssh` and exits 99 for anything else, so
+  `read_only_test.rs` fails if a read-only command asks ssh to do more than read.

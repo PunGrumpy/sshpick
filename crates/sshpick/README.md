@@ -21,6 +21,8 @@ sshpick
         ├── inspect_test.rs - inspect as text and as JSON, and how it fails
         ├── doctor_test.rs - doctor as text and as JSON against fixtures that pass, warn and fail,
         │   and the check names the docs list
+        ├── read_only_test.rs - ls, inspect and doctor on a read-only home and directory with an ssh
+        │   that refuses anything but -G and -V: the tree is the same afterwards
         └── usage_test.rs - help, version, unknown options, that read-only commands leave stderr
             empty, and `sp`
 ```
