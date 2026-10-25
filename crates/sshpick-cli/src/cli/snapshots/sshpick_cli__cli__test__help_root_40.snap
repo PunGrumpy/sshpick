@@ -41,6 +41,9 @@ sshpick [version]
                   on a terminal
   CLICOLOR_FORCE  Keep color when output
                   is not a terminal
+  TERM            dumb: no color or
+                  bold, and the picker
+                  will not open
 
 
   Exit Status:

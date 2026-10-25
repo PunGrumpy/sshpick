@@ -100,6 +100,7 @@ impl fmt::Display for Frame {
 
 struct Shared {
     parser: vt100::Parser,
+    output: Vec<u8>,
     /// The child closed its end of the pty: everything it wrote is on the grid.
     closed: bool,
 }
@@ -146,6 +147,7 @@ impl Session {
         let link: Link = Arc::new((
             Mutex::new(Shared {
                 parser,
+                output: Vec::new(),
                 closed: false,
             }),
             Condvar::new(),
@@ -158,7 +160,9 @@ impl Session {
                     Ok(0) => break,
                     Ok(count) => {
                         let (shared, changed) = &*feed;
-                        lock(shared).parser.process(&chunk[..count]);
+                        let mut shared = lock(shared);
+                        shared.parser.process(&chunk[..count]);
+                        shared.output.extend_from_slice(&chunk[..count]);
                         changed.notify_all();
                     }
                     Err(error) if error.kind() == ErrorKind::Interrupted => {}
@@ -232,6 +236,11 @@ impl Session {
     pub fn frame(&self) -> Frame {
         let (shared, _) = &*self.link;
         Frame::of(&lock(shared).parser)
+    }
+
+    pub fn output(&self) -> Vec<u8> {
+        let (shared, _) = &*self.link;
+        lock(shared).output.clone()
     }
 
     pub fn wait_for(&self, what: &str, ready: impl Fn(&Frame) -> bool) -> Frame {

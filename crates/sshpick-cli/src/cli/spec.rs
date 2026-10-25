@@ -239,6 +239,10 @@ pub(crate) const ENVIRONMENT: &[Row] = &[
         "No color; bold, dim and reverse video stay on a terminal",
     ),
     ("CLICOLOR_FORCE", "Keep color when output is not a terminal"),
+    (
+        "TERM",
+        "dumb: no color or bold, and the picker will not open",
+    ),
 ];
 
 pub(crate) const EXIT_STATUS: &[Row] = &[

@@ -228,3 +228,23 @@ fn a_killed_picker_restores_the_terminal_and_dies_of_the_signal(signal: Signal) 
     assert_eq!(session.exit(), Exit::Signal(signal));
     assert_restored(&session);
 }
+
+#[test_case(&[], 2, "Error: 5 hosts to choose from, and the picker needs a terminal that moves the cursor (TERM=dumb)"; "several matches")]
+#[test_case(&["zzz"], 1, "Error: no host matches \"zzz\""; "no match")]
+#[test_case(&["lab-a"], 0, "ssh -- lab-a"; "one match still connects")]
+fn a_dumb_terminal_never_gets_the_picker_or_an_escape_byte(
+    args: &'static [&'static str],
+    code: i32,
+    said: &str,
+) {
+    let mut options = Options::new("ui");
+    options.term = "dumb";
+    options.cols = 120;
+    options.args = args;
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(code));
+    let frame = session.frame();
+    assert!(frame.has(said), "{frame}");
+    assert!(!frame.has("type to filter"), "{frame}");
+    assert!(!session.output().contains(&0x1b), "{frame}");
+}

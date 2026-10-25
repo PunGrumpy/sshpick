@@ -26,6 +26,10 @@ $ sshpick consul < /dev/null
 Error: 4 hosts match "consul", and the picker needs an interactive terminal
 Fix: narrow the query to one host, or list them with `sshpick ls consul`.
 
+$ TERM=dumb sshpick consul
+Error: 4 hosts match "consul", and the picker needs a terminal that moves the cursor (TERM=dumb)
+Fix: narrow the query to one host, or list them with `sshpick ls consul`.
+
 $ sshpick --non-interactive
 Error: 12 hosts to choose from, and --non-interactive never opens the picker
 Fix: narrow the query to one host, or list them with `sshpick ls`.
