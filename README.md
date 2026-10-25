@@ -62,7 +62,8 @@ Only run `sshpick` with no query when a person is at the keyboard: it opens a pi
 ## Documentation
 
 See the [documentation](docs/README.md) for the config conventions, every command and key, and the
-output formats for scripts.
+output formats for scripts. When something does not work, start with `sshpick doctor` and
+[Troubleshooting](docs/troubleshooting.md).
 
 ## Contributing
 

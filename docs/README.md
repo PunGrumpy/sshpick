@@ -7,4 +7,6 @@
 - [Picker](picker.md): the keys and what each part of the screen means.
 - [Scripting](scripting.md): tab-separated and JSON output, the `doctor` report, errors, colour and
   exit codes.
+- [Troubleshooting](troubleshooting.md): by symptom, with the `sshpick doctor` line that shows it and
+  the fix.
 - [Migrating from the bash script](migrating.md): for anyone who used the fzf script this replaced.

@@ -357,6 +357,36 @@ fn the_readme_for_agents_lists_the_exit_codes_of_the_table() {
     assert!(sentence.contains("a failed `doctor` check"), "{sentence}");
 }
 
+#[test]
+fn the_troubleshooting_page_is_linked_and_quotes_every_check_by_its_real_name() {
+    let page = include_str!("../../../../docs/troubleshooting.md");
+    assert!(include_str!("../../../../README.md").contains("docs/troubleshooting.md"));
+    assert!(include_str!("../../../../docs/README.md").contains("(troubleshooting.md)"));
+    let mut quoted = Vec::new();
+    for line in page.lines().filter(|line| line.starts_with('[')) {
+        let (token, rest) = line.split_once("] ").unwrap_or_default();
+        assert!(
+            ["[ok", "[warn", "[fail"].contains(&token),
+            "{line}: not a doctor status"
+        );
+        let name = rest.split(':').next().unwrap_or_default();
+        assert!(
+            sshpick_core::Name::ALL
+                .iter()
+                .any(|check| check.as_str() == name),
+            "{line}: {name} is not a check"
+        );
+        quoted.push(name);
+    }
+    for check in sshpick_core::Name::ALL {
+        assert!(
+            quoted.contains(&check.as_str()),
+            "no symptom on docs/troubleshooting.md quotes the {} check",
+            check.as_str()
+        );
+    }
+}
+
 fn root_help() -> String {
     help::render(None, 100, PLAIN)
 }
