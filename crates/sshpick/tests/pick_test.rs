@@ -144,3 +144,12 @@ fn no_message_carries_the_old_prefix() {
         assert!(!text.contains("warning:"), "{text}");
     }
 }
+
+#[test]
+fn a_dumb_terminal_still_connects_when_one_host_matches() {
+    sshpick("home")
+        .env("TERM", "dumb")
+        .assert()
+        .success()
+        .stdout("ssh -- only-host\n");
+}

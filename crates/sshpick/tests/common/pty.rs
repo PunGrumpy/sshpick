@@ -22,6 +22,7 @@ use nix::unistd::Pid;
 use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
 
 const WITHIN: Duration = Duration::from_secs(10);
+const SCROLLBACK: usize = 1000;
 
 pub struct Options {
     pub home: &'static str,
@@ -100,6 +101,7 @@ impl fmt::Display for Frame {
 
 struct Shared {
     parser: vt100::Parser,
+    output: Vec<u8>,
     /// The child closed its end of the pty: everything it wrote is on the grid.
     closed: bool,
 }
@@ -138,7 +140,7 @@ impl Session {
         let mut reader = ok(pair.master.try_clone_reader(), "read from the pty");
         let mut writer = ok(pair.master.take_writer(), "write to the pty");
 
-        let mut parser = vt100::Parser::new(rows, cols, 0);
+        let mut parser = vt100::Parser::new(rows, cols, SCROLLBACK);
         for line in shell {
             parser.process(line.as_bytes());
             parser.process(b"\r\n");
@@ -146,6 +148,7 @@ impl Session {
         let link: Link = Arc::new((
             Mutex::new(Shared {
                 parser,
+                output: Vec::new(),
                 closed: false,
             }),
             Condvar::new(),
@@ -158,7 +161,9 @@ impl Session {
                     Ok(0) => break,
                     Ok(count) => {
                         let (shared, changed) = &*feed;
-                        lock(shared).parser.process(&chunk[..count]);
+                        let mut shared = lock(shared);
+                        shared.parser.process(&chunk[..count]);
+                        shared.output.extend_from_slice(&chunk[..count]);
                         changed.notify_all();
                     }
                     Err(error) if error.kind() == ErrorKind::Interrupted => {}
@@ -232,6 +237,42 @@ impl Session {
     pub fn frame(&self) -> Frame {
         let (shared, _) = &*self.link;
         Frame::of(&lock(shared).parser)
+    }
+
+    /// The emulator takes the new size first, as a terminal window would, then the child gets
+    /// SIGWINCH.
+    pub fn resize(&self, cols: u16, rows: u16) {
+        let (shared, _) = &*self.link;
+        lock(shared).parser.screen_mut().set_size(rows, cols);
+        let size = PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        };
+        ok(self.master.resize(size), "resize the pty");
+    }
+
+    pub fn scrollback(&self) -> Vec<String> {
+        let (shared, _) = &*self.link;
+        let mut shared = lock(shared);
+        let screen = shared.parser.screen_mut();
+        let cols = screen.size().1;
+        screen.set_scrollback(SCROLLBACK);
+        let depth = screen.scrollback();
+        let mut rows = Vec::new();
+        for offset in (1..=depth).rev() {
+            screen.set_scrollback(offset);
+            let first = screen.rows(0, cols).next().unwrap_or_default();
+            rows.push(first.trim_end().to_owned());
+        }
+        screen.set_scrollback(0);
+        rows
+    }
+
+    pub fn output(&self) -> Vec<u8> {
+        let (shared, _) = &*self.link;
+        lock(shared).output.clone()
     }
 
     pub fn wait_for(&self, what: &str, ready: impl Fn(&Frame) -> bool) -> Frame {

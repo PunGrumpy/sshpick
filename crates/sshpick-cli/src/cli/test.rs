@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::io;
 
 use insta::assert_snapshot;
+use sshpick_core::Refusal;
 use sshpick_ui::ColorConfig;
 use test_case::test_case;
 
@@ -187,7 +188,8 @@ fn the_table_has_no_two_commands_with_the_same_name() {
 #[test_case(Error::Inspect(inspect::Error::Several { count: 2, query: "x".to_owned(), names: vec![] }), 2; "inspect several")]
 #[test_case(Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Timeout)), 2; "ssh -G failed")]
 #[test_case(Error::Inspect(inspect::Error::Write(io::Error::other("x"))), 2; "inspect write")]
-#[test_case(Error::Pick(several(4, pick::Refusal::NoTerminal)), 2; "several matches")]
+#[test_case(Error::Pick(several(4, Refusal::NoTerminal)), 2; "several matches")]
+#[test_case(Error::Pick(several(4, Refusal::DumbTerminal)), 2; "several matches on a dumb terminal")]
 #[test_case(Error::Stdout(io::Error::other("x")), 2; "stdout")]
 #[test_case(Error::NoHome, 2; "no home")]
 #[test_case(Error::NoHosts, 2; "no hosts")]
@@ -385,7 +387,7 @@ fn no_match(query: &str) -> Error {
     }
 }
 
-fn several(count: usize, refusal: pick::Refusal) -> pick::Error {
+fn several(count: usize, refusal: Refusal) -> pick::Error {
     pick::Error::Several {
         count,
         query: "consul".to_owned(),
@@ -420,14 +422,18 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
         ),
         (
             "sshpick consul < /dev/null",
-            Error::Pick(several(4, pick::Refusal::NoTerminal)),
+            Error::Pick(several(4, Refusal::NoTerminal)),
+        ),
+        (
+            "TERM=dumb sshpick consul",
+            Error::Pick(several(4, Refusal::DumbTerminal)),
         ),
         (
             "sshpick --non-interactive",
             Error::Pick(pick::Error::Several {
                 count: 12,
                 query: String::new(),
-                refusal: pick::Refusal::NonInteractive,
+                refusal: Refusal::NonInteractive,
             }),
         ),
         (

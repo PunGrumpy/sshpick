@@ -70,35 +70,38 @@ mod tests {
     }
 
     #[test]
-    fn the_help_lists_every_binding_in_place_under_the_route_row() {
+    fn the_help_grows_the_block_under_the_route_row_with_every_binding() {
         let (screen, mut picker) = setup("ui", "");
-        let mut closed = terminal(80, 24);
-        let plain = render(&mut closed, &screen, &mut picker, &ready());
-        open(&mut picker);
         let mut terminal = terminal(80, 24);
+        let plain = render(&mut terminal, &screen, &mut picker, &ready());
+        open(&mut picker);
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
         assert_snapshot!("help_80x24", frame(&lines));
 
-        assert_eq!(lines[..7], plain[..7], "the prompt, header and hosts stay");
-        assert_eq!(lines[11], plain[22], "the route row follows the list");
-        assert!(lines[12].is_empty(), "a blank row opens the section");
-        for (row, binding) in lines[13..23].iter().zip(BINDINGS) {
+        assert_eq!(lines.len(), plain.len() + BINDINGS.len() + 1);
+        assert_eq!(
+            lines[..8],
+            plain[..8],
+            "the prompt, header, hosts and route stay"
+        );
+        assert!(lines[8].is_empty(), "a blank row opens the section");
+        for (row, binding) in lines[9..19].iter().zip(BINDINGS) {
             assert!(
                 row.starts_with(&format!("  {}", binding.keys)) && row.ends_with(binding.does),
                 "{row:?} for {binding:?}"
             );
         }
-        assert_eq!(lines[23], "  ↑↓ move   enter ssh   esc close");
+        assert_eq!(lines[19], "  ↑↓ move   enter ssh   esc close");
         assert!(
             !lines.concat().contains(['│', '─', '┌', '┐', '└', '┘']),
-            "a section of the screen, not a box over it"
+            "a section of the block, not a box over it"
         );
-        let plain_keys = (2..60).all(|x| !dim(&cell(&terminal, x, 13)));
+        let plain_keys = (2..60).all(|x| !dim(&cell(&terminal, x, 9)));
         assert!(
             plain_keys,
             "the key rows are plain; only the hint row is dim"
         );
-        assert!(dim(&cell(&terminal, 2, 23)));
+        assert!(dim(&cell(&terminal, 2, 19)));
     }
 
     #[test]
@@ -113,18 +116,18 @@ mod tests {
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
         assert!(lines[0].starts_with("> consul") && lines[0].ends_with("2/5"));
         assert!(lines[2].starts_with("▌ NEW STAGING newstg-consul1"));
-        assert!(lines[13].starts_with("  Enter"), "{lines:#?}");
-        assert_eq!(lines[23], "  ↑↓ move   enter ssh   esc close");
+        assert!(lines[9].starts_with("  Enter"), "{lines:#?}");
+        assert_eq!(lines[19], "  ↑↓ move   enter ssh   esc close");
     }
 
     #[test]
-    fn closing_the_help_brings_the_list_back() {
+    fn closing_the_help_gives_the_rows_back() {
         let (screen, mut picker) = setup("ui", "");
         let mut terminal = terminal(80, 24);
         let plain = render(&mut terminal, &screen, &mut picker, &ready());
         open(&mut picker);
         let with_help = render(&mut terminal, &screen, &mut picker, &ready());
-        assert_ne!(plain, with_help);
+        assert!(with_help.len() > plain.len());
         assert_eq!(picker.handle(Key::Esc), None);
         assert_eq!(render(&mut terminal, &screen, &mut picker, &ready()), plain);
     }
@@ -136,22 +139,24 @@ mod tests {
         let mut terminal = terminal(80, 12);
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
         assert_snapshot!("help_80x12", frame(&lines));
-        assert_eq!(lines[10], "  +7 more · sshpick pick --help");
-        assert!(dim(&cell(&terminal, 2, 10)) && dim(&cell(&terminal, 30, 10)));
+        assert_eq!(lines.len(), 11, "all but one row of the terminal");
+        assert_eq!(lines[9], "  +8 more · sshpick pick --help");
+        assert!(dim(&cell(&terminal, 2, 9)) && dim(&cell(&terminal, 30, 9)));
         assert_eq!(
-            lines[11],
+            lines[10],
             format!("{:<77}1–3", "  ↑↓ move   enter ssh   esc close"),
             "the list kept three rows, so the range shows"
         );
     }
 
     #[test_case(24, 0, 11 ; "every key fits")]
-    #[test_case(18, 0, 11 ; "the last height where every key fits")]
-    #[test_case(17, 2, 10 ; "two keys short")]
-    #[test_case(14, 5, 7 ; "half of them")]
-    #[test_case(12, 7, 5 ; "the 80x12 terminal")]
-    #[test_case(9, 10, 2 ; "only the blank row and the pointer")]
-    #[test_case(8, 10, 1 ; "only the pointer")]
+    #[test_case(21, 0, 11 ; "the shortest terminal that takes the whole block")]
+    #[test_case(19, 0, 11 ; "the list gave up two hosts")]
+    #[test_case(18, 2, 10 ; "two keys short")]
+    #[test_case(15, 5, 7 ; "half of them")]
+    #[test_case(12, 8, 4 ; "the 80x12 terminal")]
+    #[test_case(10, 10, 2 ; "only the blank row and the pointer")]
+    #[test_case(9, 10, 1 ; "only the pointer")]
     fn the_list_keeps_three_rows_and_the_help_gets_the_rest(
         height: u16,
         hidden: usize,
@@ -160,7 +165,7 @@ mod tests {
         let (screen, mut picker) = setup("ui", "");
         open(&mut picker);
         let lines = render(&mut terminal(80, height), &screen, &mut picker, &ready());
-        let hint = usize::from(height) - 1;
+        let hint = lines.len() - 1;
         let section = &lines[hint - rows..hint];
         let pointer = format!("  +{hidden} more · sshpick pick --help");
         assert_eq!(
@@ -178,12 +183,13 @@ mod tests {
             .count();
         assert_eq!(keys, BINDINGS.len() - hidden, "{section:#?}");
 
-        let list = usize::from(height) - 4 - rows;
+        let list = lines.len() - 4 - rows;
         let hosts = lines[2..2 + list]
             .iter()
             .filter(|row| !row.is_empty())
             .count();
         assert_eq!(hosts, list.min(5), "the list gave the rows up");
+        assert!(list >= 3, "but kept three");
         assert!(
             lines[2 + list].starts_with("  → "),
             "the route row is under the list"
@@ -196,11 +202,12 @@ mod tests {
         let plain = render(&mut terminal(80, 7), &screen, &mut picker, &ready());
         open(&mut picker);
         let lines = render(&mut terminal(80, 7), &screen, &mut picker, &ready());
-        assert_eq!(lines[..6], plain[..6]);
+        assert_eq!(lines.len(), plain.len());
+        assert_eq!(lines[..5], plain[..5]);
         assert!(
-            lines[6].starts_with("  ↑↓ move   enter ssh   esc close") && lines[6].ends_with("1–3"),
+            lines[5].starts_with("  ↑↓ move   enter ssh   esc close") && lines[5].ends_with("1–3"),
             "{:?}",
-            lines[6]
+            lines[5]
         );
     }
 
@@ -220,10 +227,11 @@ mod tests {
                     .all(|line| line.chars().count() <= usize::from(width)),
                 "{width}x{height}"
             );
+            assert!(lines.len() < usize::from(height).max(2), "{width}x{height}");
         }
         let lines = render(&mut terminal(40, 24), &screen, &mut picker, &ready());
         assert!(
-            lines[14..24].iter().any(|line| line.ends_with('…')),
+            lines[9..19].iter().any(|line| line.ends_with('…')),
             "a long key row ends in an ellipsis: {lines:#?}"
         );
     }

@@ -54,6 +54,9 @@ a `Learn More:` line when the docs help; a warning is a `! message` line:
     Error: 4 hosts match "consul", and the picker needs an interactive terminal
     Fix: narrow the query to one host, or list them with `sshpick ls consul`.
 
+`TERM=dumb` keeps the picker closed too, because a dumb terminal cannot move the cursor: several
+matches exit 2, none exit 1, and exactly one still connects.
+
 A near-miss gets one suggestion, only when it is a single edit from a command or option:
 `sshpick help lst` says ``did you mean `sshpick help list`?``.
 

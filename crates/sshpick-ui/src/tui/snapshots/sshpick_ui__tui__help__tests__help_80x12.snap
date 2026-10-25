@@ -11,6 +11,5 @@ expression: frame(&lines)
  6|
  7|  Enter                       - ssh to the selected host
  8|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
- 9|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
-10|  +7 more · sshpick pick --help
-11|  ↑↓ move   enter ssh   esc close                                            1–3
+ 9|  +8 more · sshpick pick --help
+10|  ↑↓ move   enter ssh   esc close                                            1–3

@@ -971,6 +971,7 @@ dependencies = [
  "signal-hook",
  "sshpick-core",
  "test-case",
+ "vt100",
 ]
 
 [[package]]

@@ -14,6 +14,8 @@ const COLUMN_SPACING: u16 = 1;
 
 const PLACEHOLDER: &str = "type to filter";
 const NO_MATCH: &str = "no matching hosts";
+/// Narrower than this, WHAT would be little more than its `…`, so it is left out.
+const MIN_WHAT: usize = 3;
 
 #[derive(Debug)]
 pub(super) struct HostTable {
@@ -39,7 +41,10 @@ impl HostTable {
             }
             return;
         }
-        let what_width = self.what_width(area.width);
+        let what_width = match self.what_width(area.width) {
+            narrow if narrow < MIN_WHAT => 0,
+            width => width,
+        };
         let table_rows = view.rows.iter().map(|row| {
             let what = fit(&row.what, what_width);
             let columns = [
@@ -88,15 +93,18 @@ impl HostTable {
     }
 }
 
-pub(super) fn prompt_row(frame: &mut Frame, area: Rect, view: &View<'_>) {
-    let count = format!("{}/{}", view.matched, view.total);
+pub(super) fn prompt_row(frame: &mut Frame, area: Rect, view: &View<'_>, selection: Option<&str>) {
+    let (tally, style) = match selection {
+        Some(host) => (host.to_owned(), Style::new()),
+        None => (format!("{}/{}", view.matched, view.total), DIM),
+    };
     let [marker, rest] =
         Layout::horizontal([Constraint::Length(2), Constraint::Fill(1)]).areas(area);
-    let [input, tally] =
-        Layout::horizontal([Constraint::Fill(1), Constraint::Length(width(&count) + 1)])
+    let [input, tally_area] =
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(width(&tally) + 1)])
             .areas(rest);
     frame.render_widget(Span::styled(">", BOLD), marker);
-    frame.render_widget(Line::styled(count, DIM).right_aligned(), tally);
+    frame.render_widget(Line::styled(tally, style).right_aligned(), tally_area);
     let typed = width(view.query);
     let scroll = typed.saturating_sub(input.width.saturating_sub(1));
     if view.query.is_empty() {

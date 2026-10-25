@@ -1,6 +1,6 @@
 use std::io::{self, IsTerminal};
 
-use sshpick_core::{Host, Outcome, Picker, Previews, Resolution};
+use sshpick_core::{Host, Interaction, Outcome, Picker, Previews, Refusal, Resolution};
 use sshpick_ui::Screen;
 
 use super::{CommandBase, did_you_mean};
@@ -21,12 +21,6 @@ pub(crate) enum Error {
     Terminal(io::Error),
     #[error("cannot run ssh: {0}")]
     Exec(#[source] io::Error),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Refusal {
-    NoTerminal,
-    NonInteractive,
 }
 
 impl Error {
@@ -57,8 +51,9 @@ fn several(count: &usize, query: &str, refusal: &Refusal) -> String {
         format!("{count} hosts match \"{query}\"")
     };
     let why = match refusal {
-        Refusal::NoTerminal => "the picker needs an interactive terminal",
         Refusal::NonInteractive => "--non-interactive never opens the picker",
+        Refusal::NoTerminal => "the picker needs an interactive terminal",
+        Refusal::DumbTerminal => "the picker needs a terminal that moves the cursor (TERM=dumb)",
     };
     format!("{who}, and {why}")
 }
@@ -68,13 +63,12 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     base.warn_all(&loaded.warnings);
     let screen = Screen::new(&loaded.entries);
     let mut picker = Picker::new(loaded.entries, query);
-    let refusal = if base.non_interactive {
-        Some(Refusal::NonInteractive)
-    } else if !(io::stdin().is_terminal() && io::stdout().is_terminal()) {
-        Some(Refusal::NoTerminal)
-    } else {
-        None
-    };
+    let refusal = sshpick_core::refusal(&Interaction {
+        non_interactive: base.non_interactive,
+        stdin_is_terminal: io::stdin().is_terminal(),
+        stdout_is_terminal: io::stdout().is_terminal(),
+        dumb: std::env::var_os("TERM").is_some_and(|term| term == "dumb"),
+    });
     match (picker.resolve(), refusal) {
         (Resolution::One(host), _) => return exec(host),
         (Resolution::NoMatch, Some(_)) => {

@@ -19,3 +19,4 @@ sshpick-core = { workspace = true }
 [dev-dependencies]
 insta = { workspace = true }
 test-case = { workspace = true }
+vt100 = { workspace = true }

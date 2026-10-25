@@ -9,16 +9,5 @@ expression: frame(&lines)
  4|  NEW STAGING newstg-consul1 consul server 1 — mgmt
  5|  NEW STAGING newstg-consul2
  6|  NEW STAGING newstg-bastion bastion
- 7|
- 8|
- 9|
-10|
-11|
-12|
-13|
-14|
-15|
-16|
-17|
-18|  → ssh -G gave no answer within 2 s
-19|  ↑↓ move   enter ssh   esc quit   ? keys
+ 7|  → ssh -G gave no answer within 2 s
+ 8|  ↑↓ move   enter ssh   esc quit   ? keys
