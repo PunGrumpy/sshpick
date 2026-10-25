@@ -15,7 +15,8 @@ sshpick
         ├── common/mod.rs - a fixture HOME, the fake ssh on PATH, a clean environment
         ├── common/pty.rs - the binary on a pty, and a vt100 screen to read what it drew
         ├── pick_test.rs - one match, no terminal, no hosts, unreadable config
-        ├── picker_test.rs - the picker on a pty: Esc, Enter, F1 and keys typed before the first frame
+        ├── picker_test.rs - the picker on a pty: Esc, Enter, F1, keys typed before the first frame
+        │   and a kill by INT, TERM or HUP
         ├── list_test.rs - the tab-separated rows of ls and --list, and ls --json
         ├── inspect_test.rs - inspect as text and as JSON, and how it fails
         └── usage_test.rs - help, version, unknown options, and `sp`

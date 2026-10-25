@@ -23,13 +23,16 @@ sshpick-ui
         ├── app.rs - the event loop: draw, poll, hand a key to the Picker
         ├── input.rs - crossterm key event to Key, one to one, no policy
         ├── screen.rs - lays the widgets out for one frame; the one border is the list's right edge
+        ├── signals.rs - a thread that restores the terminal on SIGINT, SIGTERM, SIGHUP or SIGQUIT,
+        │   then ends the process by that signal
         ├── size.rs - Tier: what the terminal's size leaves room for
         ├── table.rs - the prompt row, the header, the host rows and the two-row footer
         ├── pane.rs - the ssh -G preview: a borderless block with a dim title and footer, beside the
         │   list or stacked under it
         ├── popup.rs - the key help over the middle of the frame: rows from BINDINGS, then the warnings
         ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans
-        ├── terminal.rs - Tty: enter, leave, and a Drop guard that restores the terminal
+        ├── terminal.rs - Tty: raw mode and the alternate screen, and the one idempotent restore
+        │   that `leave`, `Drop`, the panic hook and the signal thread all end in
         └── testing.rs - test helpers: a TestBackend terminal, render(), frame()
 ```
 
