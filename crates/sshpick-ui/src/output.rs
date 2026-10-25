@@ -40,10 +40,6 @@ impl Output {
         self.stdout
     }
 
-    pub fn stderr_colors(&self) -> ColorConfig {
-        self.stderr
-    }
-
     /// Where results go. A reader that hangs up (`sshpick --help | head -1`) is not an error:
     /// writes after the pipe closes are dropped and report success.
     pub fn result(&self) -> Stdout {

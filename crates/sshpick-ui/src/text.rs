@@ -1,7 +1,29 @@
 use ratatui::text::Line;
-use sshpick_core::Run;
+use sshpick_core::{Entry, Run};
 
 const CUT: &str = "…";
+
+pub(crate) const TITLES: [&str; 3] = ["ENV", "HOST", "WHAT"];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct ColumnWidths {
+    pub(crate) env: Option<usize>,
+    pub(crate) host: usize,
+}
+
+impl ColumnWidths {
+    pub(crate) fn of<'a>(entries: impl IntoIterator<Item = &'a Entry>) -> ColumnWidths {
+        let (mut env, mut host) = (0, 0);
+        for entry in entries {
+            env = env.max(columns(&entry.env));
+            host = host.max(columns(entry.host.as_str()));
+        }
+        ColumnWidths {
+            env: (env > 0).then(|| env.max(columns(TITLES[0]))),
+            host: host.max(columns(TITLES[1])),
+        }
+    }
+}
 
 pub(crate) fn width(text: &str) -> u16 {
     u16::try_from(columns(text)).unwrap_or(u16::MAX)
@@ -55,6 +77,15 @@ pub(crate) fn fit<'a>(runs: &[Run<'a>], limit: usize) -> Vec<Run<'a>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn env_hides_when_empty_and_titles_set_the_minimum() {
+        assert_eq!(
+            ColumnWidths::of([]),
+            ColumnWidths { env: None, host: 4 },
+            "HOST is never narrower than its title"
+        );
+    }
 
     #[test]
     fn fit_cuts_on_display_width_and_keeps_runs_whole_or_cut_cleanly() {

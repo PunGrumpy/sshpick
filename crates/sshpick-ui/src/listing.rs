@@ -1,26 +1,16 @@
 use sshpick_core::{Entry, Run};
 
 use crate::color::ColorConfig;
-use crate::text::{columns, fit};
+use crate::text::{ColumnWidths, TITLES, columns, fit};
 
 const INDENT: &str = "  ";
 const GAP: &str = "  ";
-const TITLES: [&str; 3] = ["ENV", "HOST", "WHAT"];
 
 /// The hosts as an aligned table for a terminal: a 2-space indent, 2 spaces between columns and
 /// a dim header. ENV disappears when no host has one. WHAT is cut with `…` to `width`, and no
 /// line ends in a space.
 pub fn hosts(entries: &[&Entry], width: usize, colors: ColorConfig) -> String {
-    let widest = |text: fn(&Entry) -> &str| {
-        entries
-            .iter()
-            .map(|entry| columns(text(entry)))
-            .max()
-            .unwrap_or(0)
-    };
-    let env = widest(|entry| &entry.env);
-    let env = (env > 0).then(|| env.max(columns(TITLES[0])));
-    let host = widest(|entry| entry.host.as_str()).max(columns(TITLES[1]));
+    let ColumnWidths { env, host } = ColumnWidths::of(entries.iter().copied());
     let taken = INDENT.len() + env.map_or(0, |env| env + GAP.len()) + host + GAP.len();
     let room = width.saturating_sub(taken);
 
