@@ -67,6 +67,19 @@ fn enter_runs_ssh_with_the_chosen_host_after_the_terminal_is_restored() {
     assert!(session.cooked());
 }
 
+#[test_case(80, "  ↑↓ move   enter ssh   esc quit   ? keys"; "every key")]
+#[test_case(30, "  enter ssh   esc quit"; "no movement or help")]
+#[test_case(20, "  enter esc"; "bare key names")]
+fn the_hint_row_is_the_last_row_and_keeps_enter_and_esc(cols: u16, row: &str) {
+    let mut options = Options::new("ui");
+    options.cols = cols;
+    let mut session = Session::start(options);
+    let frame = session.wait_for("the hint row", |frame| !frame.rows[23].is_empty());
+    assert_eq!(frame.rows[23], row, "{frame}");
+    session.send("\x1b");
+    assert_eq!(session.exit(), Exit::Code(130));
+}
+
 #[test]
 fn f1_opens_the_key_help() {
     let mut session = started();
@@ -76,6 +89,10 @@ fn f1_opens_the_key_help() {
     assert!(frame.has("Keybinds"), "{frame}");
     assert!(frame.has("toggle this help"), "{frame}");
     assert!(frame.has("> type to filter"), "{frame}");
+    assert_eq!(
+        frame.rows[23], "  ↑↓ move   enter ssh   esc close",
+        "{frame}"
+    );
     session.send("\x1b");
     session.wait_for("the key help to close, not the picker", |frame| {
         frame.alternate && !frame.has("┘")

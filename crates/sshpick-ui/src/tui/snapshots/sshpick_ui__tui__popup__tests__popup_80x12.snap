@@ -12,5 +12,5 @@ expression: frame(&lines)
  7| │ Backspace, Ctrl-H           - delete the last character                    │
  8| │ Ctrl-U                      - clear the filter                             │
  9| │ Ctrl-W                      - delete the last word                         │
-10|↑│                                                                            │
-11|?└ 2 more binds. Make your terminal taller. ──────────────────────────────────┘
+10| │                                                                            │
+11| └ 2 more binds. Make your terminal taller. ──────────────────────────────────┘

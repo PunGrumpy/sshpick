@@ -19,7 +19,9 @@ sshpick-core
     │   ranges per column
     ├── picker.rs - Picker: query, matches, cursor and scroll; resolve() settles a query before any
     │   terminal, handle(Key) returns an Outcome, follow(height) scrolls to the cursor and view()
-    │   is the rows of one frame
+    │   is the rows of one frame, with the scroll offset and whether the help is open
+    ├── hints.rs - hint(): the one hint row, the widest rung of keys that fits, accept and cancel
+    │   always kept, and the window range when it fits beside them
     ├── keymap.rs - BINDINGS: every key Picker::handle acts on, which the popup, `sshpick pick
     │   --help` and the docs/picker.md table read; tests tie it to the picker
     ├── preview.rs - Previews: one worker thread that runs ssh -G, and a Slot per host

@@ -30,5 +30,5 @@ expression: frame(&lines)
 25|                                                                              │
 26|                                                                              │
 27|                                                                              │
-28|↑ ↓ - Select                                                                  │
-29|F1 - More binds                                                               │    Enter - ssh   Esc - Quit
+28|                                                                              │
+29|  ↑↓ move   enter ssh   esc close                                             │

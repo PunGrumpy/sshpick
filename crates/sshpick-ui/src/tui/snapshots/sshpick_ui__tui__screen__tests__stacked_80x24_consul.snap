@@ -18,11 +18,11 @@ expression: frame(&lines)
 13|
 14|
 15|
-16| newstg-consul1 > ssh -G
-17|  user          ubuntu
-18|  hostname      10.11.212.191
-19|  port          22
-20|  proxyjump     newstg-bastion
-21|
-22|↑ ↓ - Select
-23|F1 - More binds
+16|
+17| newstg-consul1 > ssh -G
+18|  user          ubuntu
+19|  hostname      10.11.212.191
+20|  port          22
+21|  proxyjump     newstg-bastion
+22|
+23|  ↑↓ move   enter ssh   esc quit   F1 keys

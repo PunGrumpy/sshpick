@@ -957,6 +957,7 @@ version = "0.1.0"
 dependencies = [
  "glob",
  "nucleo-matcher",
+ "test-case",
  "thiserror 2.0.21",
 ]
 

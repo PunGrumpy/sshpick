@@ -20,5 +20,5 @@ expression: frame(&lines)
 15|
 16|
 17|
-18|↑ ↓ - Select
-19|F1 - More binds
+18|
+19|  esc quit   F1 keys

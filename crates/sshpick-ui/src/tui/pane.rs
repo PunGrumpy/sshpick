@@ -9,10 +9,6 @@ use crate::text::{columns, fit};
 
 const STACKED_INDENT: u16 = 2;
 const KEY_WIDTH: usize = 14;
-const FOOTER_INDENT: &str = "   ";
-const FOOTER_GAP: &str = "   ";
-const ENTER_HINT: &str = "Enter - ssh";
-const ESC_HINT: &str = "Esc - Quit";
 
 pub(super) type Pane<'a> = Option<(&'a Host, &'a Slot)>;
 
@@ -41,8 +37,8 @@ pub(super) fn stacked(frame: &mut Frame, area: Rect, pane: Pane<'_>) {
     slot_body(frame, body, slot, None);
 }
 
-pub(super) fn side(frame: &mut Frame, area: Rect, pane: Pane<'_>, matched: usize) {
-    let mut block = Block::new().title_bottom(footer(matched, usize::from(area.width)));
+pub(super) fn side(frame: &mut Frame, area: Rect, pane: Pane<'_>) {
+    let mut block = Block::new();
     if let Some((host, slot)) = pane {
         block = block.title(heading(host, slot));
     }
@@ -52,19 +48,6 @@ pub(super) fn side(frame: &mut Frame, area: Rect, pane: Pane<'_>, matched: usize
         let room = usize::from(inner.width).saturating_sub(KEY_WIDTH);
         slot_body(frame, inner, slot, Some(room));
     }
-}
-
-fn footer(matched: usize, width: usize) -> Line<'static> {
-    let hints: Vec<&str> = [(matched > 0).then_some(ENTER_HINT), Some(ESC_HINT)]
-        .into_iter()
-        .flatten()
-        .collect();
-    let fits = |count: usize| {
-        let text = format!("{FOOTER_INDENT}{}", hints[..count].join(FOOTER_GAP));
-        (columns(&text) <= width).then_some(text)
-    };
-    let text = (1..=hints.len()).rev().find_map(fits).unwrap_or_default();
-    Line::styled(text, DIM)
 }
 
 fn slot_body(frame: &mut Frame, area: Rect, slot: &Slot, room: Option<usize>) {
@@ -125,20 +108,6 @@ mod tests {
         assert_eq!(title(&host, &Slot::Waiting), "lab-a > ssh -G »");
         let failed = Slot::Failed(ResolveError::Timeout);
         assert_eq!(title(&host, &failed), "lab-a > ssh -G failed");
-    }
-
-    #[test]
-    fn the_footer_names_enter_and_esc_and_drops_hints_from_the_right() {
-        let line = |matched, width| text(&footer(matched, width));
-        assert_eq!(line(5, 40), "   Enter - ssh   Esc - Quit");
-        assert_eq!(line(5, 27), "   Enter - ssh   Esc - Quit");
-        assert_eq!(line(5, 26), "   Enter - ssh");
-        assert_eq!(line(5, 14), "   Enter - ssh");
-        assert_eq!(line(5, 13), "");
-        assert_eq!(line(0, 40), "   Esc - Quit", "nothing to ssh to");
-        assert_eq!(line(0, 13), "   Esc - Quit");
-        assert_eq!(line(0, 12), "");
-        assert_eq!(footer(5, 40).style, DIM);
     }
 
     #[test]
