@@ -37,6 +37,8 @@ pub struct Loaded {
     pub entries: Vec<Entry>,
     /// What cost rows without stopping the run.
     pub warnings: Vec<Warning>,
+    /// How many files an `Include` led to and were read; the root file is not counted.
+    pub included: usize,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -56,6 +58,10 @@ pub enum Warning {
     Cycle { path: PathBuf },
     #[error("Include {arg}: skipped, {reason}")]
     BadInclude { arg: String, reason: String },
+}
+
+pub fn config_path(home: &Path) -> PathBuf {
+    home.join(".ssh").join("config")
 }
 
 /// Read `<home>/.ssh/config` and every file it includes, in ssh's order. Errs only when the root
@@ -110,12 +116,13 @@ impl<'a> Walk<'a> {
             out: Loaded {
                 entries: Vec::new(),
                 warnings: Vec::new(),
+                included: 0,
             },
         }
     }
 
     fn root(mut self) -> Result<Loaded, LoadError> {
-        let path = self.home.join(".ssh").join("config");
+        let path = config_path(self.home);
         let text = match read(&path) {
             Ok(text) => text,
             Err(source) => return Err(LoadError { path, source }),
@@ -143,6 +150,7 @@ impl<'a> Walk<'a> {
                 return;
             }
         };
+        self.out.included += 1;
         let env = label::env_label(path, text.lines().next().unwrap_or_default());
         self.lines(path, &text, &env, depth);
     }

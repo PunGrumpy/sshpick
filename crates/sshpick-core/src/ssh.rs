@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
 use std::io::{self, Read};
 use std::os::unix::process::CommandExt;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -142,33 +142,16 @@ pub(crate) fn resolve_with(
     host: &Host,
     timeout: Duration,
 ) -> Result<Preview, ResolveError> {
-    let mut child = Command::new(program)
-        .args(["-G", "--"])
-        .arg(host.as_str())
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(ResolveError::Spawn)?;
-    let stdout = drain(child.stdout.take());
-    let stderr = drain(child.stderr.take());
-    let deadline = Instant::now() + timeout;
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status,
-            Ok(None) if Instant::now() >= deadline => {
-                reap(&mut child);
-                return Err(ResolveError::Timeout);
-            }
-            Ok(None) => thread::sleep(POLL),
-            Err(error) => {
-                reap(&mut child);
-                return Err(ResolveError::Spawn(error));
-            }
-        }
-    };
-    let stdout = String::from_utf8_lossy(&stdout.join().unwrap_or_default()).into_owned();
-    let stderr = String::from_utf8_lossy(&stderr.join().unwrap_or_default()).into_owned();
+    let mut command = Command::new(program);
+    command.args(["-G", "--"]).arg(host.as_str());
+    let Finished {
+        status,
+        stdout,
+        stderr,
+    } = run(command, timeout).map_err(|error| match error {
+        RunError::Spawn(error) => ResolveError::Spawn(error),
+        RunError::Timeout => ResolveError::Timeout,
+    })?;
     if status.success() {
         return Ok(parse_g(&stdout));
     }
@@ -180,6 +163,79 @@ pub(crate) fn resolve_with(
     Err(ResolveError::Ssh {
         code: status.code(),
         stderr: said.join("\n"),
+    })
+}
+
+/// The first line `ssh -V` prints.
+pub fn version() -> io::Result<String> {
+    version_with(OsStr::new(SSH), TIMEOUT)
+}
+
+pub(crate) fn version_with(program: &OsStr, timeout: Duration) -> io::Result<String> {
+    let mut command = Command::new(program);
+    command.arg("-V");
+    let finished = run(command, timeout).map_err(|error| match error {
+        RunError::Spawn(error) => error,
+        RunError::Timeout => io::Error::new(
+            io::ErrorKind::TimedOut,
+            format!("no answer within {} s", TIMEOUT.as_secs()),
+        ),
+    })?;
+    if !finished.status.success() {
+        return Err(io::Error::other(match finished.status.code() {
+            Some(code) => format!("exited with {code}"),
+            None => "was killed by a signal".to_owned(),
+        }));
+    }
+    version_line(&finished.stderr, &finished.stdout)
+        .map(str::to_owned)
+        .ok_or_else(|| io::Error::other("printed nothing"))
+}
+
+/// OpenSSH prints its version on stderr; a wrapper that prints it on stdout is read too.
+fn version_line<'a>(stderr: &'a str, stdout: &'a str) -> Option<&'a str> {
+    first_line(stderr).or_else(|| first_line(stdout))
+}
+
+struct Finished {
+    status: ExitStatus,
+    stdout: String,
+    stderr: String,
+}
+
+enum RunError {
+    Spawn(io::Error),
+    Timeout,
+}
+
+fn run(mut command: Command, timeout: Duration) -> Result<Finished, RunError> {
+    let mut child = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(RunError::Spawn)?;
+    let stdout = drain(child.stdout.take());
+    let stderr = drain(child.stderr.take());
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() >= deadline => {
+                reap(&mut child);
+                return Err(RunError::Timeout);
+            }
+            Ok(None) => thread::sleep(POLL),
+            Err(error) => {
+                reap(&mut child);
+                return Err(RunError::Spawn(error));
+            }
+        }
+    };
+    Ok(Finished {
+        status,
+        stdout: String::from_utf8_lossy(&stdout.join().unwrap_or_default()).into_owned(),
+        stderr: String::from_utf8_lossy(&stderr.join().unwrap_or_default()).into_owned(),
     })
 }
 
@@ -210,6 +266,8 @@ fn parse_g(stdout: &str) -> Preview {
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
+
+    use test_case::test_case;
 
     use super::*;
 
@@ -345,6 +403,51 @@ mod tests {
         );
         let spawn = ResolveError::Spawn(io::Error::other("no such file\nor directory"));
         assert_eq!(spawn.headline(), "cannot run ssh -G: no such file");
+    }
+
+    #[test_case("OpenSSH_9.6p1, OpenSSL 3.0.13\n", "", "OpenSSH_9.6p1, OpenSSL 3.0.13"; "stderr")]
+    #[test_case("\n  OpenSSH_9.6p1  \nsecond\n", "", "OpenSSH_9.6p1"; "blank lines and indentation are skipped")]
+    #[test_case("", "OpenSSH_9.6p1\n", "OpenSSH_9.6p1"; "stdout when stderr says nothing")]
+    #[test_case("from stderr", "from stdout", "from stderr"; "stderr first")]
+    #[test_case(" \n", "\n", ""; "nothing printed")]
+    fn the_version_is_the_first_line_ssh_printed(stderr: &str, stdout: &str, want: &str) {
+        assert_eq!(version_line(stderr, stdout).unwrap_or_default(), want);
+    }
+
+    #[test]
+    fn version_asks_ssh_dash_v_and_returns_its_first_line() {
+        let line = version_with(fake("ssh-ok").as_os_str(), PATIENT).unwrap();
+        assert_eq!(
+            line,
+            "OpenSSH_9.6p1 Ubuntu-3ubuntu13.5, OpenSSL 3.0.13 30 Jan 2024"
+        );
+    }
+
+    #[test]
+    fn version_reports_a_missing_program_with_its_own_error_kind() {
+        let error =
+            version_with(OsStr::new("/nonexistent/ssh"), Duration::from_secs(1)).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+    }
+
+    #[test]
+    fn version_reports_a_failing_ssh_by_its_exit_status() {
+        let error = version_with(fake("ssh-bad-config").as_os_str(), PATIENT).unwrap_err();
+        assert_eq!(error.to_string(), "exited with 255");
+    }
+
+    #[test]
+    fn version_kills_a_hung_ssh_at_the_deadline() {
+        let started = Instant::now();
+        let error =
+            version_with(fake("ssh-hang").as_os_str(), Duration::from_millis(100)).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert_eq!(error.to_string(), "no answer within 2 s");
+        assert!(
+            started.elapsed() < Duration::from_secs(15),
+            "{:?}",
+            started.elapsed()
+        );
     }
 
     #[test]

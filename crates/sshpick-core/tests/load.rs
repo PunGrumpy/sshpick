@@ -80,6 +80,20 @@ fn include_deeper_than_sixteen_warns() {
 }
 
 #[test]
+fn included_counts_the_files_that_were_read_and_not_the_root() {
+    assert_eq!(
+        load(&fixture_dir("home")).unwrap().included,
+        6,
+        "six config.d files; the cyclic one is read once and its Include is skipped"
+    );
+    assert_eq!(
+        load(&fixture_dir("deep")).unwrap().included,
+        16,
+        "d17 is skipped, not read"
+    );
+}
+
+#[test]
 fn unreadable_root_is_the_only_error() {
     let error = load(Path::new("/nonexistent-home")).unwrap_err();
     assert!(error.to_string().contains("/nonexistent-home/.ssh/config"));

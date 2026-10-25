@@ -50,12 +50,7 @@ fn several(count: &usize, query: &str, refusal: &Refusal) -> String {
     } else {
         format!("{count} hosts match \"{query}\"")
     };
-    let why = match refusal {
-        Refusal::NonInteractive => "--non-interactive never opens the picker",
-        Refusal::NoTerminal => "the picker needs an interactive terminal",
-        Refusal::DumbTerminal => "the picker needs a terminal that moves the cursor (TERM=dumb)",
-    };
-    format!("{who}, and {why}")
+    format!("{who}, and {}", refusal.why())
 }
 
 pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
