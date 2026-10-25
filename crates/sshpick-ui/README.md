@@ -14,9 +14,10 @@ and which rows match live in `sshpick-core`; what to say lives in `sshpick-cli`.
 ```
 sshpick-ui
     ├── color.rs - ColorConfig: colour and attributes for one stream, from --no-color, NO_COLOR,
-    │   CLICOLOR_FORCE and TERM, plus bold, dim, cyan, red, yellow and gray
+    │   CLICOLOR_FORCE and TERM, plus bold, dim, cyan, red, yellow and gray; Reason is the rule
+    │   that decided, which `doctor` prints
     ├── output.rs - Output: results on a stdout that forgives a closed pipe; Error, Fix and Learn More
-    │   lines and `!` warnings on stderr; built once per run and passed down
+    │   lines and `!` warnings on stderr; the terminal's size; built once per run and passed down
     ├── listing.rs - the host table `sshpick ls` prints on a terminal
     ├── text.rs - display-width helpers: columns, fit, plural
     └── tui/ - the picker

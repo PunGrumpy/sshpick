@@ -15,6 +15,19 @@ pub enum Refusal {
     DumbTerminal,
 }
 
+impl Refusal {
+    /// A clause that follows "and" or ";".
+    pub fn why(self) -> &'static str {
+        match self {
+            Refusal::NonInteractive => "--non-interactive never opens the picker",
+            Refusal::NoTerminal => "the picker needs an interactive terminal",
+            Refusal::DumbTerminal => {
+                "the picker needs a terminal that moves the cursor (TERM=dumb)"
+            }
+        }
+    }
+}
+
 pub fn refusal(interaction: &Interaction) -> Option<Refusal> {
     if interaction.non_interactive {
         Some(Refusal::NonInteractive)
@@ -68,5 +81,12 @@ mod tests {
             dumb,
         };
         assert_eq!(refusal(&interaction), want);
+    }
+
+    #[test_case(Refusal::NonInteractive, "--non-interactive never opens the picker"; "the flag")]
+    #[test_case(Refusal::NoTerminal, "the picker needs an interactive terminal"; "no terminal")]
+    #[test_case(Refusal::DumbTerminal, "the picker needs a terminal that moves the cursor (TERM=dumb)"; "dumb")]
+    fn each_refusal_says_why(refusal: Refusal, want: &str) {
+        assert_eq!(refusal.why(), want);
     }
 }

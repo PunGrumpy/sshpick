@@ -6,6 +6,7 @@ use std::process::{Output, Stdio};
 use assert_cmd::Command;
 use common::{isolated, sshpick, sshpick_std, stderr};
 use insta::assert_snapshot;
+use test_case::test_case;
 
 fn with_stdout_closed(home: &str, args: &[&str]) -> io::Result<Output> {
     let (reader, writer) = io::pipe()?;
@@ -94,6 +95,29 @@ fn help_for_a_command_is_the_same_page_three_ways() {
     assert_eq!(list, page(&["ls", "-h"]));
     assert_eq!(list, page(&["help", "ls"]));
     assert_eq!(list, page(&["help", "list"]));
+}
+
+#[test]
+fn help_for_doctor_is_the_same_page_three_ways() {
+    let page = |args: &[&str]| {
+        let out = sshpick("home").args(args).assert().code(0).stderr("");
+        String::from_utf8_lossy(&out.get_output().stdout).into_owned()
+    };
+    let doctor = page(&["doctor", "--help"]);
+    assert!(doctor.starts_with("\n  ▌ sshpick doctor [options]\n"));
+    assert_eq!(doctor, page(&["doctor", "-h"]));
+    assert_eq!(doctor, page(&["help", "doctor"]));
+}
+
+#[test_case(&["--version"]; "version")]
+#[test_case(&["--help"]; "help")]
+#[test_case(&["help", "doctor"]; "help for a command")]
+#[test_case(&["ls", "--json"]; "ls as json")]
+#[test_case(&["inspect", "stg-consul1", "--json"]; "inspect as json")]
+#[test_case(&["doctor", "--json"]; "doctor as json")]
+fn a_read_only_command_leaves_stderr_empty(args: &[&str]) {
+    let out = sshpick("inspect").args(args).assert().code(0);
+    assert_eq!(stderr(&out), "", "{args:?}");
 }
 
 #[test]

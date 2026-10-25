@@ -1,0 +1,36 @@
+---
+source: crates/sshpick/tests/doctor_test.rs
+expression: text
+---
+{
+  "config": "<fixtures>/empty/.ssh/config",
+  "summary": {
+    "ok": 2,
+    "warn": 1,
+    "fail": 1
+  },
+  "checks": [
+    {
+      "name": "config",
+      "status": "ok",
+      "detail": "read <fixtures>/empty/.ssh/config"
+    },
+    {
+      "name": "hosts",
+      "status": "fail",
+      "detail": "no hosts found in the config or the files it Includes",
+      "fix": "add `Host` lines; ENV and WHAT come from comments"
+    },
+    {
+      "name": "ssh",
+      "status": "ok",
+      "detail": "OpenSSH_9.6p1 Ubuntu-3ubuntu13.5, OpenSSL 3.0.13 30 Jan 2024"
+    },
+    {
+      "name": "terminal",
+      "status": "warn",
+      "detail": "TERM is not set, colour off (stdout is not a terminal); the picker needs an interactive terminal",
+      "fix": "`sshpick <query>` still connects when one host matches"
+    }
+  ]
+}

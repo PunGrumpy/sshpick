@@ -4,7 +4,7 @@ use std::io::Write;
 use sshpick_ui::Output;
 
 use self::args::{Args, Command};
-use crate::commands::{CommandBase, inspect, list, pick};
+use crate::commands::{CommandBase, doctor, inspect, list, pick};
 
 mod args;
 mod error;
@@ -52,6 +52,14 @@ fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
             &query,
             json,
             args.typed.as_deref().unwrap_or(spec::INSPECT.name),
+        ),
+        Command::Doctor { json } => doctor::run(
+            output,
+            &doctor::Request {
+                json,
+                non_interactive,
+                typed: args.typed.as_deref().unwrap_or(spec::DOCTOR.name),
+            },
         ),
         Command::Pick { query } => pick::run(&CommandBase::new(output, non_interactive)?, &query),
     }

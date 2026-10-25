@@ -16,10 +16,13 @@ sshpick
         ├── common/pty.rs - the binary on a pty, and a vt100 screen to read what it drew
         ├── pick_test.rs - one match, no terminal, no hosts, unreadable config
         ├── picker_test.rs - the picker on a pty: Esc, Enter, F1, keys typed before the first frame
-        │   and a kill by INT, TERM or HUP
+        │   and a kill by INT, TERM or HUP; `doctor` on a terminal
         ├── list_test.rs - the tab-separated rows of ls and --list, and ls --json
         ├── inspect_test.rs - inspect as text and as JSON, and how it fails
-        └── usage_test.rs - help, version, unknown options, and `sp`
+        ├── doctor_test.rs - doctor as text and as JSON against fixtures that pass, warn and fail,
+        │   and the check names the docs list
+        └── usage_test.rs - help, version, unknown options, that read-only commands leave stderr
+            empty, and `sp`
 ```
 
 ## Notes

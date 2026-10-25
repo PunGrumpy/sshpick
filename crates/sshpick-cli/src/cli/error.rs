@@ -3,7 +3,7 @@ use std::io;
 use super::args::UsageError;
 use super::spec;
 use super::suggest;
-use crate::commands::{inspect, list, pick};
+use crate::commands::{doctor, inspect, list, pick};
 
 const CONFIG_DOCS: &str =
     "https://github.com/PunGrumpy/sshpick/blob/main/docs/configuration.md#config-conventions";
@@ -35,6 +35,8 @@ pub(crate) enum Error {
     List(#[from] list::Error),
     #[error(transparent)]
     Inspect(#[from] inspect::Error),
+    #[error(transparent)]
+    Doctor(#[from] doctor::Error),
     #[error("no host matches \"{query}\"")]
     NoMatch {
         query: String,
@@ -58,6 +60,7 @@ impl Error {
             | Error::Pick(_)
             | Error::List(_)
             | Error::Inspect(_)
+            | Error::Doctor(_)
             | Error::Stdout(_)
             | Error::NoHome
             | Error::NoHosts => Exit::Error,
@@ -69,6 +72,9 @@ impl Error {
         match self {
             Error::Usage(UsageError::Option { option, command }) => {
                 Some(accepted_options(option, *command))
+            }
+            Error::Usage(UsageError::Unexpected { command, word }) => {
+                Some(accepted_options(word, Some(command)))
             }
             Error::Usage(UsageError::MissingQuery(command)) => Some(format!(
                 "name a host, as in `sshpick {command} stg-consul1`, or list them with `sshpick ls`."
@@ -89,7 +95,11 @@ impl Error {
             Error::Pick(error) => error.fix(),
             Error::Inspect(error) => error.fix(),
             Error::NoHosts => Some("add `Host` lines; ENV and WHAT come from comments.".to_owned()),
-            Error::Load(_) | Error::List(_) | Error::Stdout(_) | Error::NoHome => None,
+            Error::Load(_)
+            | Error::List(_)
+            | Error::Doctor(_)
+            | Error::Stdout(_)
+            | Error::NoHome => None,
         }
     }
 

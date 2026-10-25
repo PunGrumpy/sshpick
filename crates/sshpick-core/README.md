@@ -13,8 +13,11 @@ decides what to say.
 ```
 sshpick-core
     ├── config.rs - load(): ~/.ssh/config and every Include in ssh's read order, as Entry rows plus
-    │   Warnings; Host, a literal alias, is the only thing that ever reaches ssh; printable():
+    │   Warnings and the number of files an Include read; Host, a literal alias, is the only thing that ever reaches ssh; printable():
     │   control characters as spaces, for text that is shown
+    ├── doctor.rs - report(): the facts `sshpick doctor` gathered (config, ssh -V, one ssh -G, the
+    │   terminal) judged into checks with a status, a detail and a fix; pure, so every check has a
+    │   table test
     ├── label.rs - env_label(): the ENV column, from line 1 of an included file or its file name
     ├── rank.rs - Ranker: nucleo's fuzzy match over ENV, HOST, WHAT and aliases, with the matched
     │   ranges per column
@@ -29,8 +32,8 @@ sshpick-core
     │   --help` and the docs/picker.md table read; tests tie it to the picker
     ├── preview.rs - Previews: one worker thread that runs ssh -G, and a Slot per host
     └── ssh.rs - resolve(): ssh -G with a timeout, as a Preview or a ResolveError; Preview::route()
-        and ResolveError::headline() are the one row the picker shows; command() and exec():
-        ssh -- <host>
+        and ResolveError::headline() are the one row the picker shows; version(): the first line
+        of ssh -V, with the same timeout; command() and exec(): ssh -- <host>
 ```
 
 ## Notes

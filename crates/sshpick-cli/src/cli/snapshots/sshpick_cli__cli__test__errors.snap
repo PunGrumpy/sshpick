@@ -50,6 +50,10 @@ $ sshpick inspect
 Error: sshpick inspect needs a query
 Fix: name a host, as in `sshpick inspect stg-consul1`, or list them with `sshpick ls`.
 
+$ sshpick doctor extra
+Error: sshpick doctor takes no arguments, got "extra"
+Fix: sshpick doctor accepts --help, --json, --no-color, --non-interactive, --version.
+
 $ sshpick inspect consul
 Error: 3 hosts match "consul"; inspect needs exactly one
 Fix: name one of stg-consul1, stg-consul2, stg-consul3, or list them with `sshpick ls consul`.

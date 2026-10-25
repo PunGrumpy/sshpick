@@ -5,12 +5,14 @@
 | `pick [query ...]`       | The default. Connect when one host matches, else open the picker  |
 | `list`, `ls [query ...]` | Print the hosts that match, best first                            |
 | `inspect query ...`      | Show where the one matching host resolves, as `ssh -G` sees it    |
+| `doctor`                 | Check the config, ssh and this terminal; changes nothing          |
 | `help [command]`         | Show help for a command; `sshpick help ls` is `sshpick ls --help` |
 
-`pick`, `list`, `ls`, `inspect` and `help` are command words when they come first. Any other first word is
-query text, so `sshpick consul` still searches. A host named exactly like a command word is
-reached with `sshpick pick list` or `sshpick -- list`; when `list` or `inspect` is also a host or
-an alias, a terminal gets a note saying so. `-h` and `--help` work anywhere and win
+`pick`, `list`, `ls`, `inspect`, `doctor` and `help` are command words when they come first. Any other
+first word is query text, so `sshpick consul` still searches. A host named exactly like a command
+word is reached with `sshpick pick list`, `sshpick pick doctor` or `sshpick -- list`; when `list`,
+`inspect` or `doctor` is also a host or an alias, a terminal gets a note saying so. `doctor` takes
+no query: `sshpick doctor extra` is a usage error. `-h` and `--help` work anywhere and win
 over every other error. `--version` and `-V` print the version; `-v` is the same flag.
 
 Options go anywhere before a bare `--`:

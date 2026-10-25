@@ -1,8 +1,8 @@
 use sshpick_ui::ColorConfig;
 
 use super::spec::{
-    COMMANDS, CommandSpec, ENVIRONMENT, EXIT_STATUS, Example, GLOBAL, OptionSpec, ROOT_EXAMPLES,
-    Row, URL,
+    COMMANDS, CommandSpec, ENVIRONMENT, EXIT_STATUS, Example, GLOBAL, OptionSpec, READ_ONLY,
+    ROOT_EXAMPLES, Row, URL,
 };
 
 const INDENT: &str = "  ";
@@ -46,8 +46,13 @@ impl Page {
             ),
             String::new(),
             format!("{INDENT}For picker help, run `sshpick pick --help`"),
-            String::new(),
         ];
+        lines.extend(
+            wrap(READ_ONLY, self.width - INDENT.len())
+                .into_iter()
+                .map(|line| format!("{INDENT}{line}")),
+        );
+        lines.push(String::new());
         lines.extend(self.commands());
         lines.extend(self.options("Global Options", GLOBAL));
         lines.extend(self.rows("Environment", ENVIRONMENT));

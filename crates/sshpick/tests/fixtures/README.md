@@ -14,6 +14,11 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
   (the fake `ssh -G` fails for it) and a host named `list`, for `inspect` and `list --json`.
 - `empty/.ssh/config`: no literal host (only `Host *`), so `sshpick` has nothing to pick.
 - `tabs/.ssh/config`: a tab inside the WHAT comment, so `--list` must still print three columns.
-- `bin/ssh`: stands in for `ssh` on `PATH`. `ssh -G -- host` answers like ssh (and fails for
-  `stg-broken`); anything else prints how it was called. When its stdin is a terminal it first
-  prints `COOKED` or `RAW` on stderr, from `stty -a`, for `picker_test.rs`.
+- `named-doctor/.ssh/config`: a host named `doctor`, so `sshpick doctor` is the command and
+  `sshpick pick doctor` is the host.
+- `broken/.ssh/config`: one host, `stg-broken`, for which the fake `ssh -G` fails, so `doctor` has a
+  failing `resolve` check.
+- `bin/ssh`: stands in for `ssh` on `PATH`. `ssh -V` prints a version on stderr, as OpenSSH does.
+  `ssh -G -- host` answers like ssh (and fails for `stg-broken`); anything else prints how it was
+  called. When its stdin is a terminal it first prints `COOKED` or `RAW` on stderr, from
+  `stty -a`, for `picker_test.rs`.

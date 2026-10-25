@@ -16,8 +16,8 @@
 - Argv, help, errors, exit codes and what each command does go in `crates/sshpick-cli`: `cli/` for
   parsing and errors, `commands/` for one file per command with its own `Error`. Every failure is
   an `Error`, and `cli::Error::exit_code` is the only place that picks its exit code. Success, a
-  quiet no-match (1) and cancel (130) are not failures: a command returns them as
-  `Ok(Exit::Cancelled.code())` and the like.
+  quiet no-match (1), cancel (130) and a failed `doctor` check (2) are not failures: a command
+  returns them as `Ok(Exit::Cancelled.code())` and the like.
 - `crates/sshpick/src/main.rs` and `src/bin/sp.rs` stay a few lines. New logic goes to
   `sshpick_cli::main`.
 - Only `sshpick_core::ssh` runs `ssh`. Pass a `Host`, never a string from the user.

@@ -1,12 +1,13 @@
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 
 use serde::Serialize;
-use sshpick_core::{Entry, Loaded, Warning};
+use sshpick_core::{Entry, Interaction, Loaded, Warning};
 use sshpick_ui::Output;
 
 use crate::cli::{Error, spec, suggest};
 
+pub(crate) mod doctor;
 pub(crate) mod inspect;
 pub(crate) mod list;
 pub(crate) mod pick;
@@ -41,11 +42,20 @@ impl<'a> CommandBase<'a> {
             self.output.warn(warning);
         }
     }
+}
 
-    pub(crate) fn note_if_also_a_host(&self, word: &str, entries: &[Entry]) {
-        if let Some(note) = collision_note(word, entries) {
-            self.output.log(&note);
-        }
+pub(crate) fn note_if_also_a_host(output: &Output, word: &str, entries: &[Entry]) {
+    if let Some(note) = collision_note(word, entries) {
+        output.log(&note);
+    }
+}
+
+pub(crate) fn interaction(non_interactive: bool) -> Interaction {
+    Interaction {
+        non_interactive,
+        stdin_is_terminal: io::stdin().is_terminal(),
+        stdout_is_terminal: io::stdout().is_terminal(),
+        dumb: std::env::var_os("TERM").is_some_and(|term| term == "dumb"),
     }
 }
 
@@ -60,6 +70,8 @@ fn collision_note(word: &str, entries: &[Entry]) -> Option<String> {
 pub(crate) fn did_you_mean(query: &str) -> Option<String> {
     let (first, rest) = query.split_once(' ').unwrap_or((query, ""));
     let command = suggest::closest(first, &spec::command_words())?;
+    let takes_arguments = spec::command(command).is_some_and(|spec| !spec.arguments.is_empty());
+    let rest = if takes_arguments { rest } else { "" };
     Some(format!("{command} {rest}").trim_end().to_owned())
 }
 
@@ -111,6 +123,10 @@ mod tests {
             Some("NOTE: \"ls\" is also a host. Connect with `sshpick pick ls`."),
             "ls is an alias of the second host"
         );
+        assert_eq!(
+            collision_note("doctor", &entries).as_deref(),
+            Some("NOTE: \"doctor\" is also a host. Connect with `sshpick pick doctor`.")
+        );
         assert_eq!(collision_note("inspect", &entries), None);
         assert_eq!(collision_note("li", &entries), None, "exact names only");
     }
@@ -125,6 +141,12 @@ mod tests {
         );
         assert_eq!(did_you_mean("consul"), None);
         assert_eq!(did_you_mean("list new"), None, "already a command");
+        assert_eq!(did_you_mean("docter"), Some("doctor".to_owned()));
+        assert_eq!(
+            did_you_mean("docter new"),
+            Some("doctor".to_owned()),
+            "doctor takes no query, so the rest is not carried over"
+        );
         assert_eq!(did_you_mean(""), None);
     }
 
