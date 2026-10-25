@@ -14,11 +14,11 @@ expression: frame(&lines)
  9|
 10|
 11|
-12| lab-a > ssh -G failed
-13|  ssh -G gave no answer within 2 s
-14|
+12|
+13| lab-a > ssh -G failed
+14|  ssh -G gave no answer within 2 s
 15|
 16|
 17|
-18|↑ ↓ - Select
-19|? - More binds
+18|
+19|  ↑↓ move   enter ssh   esc quit   ? keys

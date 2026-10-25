@@ -12,5 +12,5 @@ expression: frame(&lines)
  7|
  8|
  9|
-10|↑ ↓ - Select
-11|? - More binds
+10|
+11|  ↑↓ move   enter ssh   esc quit   ? keys

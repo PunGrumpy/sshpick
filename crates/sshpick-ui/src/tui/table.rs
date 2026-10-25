@@ -3,7 +3,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{HighlightSpacing, Paragraph, Row as TableRow, Table, TableState};
-use sshpick_core::{Entry, View};
+use sshpick_core::{Entry, Hint, View, hint};
 
 use super::style::{BOLD, DIM, REVERSED, cell};
 use crate::text::{ColumnWidths, TITLES, fit, width};
@@ -14,12 +14,6 @@ const COLUMN_SPACING: u16 = 1;
 
 const PLACEHOLDER: &str = "type to filter";
 const NO_MATCH: &str = "no match";
-
-pub(super) const FOOTER_ROWS: u16 = 2;
-const SELECT_HINT: &str = "↑ ↓ - Select";
-const MORE_BINDS_ON_AN_EMPTY_QUERY: &str = "? - More binds";
-const MORE_BINDS: &str = "F1 - More binds";
-const HINT_GAP: &str = "   ";
 
 #[derive(Debug)]
 pub(super) struct HostTable {
@@ -112,54 +106,18 @@ pub(super) fn prompt_row(frame: &mut Frame, area: Rect, view: &View<'_>) {
     frame.set_cursor_position((input.x.saturating_add(typed - scroll), input.y));
 }
 
-pub(super) fn footer(frame: &mut Frame, area: Rect, view: &View<'_>) {
-    let lines = footer_rows(view)
-        .into_iter()
-        .map(|row| Line::from(Span::styled(row, DIM)));
-    frame.render_widget(Paragraph::new(lines.collect::<Vec<_>>()), area);
-}
-
-fn footer_rows(view: &View<'_>) -> [String; 2] {
-    let mut select = SELECT_HINT.to_owned();
-    if view.below > 0 {
-        select.push_str(&format!("{HINT_GAP}{} more below", view.below));
-    }
-    let binds = if view.query.is_empty() {
-        MORE_BINDS_ON_AN_EMPTY_QUERY
-    } else {
-        MORE_BINDS
-    };
-    [select, binds.to_owned()]
+pub(super) fn hint_row(frame: &mut Frame, area: Rect, view: &View<'_>) {
+    let [_, keys_area] =
+        Layout::horizontal([Constraint::Length(width(GUTTER)), Constraint::Fill(1)]).areas(area);
+    let Hint { keys, status } = hint(view, usize::from(keys_area.width));
+    frame.render_widget(Line::from(Span::styled(keys, DIM)), keys_area);
+    frame.render_widget(Line::from(Span::styled(status, DIM)).right_aligned(), area);
 }
 
 #[cfg(test)]
 mod tests {
-    use sshpick_core::Picker;
-
     use super::*;
     use crate::tui::testing::entries;
-
-    fn rows(query: &str, height: usize) -> [String; 2] {
-        let mut picker = Picker::new(entries("ui"), query);
-        picker.follow(height);
-        footer_rows(&picker.view(height))
-    }
-
-    #[test]
-    fn the_footer_says_how_to_move_and_where_the_rest_of_the_keys_are() {
-        assert_eq!(rows("", 10), ["↑ ↓ - Select", "? - More binds"]);
-        assert_eq!(
-            rows("consul", 10),
-            ["↑ ↓ - Select", "F1 - More binds"],
-            "? is a character once there is a query"
-        );
-    }
-
-    #[test]
-    fn the_footer_counts_matches_below() {
-        assert_eq!(rows("", 3)[0], "↑ ↓ - Select   2 more below");
-        assert_eq!(rows("", 5)[0], "↑ ↓ - Select");
-    }
 
     #[test]
     fn widths_count_display_columns_not_chars() {

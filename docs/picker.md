@@ -55,27 +55,28 @@ ends by that signal, so the shell sees 130, 143, 129 or 131.
 
 The screen reads top-down. The first row is the prompt: `> `, the query, and on the right the
 count of matches out of all hosts (`5/29`). A dim header follows, then the list, best match
-first, and two dim footer rows. The first is `↑ ↓ - Select`, with `N more below` after it when
-more rows match than fit. The second is `? - More binds`, or `F1 - More binds` once the query is
-not empty.
+first, and one dim hint row at the bottom: `↑↓ move   enter ssh   esc quit   ? keys`. The row
+shows the widest form that fits and always keeps `esc`, and `enter` whenever something matches. A
+narrower terminal loses `? keys` first, then `↑↓ move`, then the words (`enter esc`). `?` is
+offered while the filter is empty and `F1` once it is not. With the help open the row says
+`esc close`. When more rows match than fit, the range on screen (`1–8`) sits at the right edge of
+the row, and goes before any key does.
 
 The selected row is reversed video with a `▌` marker. Matched characters are bold. ENV, WHAT,
-the header, the count, the footer, the titles and the preview keys are dim. Nothing has a
+the header, the count, the hint row, the titles and the preview keys are dim. Nothing has a
 colour, so `NO_COLOR` has nothing to remove here.
 
 At 100 columns or more the list has one border, on its right edge, and the preview is a
 40-column pane beside it. The pane's dim title, `lab-a > ssh -G`, is on the prompt row. It ends
-in `»` while ssh has not answered and in `failed` when ssh failed. The pane's dim footer, on the
-last row, reads `Enter - ssh   Esc - Quit`, without Enter when nothing matches. Below 100
-columns the preview is stacked under the list: a dim title row and five rows, and no pane
-footer.
+in `»` while ssh has not answered and in `failed` when ssh failed. The hint row stays under the
+list. Below 100 columns the preview is stacked under the list: a dim title row and five rows.
 
 When nothing matches, the first list row shows a dim `no match`. An empty prompt shows a dim
 `type to filter`. A WHAT wider than its column ends in `…`. HOST and ENV are never cut.
 
 On a short terminal the picker gives the room to the list. Below 13 rows, at under 100
-columns, the stacked preview is not drawn. Below 7 rows, at any width, the header and the
-footer go too, which leaves the prompt and the list.
+columns, the stacked preview is not drawn. Below 7 rows, at any width, the header and the hint
+row go too, which leaves the prompt and the list.
 
 There is no animation or fade, by design. Each key press is one redraw. A preview that is
 still loading shows its title and an empty body.

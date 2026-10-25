@@ -46,10 +46,20 @@ pub struct View<'a> {
     pub query: &'a str,
     pub matched: usize,
     pub total: usize,
+    /// Matches scrolled off the top.
+    pub above: usize,
     /// The rows that fit, top to bottom as drawn: the best visible match first (fzf's
     /// `--layout=reverse`). Exactly one is `selected` unless nothing matched.
     pub rows: Vec<Row<'a>>,
-    pub below: usize,
+    pub help: bool,
+}
+
+impl View<'_> {
+    /// The 1-based, inclusive window of matches on screen, only when it is not all of them.
+    pub fn range(&self) -> Option<(usize, usize)> {
+        (self.matched > self.rows.len() && !self.rows.is_empty())
+            .then(|| (self.above + 1, self.above + self.rows.len()))
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -175,8 +185,9 @@ impl Picker {
             query: &self.query,
             matched: self.matches.len(),
             total: self.ranker.len(),
-            below: self.matches.len().saturating_sub(self.scroll + rows.len()),
+            above: self.scroll,
             rows,
+            help: self.help,
         }
     }
 
@@ -346,9 +357,9 @@ mod tests {
         }
     }
 
-    fn below(picker: &mut Picker, height: usize) -> usize {
+    fn range(picker: &mut Picker, height: usize) -> Option<(usize, usize)> {
         picker.follow(height);
-        picker.view(height).below
+        picker.view(height).range()
     }
 
     fn selected(picker: &Picker) -> &str {
@@ -439,7 +450,7 @@ mod tests {
             (strings(&["c", "d"]), Some(1)),
             "the window follows the wrap to the bottom"
         );
-        assert_eq!(picker.view(2).below, 0);
+        assert_eq!(picker.view(2).range(), Some((3, 4)));
         picker.handle(Key::Down);
         assert_eq!(
             selected(&picker),
@@ -725,23 +736,46 @@ mod tests {
     }
 
     #[test]
-    fn view_counts_the_matches_below_the_window() {
+    fn view_gives_the_window_of_matches_on_screen_only_when_it_is_not_all_of_them() {
         let mut picker = picker(&["a", "b", "c", "d", "e"]);
-        assert_eq!(below(&mut picker, 5), 0, "all fit");
-        assert_eq!(below(&mut picker, 3), 2);
+        assert_eq!(range(&mut picker, 5), None, "all fit");
+        assert_eq!(range(&mut picker, 3), Some((1, 3)));
         for _ in 0..3 {
             picker.handle(Key::Down);
         }
-        assert_eq!(below(&mut picker, 3), 1, "the window followed the cursor");
+        assert_eq!(
+            range(&mut picker, 3),
+            Some((2, 4)),
+            "the window followed the cursor"
+        );
         picker.handle(Key::Down);
         picker.follow(3);
         let view = picker.view(3);
-        assert_eq!((view.below, view.matched), (0, 5), "scrolled to the end");
-        assert_eq!(below(&mut picker, 1), 0, "the cursor row is the last one");
+        assert_eq!(
+            (view.above, view.matched, view.range()),
+            (2, 5, Some((3, 5))),
+            "scrolled to the end"
+        );
+        assert_eq!(
+            range(&mut picker, 1),
+            Some((5, 5)),
+            "the cursor row is the last one"
+        );
         picker.handle(Key::Up);
-        assert_eq!(below(&mut picker, 1), 1);
+        assert_eq!(range(&mut picker, 1), Some((4, 4)));
+        assert_eq!(range(&mut picker, 0), None, "no room, no window");
         type_text(&mut picker, "zzzz");
-        assert_eq!(below(&mut picker, 3), 0, "nothing matched");
+        assert_eq!(range(&mut picker, 3), None, "nothing matched");
+    }
+
+    #[test]
+    fn view_says_whether_the_help_is_open() {
+        let mut picker = picker(&["a", "b"]);
+        assert!(!picker.view(2).help);
+        picker.handle(Key::F(1));
+        assert!(picker.view(2).help);
+        picker.handle(Key::Esc);
+        assert!(!picker.view(2).help);
     }
 
     #[test]
@@ -755,7 +789,7 @@ mod tests {
             before.rows.iter().all(|row| !row.selected),
             "view alone does not scroll to the cursor"
         );
-        assert_eq!(before.below, 3);
+        assert_eq!((before.above, before.range()), (0, Some((1, 2))));
         assert_eq!(
             drawn(&mut picker, 2),
             (strings(&["d", "e"]), Some(1)),

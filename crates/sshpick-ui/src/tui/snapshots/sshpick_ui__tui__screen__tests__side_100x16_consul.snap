@@ -16,5 +16,5 @@ expression: frame(&lines)
 11|                                                          │
 12|                                                          │
 13|                                                          │
-14|↑ ↓ - Select                                              │
-15|F1 - More binds                                           │    Enter - ssh   Esc - Quit
+14|                                                          │
+15|  ↑↓ move   enter ssh   esc quit   F1 keys                │

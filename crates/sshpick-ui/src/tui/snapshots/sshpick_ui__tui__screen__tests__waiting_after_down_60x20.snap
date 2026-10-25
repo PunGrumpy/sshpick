@@ -14,11 +14,11 @@ expression: frame(&lines)
  9|
 10|
 11|
-12| lab-b > ssh -G »
-13|
+12|
+13| lab-b > ssh -G »
 14|
 15|
 16|
 17|
-18|↑ ↓ - Select
-19|? - More binds
+18|
+19|  ↑↓ move   enter ssh   esc quit   ? keys

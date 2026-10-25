@@ -43,8 +43,7 @@ sshpick inspect stg-consul1   # where a host resolves, without connecting
   port          22
   proxyjump     stg-bastion
 
-↑ ↓ - Select
-F1 - More binds
+  ↑↓ move   enter ssh   esc quit   F1 keys
 ```
 
 ## Documentation
