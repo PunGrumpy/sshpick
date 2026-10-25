@@ -22,7 +22,7 @@ sshpick-core
     │   is the rows of one frame, with the scroll offset and whether the help is open
     ├── hints.rs - hint(): the one hint row, the widest rung of keys that fits, accept and cancel
     │   always kept, and the window range when it fits beside them
-    ├── keymap.rs - BINDINGS: every key Picker::handle acts on, which the popup, `sshpick pick
+    ├── keymap.rs - BINDINGS: every key Picker::handle acts on, which the help, `sshpick pick
     │   --help` and the docs/picker.md table read; tests tie it to the picker
     ├── preview.rs - Previews: one worker thread that runs ssh -G, and a Slot per host
     └── ssh.rs - resolve(): ssh -G with a timeout, as a Preview or a ResolveError; Preview::route()

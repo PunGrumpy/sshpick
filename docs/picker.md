@@ -41,9 +41,14 @@ F1 - More binds
 | Ctrl-D                      | quit when the filter is empty                |
 | ?, F1                       | toggle this help (? only on an empty filter) |
 
-The help is a popup over the list. It does not take over the keyboard: typing, moving and Enter
-still work while it is open. The list is top-down with the best match first and the selection on
-it, like fzf's `--layout=reverse`. The text cursor is always at the end of the query.
+The help is a section of the screen, not a popup: it takes rows from the list, below the route
+row and above the hint row, and gives them back when it closes. It does not take over the
+keyboard: typing, moving and Enter still work while it is open, and Esc closes it before a second
+Esc quits. The hint row says `esc close` meanwhile. If the keys do not fit, the list keeps at
+least three rows and the last row of the help is `+N more · sshpick pick --help`.
+
+The list is top-down with the best match first and the selection on it, like fzf's
+`--layout=reverse`. The text cursor is always at the end of the query.
 
 Config warnings are not drawn in the picker. `sshpick` prints each one as a `! …` line on stderr
 before it takes the terminal, once, on every path, so it is still on the screen when the picker

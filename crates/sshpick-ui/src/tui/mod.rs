@@ -1,6 +1,6 @@
 mod app;
+mod help;
 mod input;
-mod popup;
 mod route;
 mod screen;
 mod signals;
