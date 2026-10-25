@@ -13,7 +13,7 @@ const GUTTER: &str = "  ";
 const COLUMN_SPACING: u16 = 1;
 
 const PLACEHOLDER: &str = "type to filter";
-const NO_MATCH: &str = "no match";
+const NO_MATCH: &str = "no matching hosts";
 
 #[derive(Debug)]
 pub(super) struct HostTable {
@@ -34,7 +34,8 @@ impl HostTable {
     pub(super) fn list(&self, frame: &mut Frame, area: Rect, view: &View<'_>) {
         if view.matched == 0 {
             if view.total > 0 {
-                frame.render_widget(Line::styled(format!("{GUTTER}{NO_MATCH}"), DIM), area);
+                let text = format!("{GUTTER}{NO_MATCH}");
+                frame.render_widget(Line::from(Span::styled(text, DIM)), area);
             }
             return;
         }

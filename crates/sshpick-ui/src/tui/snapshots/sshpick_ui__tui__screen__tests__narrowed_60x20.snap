@@ -15,10 +15,10 @@ expression: frame(&lines)
 10|
 11|
 12|
-13| lab-b > ssh -G »
+13|
 14|
 15|
 16|
 17|
-18|
+18|  → resolving…
 19|  enter ssh   esc quit   F1 keys

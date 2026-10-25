@@ -22,13 +22,11 @@ sshpick-ui
     └── tui/ - the picker
         ├── app.rs - the event loop: draw, poll, hand a key to the Picker
         ├── input.rs - crossterm key event to Key, one to one, no policy
-        ├── screen.rs - lays the widgets out for one frame; the one border is the list's right edge
+        ├── screen.rs - lays out one frame: prompt, header, list, route row, hint row
         ├── signals.rs - a thread that restores the terminal on SIGINT, SIGTERM, SIGHUP or SIGQUIT,
         │   then ends the process by that signal
-        ├── size.rs - Tier: what the terminal's size leaves room for
         ├── table.rs - the prompt row, the header, the host rows and the hint row
-        ├── pane.rs - the ssh -G preview: a borderless block with a dim title, beside the list or
-        │   stacked under it
+        ├── route.rs - the route row: where the selected host goes, `resolving…` or why ssh -G failed
         ├── popup.rs - the key help over the middle of the frame: rows from BINDINGS
         ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans
         ├── terminal.rs - Tty: raw mode and the alternate screen, and the one idempotent restore
@@ -40,7 +38,7 @@ sshpick-ui
 
 Layout is a pure function of the frame's area, so a resize needs no handling beyond the next
 draw. Widths are display columns, never `str::len`. `tui/snapshots` holds the text of each
-frame per tier and size, plus a text dump of where `REVERSED`, `BOLD` and `DIM` are for the two
+frame per size, plus a text dump of where `REVERSED`, `BOLD` and `DIM` are for the two
 reference screens; the other styles are asserted cell by cell. The picker uses no colour at
 all, so `NO_COLOR` has nothing to turn off.
 

@@ -4,7 +4,7 @@ expression: frame(&lines)
 ---
  0|> zzzz                                                   0/5
  1|  ENV         HOST           WHAT
- 2|  no match
+ 2|  no matching hosts
  3|
  4|
  5|

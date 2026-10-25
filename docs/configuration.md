@@ -8,10 +8,11 @@
 | HOST   | the first name on the `Host` line, the one you would type; `*`/`?` patterns and `!negations` are skipped; the other names are searchable but not shown |
 | WHAT   | the `#` comment on the line directly above `Host` |
 
-The preview runs `ssh -G -- <host>` and shows `user`, `hostname`, `port`, `remotecommand`,
-`proxyjump`, so `Match`, `ProxyJump` and `%` tokens show what ssh will actually do. A broken
-config shows ssh's own error there. Results are kept for the session, except that a host whose
-`ssh -G` gives no answer within 2 seconds is asked again the next time it is selected.
+The route row runs `ssh -G -- <host>` and shows `user`, `hostname` and `port`, then `proxyjump`
+after `via` and `remotecommand` after `runs`, so `Match`, `ProxyJump` and `%` tokens show what ssh
+will actually do. A broken config shows the first line of ssh's own error there. Results are kept
+for the session, except that a host whose `ssh -G` gives no answer within 2 seconds is asked again
+the next time it is selected.
 
 ## Config conventions
 

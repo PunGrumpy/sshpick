@@ -9,10 +9,10 @@ expression: frame(&lines)
  4|
  5|
  6|
- 7| root-a > ssh -G »
+ 7|
  8|
  9|
 10|
 11|
-12|
+12|  → resolving…
 13|  ↑↓ move   enter ssh   esc quit
