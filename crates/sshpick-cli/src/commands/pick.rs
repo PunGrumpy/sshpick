@@ -95,7 +95,10 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     match sshpick_ui::run(&screen, &mut picker, &mut previews) {
         Ok(Outcome::Pick(host)) => exec(base, &host),
         Ok(Outcome::Cancel) => Ok(Exit::Cancelled.code()),
-        Ok(Outcome::NoMatch) => Ok(Exit::NoMatch.code()),
+        Ok(Outcome::NoMatch) => Err(cli::Error::NoMatch {
+            query: picker.query().to_owned(),
+            did_you_mean: did_you_mean(picker.query()),
+        }),
         Err(error) => Err(Error::Terminal(error).into()),
     }
 }

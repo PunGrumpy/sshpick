@@ -136,6 +136,35 @@ fn a_query_with_one_match_says_which_host_runs_before_ssh_starts() {
 }
 
 #[test]
+fn enter_with_nothing_matched_says_so_and_exits_1() {
+    let mut session = started();
+    session.send("zzzz");
+    session.wait_for("no match", |frame| {
+        frame.rows[TOP + 2] == "  no matching hosts" && frame.rows[HINT] == "  esc quit   F1 keys"
+    });
+    session.send("\r");
+    assert_eq!(session.exit(), Exit::Code(1));
+    let frame = session.frame();
+    assert_eq!(
+        frame.rows[..TOP + 2],
+        [
+            "$ git status",
+            "clean",
+            "$ sshpick",
+            "Error: no host matches \"zzzz\"",
+            "Fix: list every host with `sshpick ls`."
+        ],
+        "{frame}"
+    );
+    assert!(
+        frame.rows[TOP + 2..].iter().all(String::is_empty),
+        "{frame}"
+    );
+    assert_eq!(frame.cursor, (5, 0), "{frame}");
+    assert!(session.cooked());
+}
+
+#[test]
 fn started_at_the_bottom_of_the_screen_the_history_scrolls_up_and_survives() {
     const HISTORY: [&str; 23] = [
         "line 1",

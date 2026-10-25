@@ -125,6 +125,10 @@ impl Picker {
             .collect()
     }
 
+    pub fn query(&self) -> &str {
+        &self.query
+    }
+
     pub fn help_open(&self) -> bool {
         self.help
     }
