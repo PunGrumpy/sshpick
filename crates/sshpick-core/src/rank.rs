@@ -235,6 +235,17 @@ mod tests {
     }
 
     #[test]
+    fn thai_combining_marks_match_and_highlight_as_written() {
+        let what = "ทดสอบ เซิร์ฟเวอร์";
+        let query = "เซิร์ฟ";
+        let mut ranker = Ranker::new(vec![entry("E", "h", what, &[])]);
+        let found = ranker.rank(query);
+        assert_eq!(found.len(), 1, "a query with Thai combining marks matches");
+        let start = what.find(query).unwrap();
+        assert_eq!(spans(&found[0].hits.what), [(start, start + query.len())]);
+    }
+
+    #[test]
     fn smart_case_and_extended_syntax() {
         let mut ranker = Ranker::new(vec![
             entry("NEW STAGING", "newstg-consul1", "consul server 1", &[]),

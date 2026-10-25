@@ -84,3 +84,39 @@ fn unreadable_root_is_the_only_error() {
     let error = load(Path::new("/nonexistent-home")).unwrap_err();
     assert!(error.to_string().contains("/nonexistent-home/.ssh/config"));
 }
+
+#[test]
+fn an_unreadable_include_and_a_bad_glob_each_cost_one_include() {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    let home = std::env::temp_dir().join(format!("sshpick-load-{}", std::process::id()));
+    let ssh = home.join(".ssh");
+    fs::create_dir_all(&ssh).unwrap();
+    fs::write(
+        ssh.join("config"),
+        "Include locked.conf\nInclude [\nHost kept\n",
+    )
+    .unwrap();
+    let locked = ssh.join("locked.conf");
+    fs::write(&locked, "Host locked-host\n").unwrap();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o000)).unwrap();
+    let loaded = load(&home).unwrap();
+    let root_reads_anyway = fs::read(&locked).is_ok();
+    fs::set_permissions(&locked, fs::Permissions::from_mode(0o600)).unwrap();
+    fs::remove_dir_all(&home).unwrap();
+    if root_reads_anyway {
+        return;
+    }
+    let hosts: Vec<_> = loaded.entries.iter().map(|e| e.host.as_str()).collect();
+    assert_eq!(hosts, ["kept"], "each bad Include costs only itself");
+    assert!(
+        matches!(
+            loaded.warnings.as_slice(),
+            [Warning::Unreadable { path, .. }, Warning::BadInclude { arg, .. }]
+                if path.ends_with("locked.conf") && arg == "["
+        ),
+        "{:?}",
+        loaded.warnings
+    );
+}

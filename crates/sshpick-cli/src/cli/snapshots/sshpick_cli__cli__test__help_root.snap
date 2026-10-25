@@ -1,8 +1,8 @@
 ---
 source: crates/sshpick-cli/src/cli/test.rs
-expression: "help::render(None, 80, PLAIN)"
+expression: "versionless(help::render(None, 80, PLAIN))"
 ---
-sshpick 0.1.0
+sshpick [version]
 
   ▌ sshpick [options] [command | query ...]
 

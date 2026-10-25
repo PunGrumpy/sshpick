@@ -219,9 +219,16 @@ fn page(topic: &str, width: usize) -> String {
     help::render(spec::command(topic), width, PLAIN)
 }
 
+fn versionless(text: String) -> String {
+    text.replace(
+        concat!("sshpick ", env!("CARGO_PKG_VERSION")),
+        "sshpick [version]",
+    )
+}
+
 #[test]
 fn the_root_help() {
-    assert_snapshot!("help_root", help::render(None, 80, PLAIN));
+    assert_snapshot!("help_root", versionless(help::render(None, 80, PLAIN)));
 }
 
 #[test_case("pick")]
@@ -237,7 +244,7 @@ fn each_commands_help(topic: &str) {
 fn the_root_help_wraps_to_the_width(width: usize) {
     assert_snapshot!(
         format!("help_root_{width}"),
-        help::render(None, width, PLAIN)
+        versionless(help::render(None, width, PLAIN))
     );
 }
 
@@ -296,6 +303,36 @@ fn hidden_options_parse_but_stay_out_of_help() {
             topic.is_some_and(|spec| !spec.options.is_empty())
         );
         assert!(!text.contains(" -v"), "{text}");
+    }
+}
+
+#[test]
+fn every_option_in_the_table_parses() {
+    let spellings = |option: &spec::OptionSpec| {
+        let mut words = vec![format!("--{}", option.long)];
+        words.extend(option.short.map(|short| format!("-{short}")));
+        words.extend(option.aliases.iter().map(|alias| (*alias).to_owned()));
+        words
+    };
+    let mut cases: Vec<Vec<String>> = GLOBAL
+        .iter()
+        .flat_map(spellings)
+        .map(|word| vec![word])
+        .collect();
+    for spec in COMMANDS {
+        for option in spec.options {
+            for word in spellings(option) {
+                cases.push(vec![spec.name.to_owned(), word]);
+            }
+        }
+    }
+    for args in cases {
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        let parsed = command(&args);
+        assert!(
+            !matches!(parsed, Err(UsageError::Option { .. })),
+            "{args:?} is in spec.rs but does not parse: {parsed:?}"
+        );
     }
 }
 
