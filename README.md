@@ -29,18 +29,16 @@ sshpick inspect stg-consul1   # where a host resolves, without connecting
 ```
 
 ```text
-> consul                                                                    4/12
-  ENV     HOST          WHAT
-▌ STAGING stg-consul1   consul server 1
-  STAGING stg-consul2   consul server 2
-  STAGING stg-consul3   consul server 3
-  STAGING stg-consul-ui consul web UI tunnel: `ssh -f stg-consul-ui`, then open…
-
-
-
-
-  → ubuntu@192.0.2.11:22 via stg-bastion
-  ↑↓ move   enter ssh   esc quit   F1 keys
+~/work $ sshpick
+> type to filter                                                             5/5
+  ENV         HOST           WHAT
+▌ LAB         lab-a          LAB — personal VMs
+  LAB         lab-b          build box
+  NEW STAGING newstg-consul1 consul server 1 — mgmt
+  NEW STAGING newstg-consul2
+  NEW STAGING newstg-bastion bastion
+  → ubuntu@10.11.212.191:22 via newstg-bastion
+  ↑↓ move   enter ssh   esc quit   ? keys
 ```
 
 ## Documentation

@@ -9,20 +9,16 @@ expression: frame(&lines)
  4|  NEW STAGING newstg-consul1 consul server 1 — mgmt
  5|  NEW STAGING newstg-consul2
  6|  NEW STAGING newstg-bastion bastion
- 7|
+ 7|  → ubuntu@10.11.212.191:22 via newstg-bastion
  8|
- 9|
-10|
-11|  → ubuntu@10.11.212.191:22 via newstg-bastion
-12|
-13|  Enter                       - ssh to the selected host
-14|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
-15|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
-16|  Down, Ctrl-N, Ctrl-J        - select the next host; wraps to the first
-17|  type                        - filter; 'exact ^prefix suffix$ !not
-18|  Backspace, Ctrl-H           - delete the last character
-19|  Ctrl-U                      - clear the filter
-20|  Ctrl-W                      - delete the last word
-21|  Ctrl-D                      - quit when the filter is empty
-22|  ?, F1                       - toggle this help (? only on an empty filter)
-23|  ↑↓ move   enter ssh   esc close
+ 9|  Enter                       - ssh to the selected host
+10|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
+11|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
+12|  Down, Ctrl-N, Ctrl-J        - select the next host; wraps to the first
+13|  type                        - filter; 'exact ^prefix suffix$ !not
+14|  Backspace, Ctrl-H           - delete the last character
+15|  Ctrl-U                      - clear the filter
+16|  Ctrl-W                      - delete the last word
+17|  Ctrl-D                      - quit when the filter is empty
+18|  ?, F1                       - toggle this help (? only on an empty filter)
+19|  ↑↓ move   enter ssh   esc close
