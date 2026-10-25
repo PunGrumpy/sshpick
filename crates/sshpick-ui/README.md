@@ -29,7 +29,7 @@ sshpick-ui
         ├── table.rs - the prompt row, the header, the host rows and the two-row footer
         ├── pane.rs - the ssh -G preview: a borderless block with a dim title and footer, beside the
         │   list or stacked under it
-        ├── popup.rs - the key help over the middle of the frame: rows from BINDINGS, then the warnings
+        ├── popup.rs - the key help over the middle of the frame: rows from BINDINGS
         ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans
         ├── terminal.rs - Tty: raw mode and the alternate screen, and the one idempotent restore
         │   that `leave`, `Drop`, the panic hook and the signal thread all end in

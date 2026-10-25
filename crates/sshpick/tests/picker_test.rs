@@ -85,6 +85,40 @@ fn f1_opens_the_key_help() {
 }
 
 #[test]
+fn config_warnings_print_before_the_picker_opens_and_are_still_there_after_it_closes() {
+    let mut options = Options::new("warns");
+    options.shell = SHELL;
+    // The warning names the fixture's absolute path; a wide pty keeps it on one row wherever the
+    // repository is checked out.
+    options.cols = 240;
+    let mut session = Session::start(options);
+    let open = session.wait_for("the first frame", |frame| frame.has("type to filter"));
+    assert!(open.alternate, "{open}");
+    assert!(!open.has("warning"), "{open}");
+
+    session.send("\x1bOP");
+    let help = session.wait_for("the key help", help_is_drawn);
+    assert!(
+        !help.has("Warnings") && !help.has("include cycle"),
+        "{help}"
+    );
+
+    session.send("\x1b");
+    session.wait_for("the key help to close", |frame| !help_is_drawn(frame));
+    session.send("\x1b");
+    assert_eq!(session.exit(), Exit::Code(130));
+    let frame = session.frame();
+    assert!(!frame.alternate, "{frame}");
+    assert_eq!(frame.rows[..3], SHELL[..], "{frame}");
+    assert!(
+        frame.rows[3].starts_with("! ") && frame.rows[3].ends_with("skipped, include cycle"),
+        "{frame}"
+    );
+    assert_eq!(frame.cursor, (4, 0), "{frame}");
+    assert!(frame.rows[4..].iter().all(String::is_empty), "{frame}");
+}
+
+#[test]
 fn typing_before_the_first_frame_is_not_lost() {
     let mut options = Options::new("ui");
     options.typed = "consul";

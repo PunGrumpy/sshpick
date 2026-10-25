@@ -15,4 +15,4 @@ expression: frame(&lines)
 10|                                                                              │
 11|                                                                              │
 12|↑ ↓ - Select                                                                  │
-13|F1 - More binds   1 warning                                                   │    Esc - Quit
+13|F1 - More binds                                                               │    Esc - Quit

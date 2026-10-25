@@ -6,7 +6,7 @@ use ratatui::widgets::{HighlightSpacing, Paragraph, Row as TableRow, Table, Tabl
 use sshpick_core::{Entry, View};
 
 use super::style::{BOLD, DIM, REVERSED, cell};
-use crate::text::{ColumnWidths, TITLES, fit, plural, width};
+use crate::text::{ColumnWidths, TITLES, fit, width};
 
 const MARKER: &str = "▌ ";
 const GUTTER: &str = "  ";
@@ -112,31 +112,24 @@ pub(super) fn prompt_row(frame: &mut Frame, area: Rect, view: &View<'_>) {
     frame.set_cursor_position((input.x.saturating_add(typed - scroll), input.y));
 }
 
-pub(super) fn footer(frame: &mut Frame, area: Rect, view: &View<'_>, warnings: usize) {
-    let lines = footer_rows(view, warnings)
+pub(super) fn footer(frame: &mut Frame, area: Rect, view: &View<'_>) {
+    let lines = footer_rows(view)
         .into_iter()
         .map(|row| Line::from(Span::styled(row, DIM)));
     frame.render_widget(Paragraph::new(lines.collect::<Vec<_>>()), area);
 }
 
-fn footer_rows(view: &View<'_>, warnings: usize) -> [String; 2] {
+fn footer_rows(view: &View<'_>) -> [String; 2] {
     let mut select = SELECT_HINT.to_owned();
     if view.below > 0 {
         select.push_str(&format!("{HINT_GAP}{} more below", view.below));
     }
-    let mut binds = if view.query.is_empty() {
+    let binds = if view.query.is_empty() {
         MORE_BINDS_ON_AN_EMPTY_QUERY
     } else {
         MORE_BINDS
-    }
-    .to_owned();
-    if warnings > 0 {
-        binds.push_str(&format!(
-            "{HINT_GAP}{warnings} {}",
-            plural(warnings, "warning")
-        ));
-    }
-    [select, binds]
+    };
+    [select, binds.to_owned()]
 }
 
 #[cfg(test)]
@@ -146,28 +139,26 @@ mod tests {
     use super::*;
     use crate::tui::testing::entries;
 
-    fn rows(query: &str, height: usize, warnings: usize) -> [String; 2] {
+    fn rows(query: &str, height: usize) -> [String; 2] {
         let mut picker = Picker::new(entries("ui"), query);
         picker.follow(height);
-        footer_rows(&picker.view(height), warnings)
+        footer_rows(&picker.view(height))
     }
 
     #[test]
     fn the_footer_says_how_to_move_and_where_the_rest_of_the_keys_are() {
-        assert_eq!(rows("", 10, 0), ["↑ ↓ - Select", "? - More binds"]);
+        assert_eq!(rows("", 10), ["↑ ↓ - Select", "? - More binds"]);
         assert_eq!(
-            rows("consul", 10, 0),
+            rows("consul", 10),
             ["↑ ↓ - Select", "F1 - More binds"],
             "? is a character once there is a query"
         );
     }
 
     #[test]
-    fn the_footer_counts_matches_below_and_warnings() {
-        assert_eq!(rows("", 3, 0)[0], "↑ ↓ - Select   2 more below");
-        assert_eq!(rows("", 5, 0)[0], "↑ ↓ - Select");
-        assert_eq!(rows("", 10, 1)[1], "? - More binds   1 warning");
-        assert_eq!(rows("x", 10, 3)[1], "F1 - More binds   3 warnings");
+    fn the_footer_counts_matches_below() {
+        assert_eq!(rows("", 3)[0], "↑ ↓ - Select   2 more below");
+        assert_eq!(rows("", 5)[0], "↑ ↓ - Select");
     }
 
     #[test]

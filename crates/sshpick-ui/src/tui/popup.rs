@@ -2,20 +2,19 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Clear, Padding, Paragraph};
-use sshpick_core::{BINDINGS, Run};
+use sshpick_core::BINDINGS;
 
-use super::style::{BOLD, DIM};
-use crate::text::{columns, fit, plural};
+use super::style::DIM;
+use crate::text::{columns, plural};
 
 const TITLE: &str = " Keybinds ";
 const DASH: &str = " - ";
-const WARNINGS_TITLE: &str = "Warnings";
 const BORDER: u16 = 1;
 const PADDING: u16 = 1;
 const FRAME_COLUMNS: u16 = 2 * (BORDER + PADDING);
 const FRAME_ROWS: u16 = 2 * (BORDER + PADDING);
 
-pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
+pub(super) fn popup(frame: &mut Frame) {
     let area = frame.area();
     let keys = BINDINGS
         .iter()
@@ -34,15 +33,9 @@ pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
         .map(|(keys, does)| columns(keys) + columns(DASH) + columns(does))
         .max()
         .unwrap_or(0);
-    let warning_width = warnings.iter().map(|text| columns(text)).max().unwrap_or(0);
-    let inner = bind_width.max(warning_width).max(columns(TITLE));
+    let inner = bind_width.max(columns(TITLE));
 
-    let rows = binds.len()
-        + if warnings.is_empty() {
-            0
-        } else {
-            warnings.len() + 2
-        };
+    let rows = binds.len();
     let wide = width_of(inner)
         .saturating_add(FRAME_COLUMNS)
         .min(area.width);
@@ -61,7 +54,6 @@ pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
     );
 
     let room = usize::from(high - FRAME_ROWS);
-    let text_width = usize::from(wide - FRAME_COLUMNS);
     let mut lines: Vec<Line> = binds
         .iter()
         .map(|(keys, does)| {
@@ -72,22 +64,6 @@ pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
             ])
         })
         .collect();
-    if !warnings.is_empty() {
-        lines.push(Line::default());
-        lines.push(Line::styled(WARNINGS_TITLE, BOLD));
-        for text in warnings {
-            let whole = Run {
-                text,
-                matched: false,
-            };
-            let cut: String = fit(&[whole], text_width)
-                .iter()
-                .map(|run| run.text)
-                .collect();
-            lines.push(Line::raw(cut));
-        }
-    }
-    let hidden_binds = binds.len().saturating_sub(room);
     let hidden = lines.len().saturating_sub(room);
     lines.truncate(room);
 
@@ -95,14 +71,9 @@ pub(super) fn popup(frame: &mut Frame, warnings: &[String]) {
         .title(TITLE)
         .padding(Padding::uniform(PADDING));
     if hidden > 0 {
-        let (count, noun) = if hidden_binds > 0 {
-            (hidden_binds, "bind")
-        } else {
-            (hidden, "line")
-        };
         block = block.title_bottom(format!(
-            " {count} more {}. Make your terminal taller. ",
-            plural(count, noun)
+            " {hidden} more {}. Make your terminal taller. ",
+            plural(hidden, "bind")
         ));
     }
     frame.render_widget(Clear, rect);
@@ -116,9 +87,9 @@ fn width_of(columns: usize) -> u16 {
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
-    use sshpick_core::{Key, Slot, Warning};
+    use sshpick_core::Key;
 
-    use crate::tui::testing::{bold, cell, frame, ready, render, setup, setup_with, terminal};
+    use crate::tui::testing::{frame, ready, render, setup, terminal};
 
     fn open(picker: &mut sshpick_core::Picker) {
         assert_eq!(picker.handle(Key::F(1)), None);
@@ -159,40 +130,6 @@ mod tests {
             !lines.iter().any(|line| line.contains("more bind")),
             "all ten fit"
         );
-    }
-
-    #[test]
-    fn config_warnings_are_listed_under_the_keys() {
-        let warnings = [
-            Warning::Cycle {
-                path: "/home/me/.ssh/config.d/9-late.conf".into(),
-            },
-            Warning::BadInclude {
-                arg: "${NOPE}/x".to_owned(),
-                reason: "${NOPE} is not set".to_owned(),
-            },
-        ];
-        let (screen, mut picker) = setup_with("ui", "", &warnings);
-        open(&mut picker);
-        let mut terminal = terminal(100, 30);
-        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
-        assert_snapshot!("popup_warnings_100x30", frame(&lines));
-        assert!(
-            (0..100).any(|x| bold(&cell(&terminal, x, 19))),
-            "the Warnings heading is bold: {lines:#?}"
-        );
-    }
-
-    #[test]
-    fn a_long_warning_is_cut_to_the_frame_not_the_other_way_round() {
-        let warnings = [Warning::Cycle {
-            path: format!("/home/me/{}.conf", "very-long-name-".repeat(8)).into(),
-        }];
-        let (screen, mut picker) = setup_with("ui", "", &warnings);
-        open(&mut picker);
-        let lines = render(&mut terminal(60, 30), &screen, &mut picker, &Slot::Waiting);
-        assert!(lines.iter().all(|line| line.chars().count() <= 60));
-        assert!(lines.iter().any(|line| line.contains("…")), "{lines:#?}");
     }
 
     #[test]

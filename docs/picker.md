@@ -44,6 +44,10 @@ The help is a popup over the list. It does not take over the keyboard: typing, m
 still work while it is open. The list is top-down with the best match first and the selection on
 it, like fzf's `--layout=reverse`. The text cursor is always at the end of the query.
 
+Config warnings are not drawn in the picker. `sshpick` prints each one as a `! …` line on stderr
+before it takes the terminal, once, on every path, so it is still on the screen when the picker
+closes.
+
 A picker that is killed (SIGINT, SIGTERM, SIGHUP or SIGQUIT) puts the terminal back first, then
 ends by that signal, so the shell sees 130, 143, 129 or 131.
 
@@ -53,7 +57,7 @@ The screen reads top-down. The first row is the prompt: `> `, the query, and on 
 count of matches out of all hosts (`5/29`). A dim header follows, then the list, best match
 first, and two dim footer rows. The first is `↑ ↓ - Select`, with `N more below` after it when
 more rows match than fit. The second is `? - More binds`, or `F1 - More binds` once the query is
-not empty, with `N warnings` after it when the config has any; their text is in the help popup.
+not empty.
 
 The selected row is reversed video with a `▌` marker. Matched characters are bold. ENV, WHAT,
 the header, the count, the footer, the titles and the preview keys are dim. Nothing has a
