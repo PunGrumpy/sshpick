@@ -20,9 +20,10 @@ fn started() -> Session {
     session
 }
 
-/// The popup's bottom-right corner is the last cell the help paints.
+/// The hint row is the last row the help changes, so once it reads `esc close` every row above
+/// it is on the screen.
 fn help_is_drawn(frame: &pty::Frame) -> bool {
-    frame.has("┘")
+    frame.rows[23].contains("esc close")
 }
 
 fn assert_restored(session: &Session) {
@@ -113,22 +114,62 @@ fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure_on_the_route_ro
     assert_eq!(session.exit(), Exit::Code(130));
 }
 
-#[test]
-fn f1_opens_the_key_help() {
+#[test_case("\x1bOP"; "f1")]
+#[test_case("?"; "question mark on an empty filter")]
+fn the_key_help_opens_in_place_and_does_not_take_the_keyboard(open: &str) {
     let mut session = started();
     assert!(!help_is_drawn(&session.frame()));
-    session.send("\x1bOP");
+    session.send(open);
     let frame = session.wait_for("the key help", help_is_drawn);
-    assert!(frame.has("Keybinds"), "{frame}");
     assert!(frame.has("toggle this help"), "{frame}");
     assert!(frame.has("> type to filter"), "{frame}");
+    assert!(
+        frame.has("▌ LAB         lab-a"),
+        "the list is still there: {frame}"
+    );
+    assert!(frame.rows[13].starts_with("  Enter"), "{frame}");
+    assert!(
+        !frame.has("Keybinds") && !frame.has("┘"),
+        "not a popup: {frame}"
+    );
     assert_eq!(
         frame.rows[23], "  ↑↓ move   enter ssh   esc close",
         "{frame}"
     );
+
+    session.send("consul");
+    let frame = session.wait_for("the filter to apply with the help open", |frame| {
+        help_is_drawn(frame)
+            && frame.rows[0].starts_with("> consul")
+            && frame.rows[0].ends_with("2/5")
+            && frame.rows[3] == "  NEW STAGING newstg-consul2"
+    });
+    assert!(frame.has("toggle this help"), "{frame}");
+
     session.send("\x1b");
-    session.wait_for("the key help to close, not the picker", |frame| {
-        frame.alternate && !frame.has("┘")
+    let frame = session.wait_for("the key help to close, not the picker", |frame| {
+        frame.alternate && frame.rows[23].contains("esc quit")
+    });
+    assert!(!frame.has("toggle this help"), "{frame}");
+    session.send("\x1b");
+    assert_eq!(session.exit(), Exit::Code(130));
+}
+
+#[test]
+fn a_short_terminal_points_at_pick_help_for_the_keys_it_cannot_show() {
+    let mut options = Options::new("ui");
+    options.rows = 12;
+    let mut session = Session::start(options);
+    session.wait_for("the first frame", |frame| {
+        frame.rows[11].contains("esc quit")
+    });
+    session.send("\x1bOP");
+    let frame = session.wait_for("the key help", |frame| frame.rows[11].contains("esc close"));
+    assert_eq!(frame.rows[10], "  +7 more · sshpick pick --help", "{frame}");
+    assert!(frame.rows[7].starts_with("  Enter"), "{frame}");
+    session.send("\x1b");
+    session.wait_for("the key help to close", |frame| {
+        frame.rows[11].contains("esc quit")
     });
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));

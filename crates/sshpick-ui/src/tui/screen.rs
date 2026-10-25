@@ -2,11 +2,12 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
 use sshpick_core::{Entry, Picker, Slot};
 
-use super::popup::popup;
+use super::help::{self, help};
 use super::route::route;
 use super::table::{HostTable, hint_row, prompt_row};
 
 const MIN_HEIGHT_WITH_FRAME: u16 = 7;
+const LIST_KEPT_WITH_HELP: u16 = 3;
 
 #[derive(Debug)]
 pub struct Screen {
@@ -24,11 +25,18 @@ impl Screen {
     pub fn draw(&self, frame: &mut Frame, picker: &mut Picker, slot: Option<&Slot>) {
         let area = frame.area();
         let framed = u16::from(area.height >= MIN_HEIGHT_WITH_FRAME);
-        let [prompt, header, list, route_area, hint_area] = Layout::vertical([
+        let room = area.height.saturating_sub(1 + 3 * framed);
+        let help_rows = if picker.help_open() {
+            help::rows().min(room.saturating_sub(LIST_KEPT_WITH_HELP))
+        } else {
+            0
+        };
+        let [prompt, header, list, route_area, help_area, hint_area] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Length(framed),
             Constraint::Fill(1),
             Constraint::Length(framed),
+            Constraint::Length(help_rows),
             Constraint::Length(framed),
         ])
         .areas(area);
@@ -39,10 +47,8 @@ impl Screen {
         self.table.list(frame, list, &view);
         self.table.header(frame, header);
         route(frame, route_area, slot);
+        help(frame, help_area);
         hint_row(frame, hint_area, &view);
-        if picker.help_open() {
-            popup(frame);
-        }
     }
 }
 

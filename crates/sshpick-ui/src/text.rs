@@ -33,14 +33,6 @@ pub(crate) fn columns(text: &str) -> usize {
     Line::from(text).width()
 }
 
-pub(crate) fn plural(count: usize, noun: &str) -> String {
-    if count == 1 {
-        noun.to_owned()
-    } else {
-        format!("{noun}s")
-    }
-}
-
 pub(crate) fn fit<'a>(runs: &[Run<'a>], limit: usize) -> Vec<Run<'a>> {
     let parts: Vec<_> = runs.iter().map(|run| (run.text, run.matched)).collect();
     fit_parts(&parts, limit, false)

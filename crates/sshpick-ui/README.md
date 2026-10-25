@@ -27,7 +27,8 @@ sshpick-ui
         │   then ends the process by that signal
         ├── table.rs - the prompt row, the header, the host rows and the hint row
         ├── route.rs - the route row: where the selected host goes, `resolving…` or why ssh -G failed
-        ├── popup.rs - the key help over the middle of the frame: rows from BINDINGS
+        ├── help.rs - the key help as rows between the route row and the hint row, taken from the
+        │   list: rows from BINDINGS, cut with a `+N more · sshpick pick --help` pointer
         ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans
         ├── terminal.rs - Tty: raw mode and the alternate screen, and the one idempotent restore
         │   that `leave`, `Drop`, the panic hook and the signal thread all end in

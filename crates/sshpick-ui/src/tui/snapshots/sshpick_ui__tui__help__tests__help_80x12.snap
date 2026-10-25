@@ -1,0 +1,16 @@
+---
+source: crates/sshpick-ui/src/tui/help.rs
+expression: frame(&lines)
+---
+ 0|> type to filter                                                             5/5
+ 1|  ENV         HOST           WHAT
+ 2|▌ LAB         lab-a          LAB — personal VMs
+ 3|  LAB         lab-b          build box
+ 4|  NEW STAGING newstg-consul1 consul server 1 — mgmt
+ 5|  → ubuntu@10.11.212.191:22 via newstg-bastion
+ 6|
+ 7|  Enter                       - ssh to the selected host
+ 8|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
+ 9|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
+10|  +7 more · sshpick pick --help
+11|  ↑↓ move   enter ssh   esc close                                            1–3
