@@ -335,6 +335,14 @@ fn arguments(text: &str) -> Vec<String> {
     args
 }
 
+/// Turns every control character into a space, so text from the config cannot drive a terminal
+/// when it is shown. For display only: what reaches `ssh` is the text as written.
+pub fn printable(text: &str) -> String {
+    text.chars()
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect()
+}
+
 fn read(path: &Path) -> io::Result<String> {
     let bytes = fs::read(path)?;
     let text = String::from_utf8_lossy(&bytes);
@@ -363,6 +371,20 @@ mod tests {
         assert_eq!(classify("##  x"), Line::Comment("#  x"));
         assert_eq!(classify("Match host x"), Line::Other);
         assert_eq!(classify(""), Line::Other);
+    }
+
+    #[test]
+    fn printable_text_has_no_control_character_left() {
+        assert_eq!(printable("ssh -- web-1"), "ssh -- web-1");
+        assert_eq!(
+            printable("a\u{1b}[31mb\u{7}c\rd\u{7f}e\u{9b}f\tg"),
+            "a [31mb c d e f g"
+        );
+        assert_eq!(
+            printable("ก็ 日本"),
+            "ก็ 日本",
+            "only control characters change"
+        );
     }
 
     #[test]

@@ -13,7 +13,8 @@ decides what to say.
 ```
 sshpick-core
     ├── config.rs - load(): ~/.ssh/config and every Include in ssh's read order, as Entry rows plus
-    │   Warnings; Host, a literal alias, is the only thing that ever reaches ssh
+    │   Warnings; Host, a literal alias, is the only thing that ever reaches ssh; printable():
+    │   control characters as spaces, for text that is shown
     ├── label.rs - env_label(): the ENV column, from line 1 of an included file or its file name
     ├── rank.rs - Ranker: nucleo's fuzzy match over ENV, HOST, WHAT and aliases, with the matched
     │   ranges per column

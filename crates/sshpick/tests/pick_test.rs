@@ -13,6 +13,21 @@ fn one_match_execs_ssh_with_double_dash_and_no_tty() {
 }
 
 #[test]
+fn the_one_match_path_through_a_pipe_says_nothing_on_stderr() {
+    sshpick("home")
+        .assert()
+        .success()
+        .stdout("ssh -- only-host\n")
+        .stderr("");
+    sshpick("ui")
+        .args(["--non-interactive", "lab-a"])
+        .assert()
+        .success()
+        .stdout("ssh -- lab-a\n")
+        .stderr("");
+}
+
+#[test]
 fn several_matches_without_a_terminal_exit_two_and_leave_stdout_alone() {
     let out = sshpick("ui").assert().code(2).stdout("");
     assert_snapshot!("no_terminal_several", stderr(&out));

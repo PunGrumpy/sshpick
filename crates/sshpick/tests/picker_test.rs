@@ -87,7 +87,7 @@ fn esc_exits_130_and_leaves_nothing_behind() {
 }
 
 #[test]
-fn enter_runs_ssh_on_a_cooked_terminal_after_the_block_is_gone() {
+fn enter_says_which_host_runs_where_the_block_was_then_ssh_starts_on_a_cooked_terminal() {
     let mut session = started();
     session.send("lab-a");
     session.wait_for("one match", |frame| frame.rows[TOP].ends_with("1/5"));
@@ -96,21 +96,43 @@ fn enter_runs_ssh_on_a_cooked_terminal_after_the_block_is_gone() {
     let frame = session.frame();
     assert!(!frame.alternate, "{frame}");
     assert_eq!(
-        frame.rows[..TOP + 2],
+        frame.rows[..TOP + 3],
         [
             "$ git status",
             "clean",
             "$ sshpick",
+            "> ssh -- lab-a",
             "COOKED",
             "ssh -- lab-a"
         ],
         "{frame}"
     );
     assert!(
-        frame.rows[TOP + 2..].iter().all(String::is_empty),
+        frame.rows[TOP + 3..].iter().all(String::is_empty),
         "{frame}"
     );
     assert!(session.cooked());
+}
+
+#[test]
+fn a_query_with_one_match_says_which_host_runs_before_ssh_starts() {
+    let mut options = Options::new("ui");
+    options.shell = &["$ sshpick lab-a"];
+    options.args = &["lab-a"];
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(0));
+    let frame = session.frame();
+    assert_eq!(
+        frame.rows[..4],
+        [
+            "$ sshpick lab-a",
+            "> ssh -- lab-a",
+            "COOKED",
+            "ssh -- lab-a"
+        ],
+        "{frame}"
+    );
+    assert!(frame.rows[4..].iter().all(String::is_empty), "{frame}");
 }
 
 #[test]
@@ -365,7 +387,10 @@ fn a_two_row_terminal_shows_the_selection_on_the_prompt_row_and_enter_connects_t
     assert_eq!(session.exit(), Exit::Code(0));
     let frame = session.frame();
     assert_eq!(frame.rows, ["ssh -- lab-b", ""], "{frame}");
-    assert_eq!(session.scrollback(), ["$ sshpick", "COOKED"]);
+    assert_eq!(
+        session.scrollback(),
+        ["$ sshpick", "> ssh -- lab-b", "COOKED"]
+    );
 }
 
 #[test]

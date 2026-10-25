@@ -47,8 +47,9 @@ leaves out the ones ssh did not print, and `command` is the argv that `pick` wou
 Errors still go to stderr as text.
 
 Only results go to stdout. Help and `--version` also go to stdout; warnings, errors and the `>`
-line go to stderr. An error is an `Error:` line, then a `Fix:` line when there is a next step and
-a `Learn More:` line when the docs help; a warning is a `! message` line:
+line go to stderr. When stdout is a terminal, `> ssh -- host` is printed before ssh starts. An
+error is an `Error:` line, then a `Fix:` line when there is a next step and a `Learn More:` line
+when the docs help; a warning is a `! message` line:
 
     $ sshpick consul < /dev/null
     Error: 4 hosts match "consul", and the picker needs an interactive terminal
