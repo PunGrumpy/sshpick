@@ -76,21 +76,27 @@ impl Previews {
         self.fetch(host);
     }
 
+    /// True while the frame on screen may be out of date. A reply read here arrived after that
+    /// frame was drawn, so it counts even when nothing is left waiting.
     pub fn busy(&mut self) -> bool {
-        self.drain();
-        self.slots
+        let read = self.drain();
+        read || self
+            .slots
             .values()
             .any(|slot| matches!(slot, Slot::Waiting))
     }
 
-    fn drain(&mut self) {
+    fn drain(&mut self) -> bool {
+        let mut read = false;
         while let Ok(reply) = self.replies.try_recv() {
+            read = true;
             match reply {
                 Reply::Resolved(host, Ok(preview)) => self.slots.insert(host, Slot::Ready(preview)),
                 Reply::Resolved(host, Err(error)) => self.slots.insert(host, Slot::Failed(error)),
                 Reply::Superseded(host) => self.slots.remove(&host),
             };
         }
+        read
     }
 }
 
@@ -232,5 +238,24 @@ mod tests {
             "the reply is read even when nothing fetches again"
         );
         assert_eq!(kind(previews.fetch(&a)), "ready");
+    }
+
+    #[test]
+    fn a_reply_read_by_busy_keeps_it_busy_for_one_more_frame() {
+        let (requests, _inbox) = mpsc::channel();
+        let (outbox, replies) = mpsc::channel();
+        let mut previews = Previews {
+            requests,
+            replies,
+            slots: HashMap::new(),
+            shown: None,
+        };
+        let a = host("a");
+        assert_eq!(kind(previews.fetch(&a)), "waiting");
+        let error = ResolveError::Spawn(io::Error::other("gone"));
+        outbox.send(Reply::Resolved(a.clone(), Err(error))).unwrap();
+        assert!(previews.busy(), "the frame on screen still says waiting");
+        assert!(!previews.busy());
+        assert_eq!(kind(previews.fetch(&a)), "spawn");
     }
 }
