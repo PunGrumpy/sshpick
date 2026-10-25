@@ -8,7 +8,7 @@ mod preview;
 mod rank;
 mod ssh;
 
-pub use config::{Entry, Host, LoadError, Loaded, Warning, load};
+pub use config::{Entry, Host, LoadError, Loaded, Warning, load, printable};
 pub use hints::{Hint, hint};
 pub use interaction::{Interaction, Refusal, refusal};
 pub use keymap::{BINDINGS, Binding};

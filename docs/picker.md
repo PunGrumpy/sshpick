@@ -59,9 +59,9 @@ height while you type, and fewer matches leave blank rows above the route. Start
 of the screen, it scrolls the lines above it up to make room; they stay in the scrollback.
 
 Esc erases the block and leaves the cursor where the block began, so the shell's next prompt takes
-that row. Enter erases it too before ssh starts, so ssh's output begins there. The picker never
-asks the terminal where the cursor is: it assumes the command line ended with a new line, as a
-shell's does.
+that row. Enter erases it too, and `> ssh -- <host>` takes that row before ssh starts. Enter with
+nothing matched exits 1 and says so. The picker never asks the terminal where the cursor is: it
+assumes the command line ended with a new line, as a shell's does.
 
 The block reads top-down. The first row is the prompt: `> `, the query, and on the right the count
 of matches out of all hosts (`5/29`). A dim header follows, then the list, best match first. The

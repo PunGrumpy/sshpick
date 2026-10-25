@@ -70,7 +70,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
         dumb: std::env::var_os("TERM").is_some_and(|term| term == "dumb"),
     });
     match (picker.resolve(), refusal) {
-        (Resolution::One(host), _) => return exec(host),
+        (Resolution::One(host), _) => return exec(base, host),
         (Resolution::NoMatch, Some(_)) => {
             return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
@@ -93,13 +93,19 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     }
 
     match sshpick_ui::run(&screen, &mut picker, &mut previews) {
-        Ok(Outcome::Pick(host)) => exec(&host),
+        Ok(Outcome::Pick(host)) => exec(base, &host),
         Ok(Outcome::Cancel) => Ok(Exit::Cancelled.code()),
-        Ok(Outcome::NoMatch) => Ok(Exit::NoMatch.code()),
+        Ok(Outcome::NoMatch) => Err(cli::Error::NoMatch {
+            query: picker.query().to_owned(),
+            did_you_mean: did_you_mean(picker.query()),
+        }),
         Err(error) => Err(Error::Terminal(error).into()),
     }
 }
 
-fn exec(host: &Host) -> Result<u8, cli::Error> {
+/// A fuzzy query or a single match hides which host it chose, so the command is said first.
+fn exec(base: &CommandBase, host: &Host) -> Result<u8, cli::Error> {
+    let command = sshpick_core::command(host).join(" ");
+    base.output.log(&sshpick_core::printable(&command));
     Err(Error::Exec(sshpick_core::exec(host)).into())
 }
