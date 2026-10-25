@@ -1,14 +1,10 @@
 ---
 source: crates/sshpick-ui/src/tui/screen.rs
-expression: styles(&stacked)
+expression: styles(&default)
 ---
 y0  BOLD[0..0] DIM[76..79]
 y1  DIM[0..79]
 y2  REV[0..79] BOLD[29..34]
 y3  DIM[2..12] BOLD[21..26]
-y17 DIM[0..24]
-y18 DIM[2..15]
-y19 DIM[2..15]
-y20 DIM[2..15]
-y21 DIM[2..15]
+y22 DIM[2..2] DIM[28..30]
 y23 DIM[2..41]

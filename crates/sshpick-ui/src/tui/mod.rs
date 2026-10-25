@@ -1,10 +1,9 @@
 mod app;
 mod input;
-mod pane;
 mod popup;
+mod route;
 mod screen;
 mod signals;
-mod size;
 mod style;
 mod table;
 mod terminal;

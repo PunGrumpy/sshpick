@@ -1,14 +1,12 @@
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout};
-use ratatui::widgets::{Block, Borders};
-use sshpick_core::{Entry, Picker};
+use sshpick_core::{Entry, Picker, Slot};
 
-use super::pane::{self, Pane};
 use super::popup::popup;
-use super::size::{
-    PANE_LEFT_PADDING, PANE_WIDTH, STACKED_BODY_ROWS, STACKED_TITLE_ROWS, Tier, tier,
-};
+use super::route::route;
 use super::table::{HostTable, hint_row, prompt_row};
+
+const MIN_HEIGHT_WITH_FRAME: u16 = 7;
 
 #[derive(Debug)]
 pub struct Screen {
@@ -22,58 +20,26 @@ impl Screen {
         }
     }
 
-    pub fn draw(&self, frame: &mut Frame, picker: &mut Picker, pane: Pane<'_>) {
+    /// `slot` is the selected host's preview, `None` when nothing matches.
+    pub fn draw(&self, frame: &mut Frame, picker: &mut Picker, slot: Option<&Slot>) {
         let area = frame.area();
-        let tier = tier(area);
-        let framed = tier.framed();
-        let (left, right) = if tier == Tier::Side {
-            let [left, right] = Layout::horizontal([
-                Constraint::Fill(1),
-                Constraint::Length(PANE_WIDTH + PANE_LEFT_PADDING),
-            ])
-            .areas(area);
-            (left, Some(right))
-        } else {
-            (area, None)
-        };
-        let content = if right.is_some() {
-            let block = Block::new().borders(Borders::RIGHT);
-            let inner = block.inner(left);
-            frame.render_widget(block, left);
-            inner
-        } else {
-            left
-        };
-        let [prompt, header, list, stacked, hint_area] = Layout::vertical([
+        let framed = u16::from(area.height >= MIN_HEIGHT_WITH_FRAME);
+        let [prompt, header, list, route_area, hint_area] = Layout::vertical([
             Constraint::Length(1),
-            Constraint::Length(u16::from(framed)),
+            Constraint::Length(framed),
             Constraint::Fill(1),
-            Constraint::Length(if tier == Tier::Stacked {
-                STACKED_BODY_ROWS + STACKED_TITLE_ROWS
-            } else {
-                0
-            }),
-            Constraint::Length(u16::from(framed)),
+            Constraint::Length(framed),
+            Constraint::Length(framed),
         ])
-        .areas(content);
+        .areas(area);
 
         picker.follow(list.height.into());
         let view = picker.view(list.height.into());
         prompt_row(frame, prompt, &view);
         self.table.list(frame, list, &view);
-        if framed {
-            self.table.header(frame, header);
-            hint_row(frame, hint_area, &view);
-        }
-        if let Some(right) = right {
-            let [_, preview] =
-                Layout::horizontal([Constraint::Length(PANE_LEFT_PADDING), Constraint::Fill(1)])
-                    .areas(right);
-            pane::side(frame, preview, pane);
-        }
-        if tier == Tier::Stacked {
-            pane::stacked(frame, stacked, pane);
-        }
+        self.table.header(frame, header);
+        route(frame, route_area, slot);
+        hint_row(frame, hint_area, &view);
         if picker.help_open() {
             popup(frame);
         }
@@ -95,16 +61,16 @@ mod tests {
         let (screen, mut picker) = setup("ui", "");
         let mut wide = terminal(120, 30);
         let lines = render(&mut wide, &screen, &mut picker, &ready());
-        assert_snapshot!("side_120x30", frame(&lines));
-        assert_snapshot!("side_120x30_styles", styles(&wide));
+        assert_snapshot!("empty_120x30", frame(&lines));
+        assert_snapshot!("empty_120x30_styles", styles(&wide));
         wide.backend_mut().assert_cursor_position((2, 0));
 
         let (screen, mut picker) = setup("ui", "consul");
-        let mut stacked = terminal(80, 24);
-        let lines = render(&mut stacked, &screen, &mut picker, &ready());
-        assert_snapshot!("stacked_80x24_consul", frame(&lines));
-        assert_snapshot!("stacked_80x24_consul_styles", styles(&stacked));
-        stacked.backend_mut().assert_cursor_position((2 + 6, 0));
+        let mut default = terminal(80, 24);
+        let lines = render(&mut default, &screen, &mut picker, &ready());
+        assert_snapshot!("consul_80x24", frame(&lines));
+        assert_snapshot!("consul_80x24_styles", styles(&default));
+        default.backend_mut().assert_cursor_position((2 + 6, 0));
     }
 
     #[test]
@@ -112,7 +78,7 @@ mod tests {
         let (screen, mut picker) = setup("ui", "");
         let mut terminal = terminal(60, 20);
         let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
-        assert_snapshot!("stacked_60x20", frame(&lines));
+        assert_snapshot!("waiting_60x20", frame(&lines));
         assert!((0..60).all(|x| reversed(&cell(&terminal, x, 2))));
         assert!((0..60).all(|x| !reversed(&cell(&terminal, x, 3))));
         terminal.backend_mut().assert_cursor_position((2, 0));
@@ -140,7 +106,7 @@ mod tests {
     }
 
     #[test]
-    fn the_pane_never_shows_another_hosts_lines() {
+    fn the_route_never_shows_another_hosts_lines() {
         let (screen, mut picker) = setup("ui", "");
         let mut terminal = terminal(60, 20);
         let failed = Slot::Failed(ResolveError::Timeout);
@@ -159,16 +125,18 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_preview_wraps_and_stops_at_five_rows() {
+    fn a_failed_route_is_one_row_cut_with_an_ellipsis() {
         let (screen, mut picker) = setup("ui", "");
         let mut terminal = terminal(40, 20);
-        let stderr = "word ".repeat(60);
         let failed = Slot::Failed(ResolveError::Ssh {
             code: Some(255),
-            stderr,
+            stderr: format!("{}\nsecond line", "word ".repeat(60)),
         });
         let lines = render(&mut terminal, &screen, &mut picker, &failed);
-        assert_snapshot!("failed_wraps_40x20", frame(&lines));
+        assert_eq!(lines[18], "  → ssh -G failed: word word word word …");
+        assert!(!lines.concat().contains("second line"));
+        assert!(lines[17].is_empty(), "nothing wraps onto the rows above");
+        assert!(dim(&cell(&terminal, 2, 18)) && !dim(&cell(&terminal, 4, 18)));
     }
 
     #[test]
@@ -223,36 +191,8 @@ mod tests {
     }
 
     #[test]
-    fn the_side_tier_has_one_border_the_right_edge_of_the_list() {
-        let (screen, mut picker) = setup("ui", "consul");
-        let mut terminal = terminal(100, 16);
-        let lines = render(&mut terminal, &screen, &mut picker, &ready());
-        assert_snapshot!("side_100x16_consul", frame(&lines));
-        for y in 0..16 {
-            assert_eq!(cell(&terminal, 58, y).symbol(), "│", "row {y}");
-            assert!(!dim(&cell(&terminal, 58, y)), "the border is plain");
-        }
-        let borders = lines
-            .iter()
-            .flat_map(|line| line.chars())
-            .filter(|c| "│─┌┐└┘".contains(*c));
-        assert_eq!(borders.count(), 16, "no other rule or box");
-        assert!((0..58).all(|x| reversed(&cell(&terminal, x, 2))));
-        assert!(!reversed(&cell(&terminal, 59, 2)) && !reversed(&cell(&terminal, 60, 2)));
-        assert!(dim(&cell(&terminal, 61, 0)), "the pane title is dim");
-        assert_eq!(
-            cell(&terminal, 60, 1).symbol(),
-            "u",
-            "the body starts at the pane's edge"
-        );
-        assert!(dim(&cell(&terminal, 60, 1)), "keys are dim");
-        assert!(!dim(&cell(&terminal, 74, 1)), "values are plain");
-        terminal.backend_mut().assert_cursor_position((2 + 6, 0));
-    }
-
-    #[test]
-    fn the_other_tiers_have_no_border_at_all() {
-        for (width, height) in [(80, 24), (80, 12), (99, 20), (60, 6)] {
+    fn there_is_no_border_or_rule_at_any_size() {
+        for (width, height) in [(80, 24), (80, 12), (99, 20), (100, 24), (120, 30), (60, 6)] {
             let (screen, mut picker) = setup("ui", "");
             let lines = render(&mut terminal(width, height), &screen, &mut picker, &ready());
             let drawn: String = lines.concat();
@@ -275,24 +215,19 @@ mod tests {
     #[test]
     fn content_spans_the_whole_terminal_at_any_width() {
         let (screen, mut picker) = setup("ui", "");
-        let hint = "  ↑↓ move   enter ssh   esc quit   ? keys";
         for width in [60, 99, 100, 101, 160, 200] {
-            let wide = width >= 100;
-            let list_width = if wide { width - 42 } else { width };
             let mut terminal = terminal(width, 20);
             let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
             assert!(lines[0].starts_with("> type to filter"), "{width}");
-            assert!(lines[0].contains("5/5"), "{width}");
+            assert!(lines[0].ends_with("5/5"), "{width}");
+            assert_eq!(lines[0].chars().count(), usize::from(width));
             assert!(lines[2].starts_with("▌ LAB         lab-a"), "{width}");
-            let last = if wide {
-                format!("{hint:<w$}│", w = usize::from(list_width))
-            } else {
-                hint.to_owned()
-            };
-            assert_eq!(lines[19], last, "{width}");
-            assert!((0..list_width).all(|x| reversed(&cell(&terminal, x, 2))));
-            assert!((list_width..width).all(|x| !reversed(&cell(&terminal, x, 2))));
-            assert_eq!(lines[2].contains('│'), wide, "{width}");
+            assert_eq!(lines[18], "  → resolving…", "{width}");
+            assert_eq!(
+                lines[19], "  ↑↓ move   enter ssh   esc quit   ? keys",
+                "{width}"
+            );
+            assert!((0..width).all(|x| reversed(&cell(&terminal, x, 2))));
             terminal.backend_mut().assert_cursor_position((2, 0));
         }
     }
@@ -380,18 +315,17 @@ mod tests {
     }
 
     #[test]
-    fn zero_matches_say_no_match_on_the_first_row_and_the_hint_offers_only_quit() {
+    fn zero_matches_say_no_matching_hosts_on_the_first_row_and_the_hint_offers_only_quit() {
         let (screen, mut picker) = setup("ui", "zzzz");
         let mut wide = terminal(120, 14);
         let lines = render(&mut wide, &screen, &mut picker, &ready());
         assert_snapshot!("no_match_120x14", frame(&lines));
-        assert!((2..10).all(|x| dim(&cell(&wide, x, 2))), "no match is dim");
+        assert_eq!(lines[2], "  no matching hosts");
+        assert!((0..19).all(|x| dim(&cell(&wide, x, 2))), "no match is dim");
+        assert!((19..120).all(|x| !dim(&cell(&wide, x, 2))));
         assert!((0..120).all(|x| !reversed(&cell(&wide, x, 2))));
-        assert_eq!(
-            lines[13],
-            format!("{:<78}│", "  esc quit   F1 keys"),
-            "no enter, no move"
-        );
+        assert!(lines[12].is_empty(), "there is no route to show");
+        assert_eq!(lines[13], "  esc quit   F1 keys", "no enter, no move");
     }
 
     #[test]
@@ -403,28 +337,27 @@ mod tests {
             let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
             lines[usize::from(height) - 1].clone()
         };
-        for height in [16, 15, 14, 12, 9, 8] {
+        for height in [24, 12, 10, 9] {
             assert_eq!(last(height), keys, "{height}: all five fit");
         }
-        for height in [13, 7] {
-            assert_eq!(last(height), format!("{keys:<57}1–4"), "{height}");
-        }
+        assert_eq!(last(8), format!("{keys:<57}1–4"));
+        assert_eq!(last(7), format!("{keys:<57}1–3"));
 
-        let mut scrolled = terminal(60, 13);
+        let mut scrolled = terminal(60, 8);
         for _ in 0..4 {
             picker.handle(Key::Down);
         }
         let lines = render(&mut scrolled, &screen, &mut picker, &Slot::Waiting);
         assert_eq!(lines[2], "  LAB         lab-b          build box");
         assert_eq!(lines[5], "▌ NEW STAGING newstg-bastion bastion");
-        assert_eq!(lines[12], format!("{keys:<57}2–5"), "scrolled to the end");
+        assert_eq!(lines[7], format!("{keys:<57}2–5"), "scrolled to the end");
 
         let (screen, mut picker) = setup("ui", "'lab");
-        let lines = render(&mut terminal(60, 13), &screen, &mut picker, &Slot::Waiting);
+        let lines = render(&mut terminal(60, 8), &screen, &mut picker, &Slot::Waiting);
         assert_eq!(lines[2], "▌ LAB         lab-b          build box");
         assert_eq!(lines[3], "  LAB         lab-a          LAB — personal VMs");
         assert_eq!(
-            lines[12], "  ↑↓ move   enter ssh   esc quit   F1 keys",
+            lines[7], "  ↑↓ move   enter ssh   esc quit   F1 keys",
             "two matches, four rows, none hidden"
         );
     }
@@ -432,23 +365,23 @@ mod tests {
     #[test]
     fn the_hint_row_is_dim_text_at_column_two_and_offers_the_key_that_works_now() {
         let (screen, mut picker) = setup("ui", "");
-        let mut small = terminal(60, 13);
+        let mut small = terminal(60, 8);
         let lines = render(&mut small, &screen, &mut picker, &Slot::Waiting);
         assert_eq!(
-            lines[12],
+            lines[7],
             format!("{:<57}1–4", "  ↑↓ move   enter ssh   esc quit   ? keys")
         );
-        assert!(!dim(&cell(&small, 0, 12)) && !dim(&cell(&small, 1, 12)));
-        assert!((2..41).all(|x| dim(&cell(&small, x, 12))));
-        assert!((41..57).all(|x| !dim(&cell(&small, x, 12))));
-        assert!((57..60).all(|x| dim(&cell(&small, x, 12))));
+        assert!(!dim(&cell(&small, 0, 7)) && !dim(&cell(&small, 1, 7)));
+        assert!((2..41).all(|x| dim(&cell(&small, x, 7))));
+        assert!((41..57).all(|x| !dim(&cell(&small, x, 7))));
+        assert!((57..60).all(|x| dim(&cell(&small, x, 7))));
 
         picker.handle(Key::Char('c'));
         let lines = render(&mut small, &screen, &mut picker, &Slot::Waiting);
         assert!(
-            lines[12].starts_with("  ↑↓ move   enter ssh   esc quit   F1 keys"),
+            lines[7].starts_with("  ↑↓ move   enter ssh   esc quit   F1 keys"),
             "? is a character once there is a query: {:?}",
-            lines[12]
+            lines[7]
         );
 
         picker.handle(Key::F(1));
@@ -460,98 +393,119 @@ mod tests {
     }
 
     #[test]
-    fn the_wide_pane_on_a_short_terminal_keeps_its_rows_and_the_hint_row_is_on_the_list_side() {
-        let (screen, mut picker) = setup("ui", "");
-        let mut terminal = terminal(100, 8);
+    fn the_route_row_says_where_the_selected_host_goes() {
+        let (screen, mut picker) = setup("ui", "consul");
+        let mut terminal = terminal(80, 24);
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
-        assert_snapshot!("side_100x8", frame(&lines));
-        assert!(dim(&cell(&terminal, 5, 7)), "the hint row is dim");
+        assert_eq!(lines[22], "  → ubuntu@10.11.212.191:22 via newstg-bastion");
+        let dimmed: Vec<u16> = (0..80).filter(|x| dim(&cell(&terminal, *x, 22))).collect();
+        assert_eq!(
+            dimmed,
+            [2, 28, 29, 30],
+            "the arrow and `via`; the route is plain"
+        );
         assert!(
-            lines[7].ends_with('│'),
-            "the pane has no footer: {:?}",
-            lines[7]
+            lines[23].starts_with("  ↑↓ move"),
+            "the hint row stays last"
         );
     }
 
     #[test]
-    fn the_wide_pane_cuts_long_values_and_wraps_errors_inside_its_40_columns() {
+    fn the_route_row_keeps_the_pieces_ssh_printed_and_dims_every_joining_word() {
         let (screen, mut picker) = setup("ui", "");
-        let mut terminal = terminal(100, 16);
-        let long = Slot::Ready(Preview::parse(
-            "user ubuntu\nproxyjump a-very-long-bastion-host-name\n",
-        ));
-        let lines = render(&mut terminal, &screen, &mut picker, &long);
-        assert!(
-            lines[2].ends_with("proxyjump     a-very-long-bastion-host-…"),
-            "{:?}",
-            lines[2]
+        let mut terminal = terminal(80, 24);
+        let preview = Preview::parse(
+            "remotecommand sudo -i\nproxyjump a,b\nport 2222\nhostname h\nuser ops\n",
         );
-        assert_eq!(lines[2].chars().count(), 100);
-        assert_eq!(cell(&terminal, 99, 2).symbol(), "…");
+        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Ready(preview));
+        assert_eq!(lines[22], "  → ops@h:2222 via a,b runs sudo -i");
+        let dimmed: Vec<u16> = (0..80).filter(|x| dim(&cell(&terminal, *x, 22))).collect();
+        assert_eq!(
+            dimmed,
+            [2, 15, 16, 17, 23, 24, 25, 26],
+            "→, via and runs only"
+        );
 
+        let bare = Preview::parse("hostname h\n");
+        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Ready(bare));
+        assert_eq!(lines[22], "  → h");
+        let none = Preview::parse("user ubuntu\nport 22\n");
+        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Ready(none));
+        assert_eq!(lines[22], "", "no hostname, no route");
+    }
+
+    #[test]
+    fn the_route_row_says_resolving_while_ssh_has_not_answered() {
+        let (screen, mut picker) = setup("ui", "");
+        let mut terminal = terminal(80, 24);
+        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
+        assert_eq!(lines[22], "  → resolving…");
+        assert!((2..14).all(|x| dim(&cell(&terminal, x, 22))));
+        assert!(!dim(&cell(&terminal, 14, 22)));
+    }
+
+    #[test]
+    fn the_route_row_names_why_ssh_failed_in_the_first_line() {
+        let (screen, mut picker) = setup("ui", "");
+        let mut terminal = terminal(80, 24);
+        let bad = Slot::Failed(ResolveError::Ssh {
+            code: Some(255),
+            stderr: "/home/me/.ssh/config line 12: Bad configuration option: foo\n\
+                     /home/me/.ssh/config: terminating, 1 bad configuration options"
+                .to_owned(),
+        });
+        let lines = render(&mut terminal, &screen, &mut picker, &bad);
+        assert_eq!(
+            lines[22],
+            "  → ssh -G failed: /home/me/.ssh/config line 12: Bad configuration option: foo"
+        );
+        let lines = render(
+            &mut terminal,
+            &screen,
+            &mut picker,
+            &Slot::Failed(ResolveError::Timeout),
+        );
+        assert_eq!(lines[22], "  → ssh -G gave no answer within 2 s");
+    }
+
+    #[test]
+    fn a_route_wider_than_the_row_is_cut_inside_the_styled_word_it_lands_in() {
+        let (screen, mut picker) = setup("ui", "");
+        let mut terminal = terminal(30, 24);
+        let lines = render(&mut terminal, &screen, &mut picker, &ready());
+        assert_eq!(lines[22], "  → ubuntu@10.11.212.191:22 v…");
+        assert!(
+            dim(&cell(&terminal, 28, 22)),
+            "the `v` of `via` is still dim"
+        );
+        assert!(!dim(&cell(&terminal, 29, 22)), "the cut is plain");
+
+        let lines = render(&mut self::terminal(3, 24), &screen, &mut picker, &ready());
+        assert_eq!(lines[22], "  …");
+    }
+
+    #[test]
+    fn control_characters_in_what_ssh_printed_never_reach_the_screen() {
+        let (screen, mut picker) = setup("ui", "");
+        let mut terminal = terminal(80, 24);
+        let hostile = Preview::parse("user a\x07b\nhostname c\x1b[31md\nproxyjump e\tf\n");
+        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Ready(hostile));
+        assert!(!lines[22].is_empty());
+        assert!(!lines.concat().chars().any(char::is_control), "{lines:#?}");
         let failed = Slot::Failed(ResolveError::Ssh {
             code: Some(255),
-            stderr: "word ".repeat(30),
+            stderr: "bad \x1b[31moption\x07".to_owned(),
         });
         let lines = render(&mut terminal, &screen, &mut picker, &failed);
-        assert!(
-            lines[0].ends_with("lab-a > ssh -G failed"),
-            "{:?}",
-            lines[0]
-        );
-        for line in &lines[1..5] {
-            let pane: String = line.chars().skip(60).collect();
-            assert!(
-                pane.starts_with("word") && pane.chars().count() <= 40,
-                "{pane:?}"
-            );
-        }
-        assert!(lines[5].ends_with('│'), "{:?}", lines[5]);
+        assert_eq!(lines[22], "  → ssh -G failed: bad  [31moption");
     }
 
     #[test]
-    fn a_waiting_pane_shows_its_title_and_no_selection_leaves_the_pane_empty() {
-        let (screen, mut picker) = setup("ui", "consul");
-        let mut terminal = terminal(100, 16);
-        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
-        assert!(
-            lines[0].ends_with("│  newstg-consul1 > ssh -G »"),
-            "{:?}",
-            lines[0]
-        );
-        assert!(
-            lines[1..].iter().all(|line| line.ends_with('│')),
-            "{lines:#?}"
-        );
-        assert_eq!(
-            lines[15],
-            format!("{:<58}│", "  ↑↓ move   enter ssh   esc quit   F1 keys")
-        );
-
-        for c in "zzzz".chars() {
-            picker.handle(Key::Char(c));
-        }
-        let lines = render(&mut terminal, &screen, &mut picker, &Slot::Waiting);
-        assert!(lines[1..].iter().all(|line| line.ends_with('│')));
-        assert!(!lines.concat().contains("ssh -G"), "{lines:#?}");
-        assert_eq!(lines[15], format!("{:<58}│", "  esc quit   F1 keys"));
-    }
-
-    #[test]
-    fn a_100x12_terminal_still_shows_the_side_pane_and_the_list_takes_the_rest() {
-        let (screen, mut picker) = setup("ui", "");
-        let mut terminal = terminal(100, 12);
-        let lines = render(&mut terminal, &screen, &mut picker, &ready());
-        assert_snapshot!("side_100x12", frame(&lines));
-        terminal.backend_mut().assert_cursor_position((2, 0));
-    }
-
-    #[test]
-    fn an_80x12_terminal_has_no_preview_and_the_list_takes_its_room() {
+    fn an_80x12_terminal_gives_the_list_the_rows_between_the_header_and_the_route() {
         let (screen, mut picker) = setup("ui", "");
         let mut terminal = terminal(80, 12);
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
-        assert_snapshot!("list_only_80x12", frame(&lines));
+        assert_snapshot!("short_80x12", frame(&lines));
         terminal.backend_mut().assert_cursor_position((2, 0));
     }
 
@@ -566,28 +520,23 @@ mod tests {
     }
 
     #[test]
-    fn the_stacked_preview_needs_13_rows_and_the_frame_needs_7() {
+    fn the_frame_needs_7_rows_and_below_that_only_the_prompt_and_the_list_remain() {
         let (screen, mut picker) = setup("ui", "");
         let mut lines_at = |width, height| {
             let mut terminal = terminal(width, height);
-            render(&mut terminal, &screen, &mut picker, &Slot::Waiting)
+            render(&mut terminal, &screen, &mut picker, &ready())
         };
         let has =
             |lines: &[String], wanted: &dyn Fn(&str) -> bool| lines.iter().any(|line| wanted(line));
-        let title = |line: &str| line.starts_with(" lab-a > ssh -G");
         let header = |line: &str| line.starts_with("  ENV         HOST           WHAT");
+        let route = |line: &str| line.starts_with("  → ubuntu@");
         let hint = |line: &str| line.starts_with("  ↑↓ move");
 
-        assert!(has(&lines_at(80, 13), &title));
-        assert!(!has(&lines_at(80, 12), &title));
-        assert!(
-            !has(&lines_at(100, 40), &title),
-            "wide has its title on the prompt row, not a row of its own"
-        );
-        for width in [80, 100] {
+        for width in [40, 80, 100] {
             for (height, shown) in [(7, true), (6, false)] {
                 let lines = lines_at(width, height);
                 assert_eq!(has(&lines, &header), shown, "{width}x{height}");
+                assert_eq!(has(&lines, &route), shown, "{width}x{height}");
                 assert_eq!(has(&lines, &hint), shown, "{width}x{height}");
             }
         }
@@ -595,10 +544,14 @@ mod tests {
         assert!(lines[0].starts_with("> "));
         assert!(lines[2].starts_with("▌ LAB"));
         assert!(lines[3].starts_with("  LAB         lab-b"));
-        assert_eq!(lines[5], "  NEW STAGING newstg-consul2");
+        assert_eq!(
+            lines[4],
+            "  NEW STAGING newstg-consul1 consul server 1 — mgmt"
+        );
+        assert_eq!(lines[5], "  → ubuntu@10.11.212.191:22 via newstg-bastion");
         assert_eq!(
             lines[6],
-            format!("{:<77}1–4", "  ↑↓ move   enter ssh   esc quit   ? keys")
+            format!("{:<77}1–3", "  ↑↓ move   enter ssh   esc quit   ? keys")
         );
     }
 

@@ -26,9 +26,9 @@ fn events(
 ) -> io::Result<Outcome> {
     loop {
         let selected = picker.selected().cloned();
-        let pane = selected.as_ref().map(|host| (host, previews.fetch(host)));
+        let slot = selected.as_ref().map(|host| previews.fetch(host));
         tty.terminal
-            .draw(|frame| screen.draw(frame, picker, pane))?;
+            .draw(|frame| screen.draw(frame, picker, slot))?;
 
         let timeout = if previews.busy() {
             BUSY_POLL

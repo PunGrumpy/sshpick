@@ -21,8 +21,8 @@ expression: frame(&lines)
 16| │ ?, F1                       - toggle this help (? only on an empty filter) │
 17| │                                                                            │
 18| └────────────────────────────────────────────────────────────────────────────┘
-19|  hostname      10.11.212.191
-20|  port          22
-21|  proxyjump     newstg-bastion
-22|
+19|
+20|
+21|
+22|  → ubuntu@10.11.212.191:22 via newstg-bastion
 23|  ↑↓ move   enter ssh   esc close

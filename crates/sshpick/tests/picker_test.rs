@@ -81,6 +81,39 @@ fn the_hint_row_is_the_last_row_and_keeps_enter_and_esc(cols: u16, row: &str) {
 }
 
 #[test]
+fn the_route_row_says_where_the_selected_host_goes_and_the_hint_row_stays_last() {
+    let mut session = started();
+    let frame = session.wait_for("the route", |frame| frame.rows[22].contains("ubuntu@"));
+    assert_eq!(
+        frame.rows[22], "  → ubuntu@192.0.2.11:22 via stg-bastion",
+        "{frame}"
+    );
+    assert_eq!(
+        frame.rows[23], "  ↑↓ move   enter ssh   esc quit   ? keys",
+        "{frame}"
+    );
+    session.send("\x1b");
+    assert_eq!(session.exit(), Exit::Code(130));
+}
+
+#[test]
+fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure_on_the_route_row() {
+    let mut options = Options::new("inspect");
+    options.cols = 120;
+    options.typed = "broken";
+    let mut session = Session::start(options);
+    let frame = session.wait_for("the failure", |frame| frame.rows[22].contains("failed"));
+    assert_eq!(
+        frame.rows[22],
+        "  → ssh -G failed: /home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus",
+        "{frame}"
+    );
+    assert!(!frame.has("terminating"), "only the first line: {frame}");
+    session.send("\x1b");
+    assert_eq!(session.exit(), Exit::Code(130));
+}
+
+#[test]
 fn f1_opens_the_key_help() {
     let mut session = started();
     assert!(!help_is_drawn(&session.frame()));

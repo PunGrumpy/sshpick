@@ -4,7 +4,6 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::style::Modifier;
-use ratatui::text::Line;
 use sshpick_core::{Entry, Picker, Preview, Slot};
 
 use super::screen::Screen;
@@ -31,10 +30,9 @@ pub(super) fn render(
     picker: &mut Picker,
     slot: &Slot,
 ) -> Vec<String> {
-    let selected = picker.selected().cloned();
-    let pane = selected.as_ref().map(|host| (host, slot));
+    let slot = picker.selected().map(|_| slot);
     terminal
-        .draw(|frame| screen.draw(frame, picker, pane))
+        .draw(|frame| screen.draw(frame, picker, slot))
         .unwrap();
     let buffer = terminal.backend().buffer();
     (0..buffer.area.height)
@@ -106,13 +104,6 @@ pub(super) fn styles(terminal: &Terminal<TestBackend>) -> String {
         }
     }
     rows.join("\n")
-}
-
-pub(super) fn text(line: &Line) -> String {
-    line.spans
-        .iter()
-        .map(|span| span.content.as_ref())
-        .collect()
 }
 
 pub(super) fn ready() -> Slot {

@@ -37,12 +37,9 @@ sshpick inspect stg-consul1   # where a host resolves, without connecting
   STAGING stg-consul-ui consul web UI tunnel: `ssh -f stg-consul-ui`, then open…
 
 
- stg-consul1 > ssh -G
-  user          ubuntu
-  hostname      192.0.2.11
-  port          22
-  proxyjump     stg-bastion
 
+
+  → ubuntu@192.0.2.11:22 via stg-bastion
   ↑↓ move   enter ssh   esc quit   F1 keys
 ```
 

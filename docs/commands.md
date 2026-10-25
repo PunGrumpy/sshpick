@@ -67,5 +67,5 @@ connected.
         ssh -- stg-consul1
 
 `names` is the first name on the `Host` line and then the others. The `Resolved` keys are the
-ones the picker's pane shows. Several matches exit 2 and name the candidates; no match exits 1;
+ones the picker's route row shows. Several matches exit 2 and name the candidates; no match exits 1;
 a failing `ssh -G` exits 2 with ssh's own message.
