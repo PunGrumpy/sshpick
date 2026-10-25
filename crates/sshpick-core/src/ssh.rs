@@ -23,6 +23,30 @@ const KEYS: [&str; 5] = ["user", "hostname", "port", "remotecommand", "proxyjump
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Preview(Vec<(&'static str, String)>);
 
+/// Where a host goes, in the pieces of `user@hostname:port via jump runs cmd` so that the UI can
+/// style the joining words.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Route<'a> {
+    pub user: Option<&'a str>,
+    pub hostname: &'a str,
+    pub port: Option<&'a str>,
+    pub via: Option<&'a str>,
+    pub runs: Option<&'a str>,
+}
+
+impl Route<'_> {
+    pub fn target(&self) -> String {
+        let user = self.user.map(|user| format!("{user}@"));
+        let port = self.port.map(|port| format!(":{port}"));
+        format!(
+            "{}{}{}",
+            user.unwrap_or_default(),
+            self.hostname,
+            port.unwrap_or_default()
+        )
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ResolveError {
     #[error("cannot run ssh -G: {0}")]
@@ -40,6 +64,25 @@ impl ResolveError {
     pub fn is_transient(&self) -> bool {
         matches!(self, ResolveError::Timeout)
     }
+
+    pub fn headline(&self) -> String {
+        let said = match self {
+            ResolveError::Ssh { stderr, .. } => {
+                first_line(stderr).map(|line| format!("ssh -G failed: {line}"))
+            }
+            ResolveError::Spawn(_) | ResolveError::Timeout => None,
+        };
+        let text = said.unwrap_or_else(|| self.to_string());
+        first_line(&text)
+            .unwrap_or_default()
+            .chars()
+            .map(|c| if c.is_control() { ' ' } else { c })
+            .collect()
+    }
+}
+
+fn first_line(text: &str) -> Option<&str> {
+    text.lines().map(str::trim).find(|line| !line.is_empty())
 }
 
 impl Preview {
@@ -49,6 +92,22 @@ impl Preview {
 
     pub fn lines(&self) -> impl Iterator<Item = (&'static str, &str)> {
         self.0.iter().map(|(key, value)| (*key, value.as_str()))
+    }
+
+    pub fn route(&self) -> Option<Route<'_>> {
+        let get = |key: &str| {
+            self.lines()
+                .find(|(name, _)| *name == key)
+                .map(|(_, value)| value.trim())
+                .filter(|value| !value.is_empty())
+        };
+        Some(Route {
+            user: get("user"),
+            hostname: get("hostname")?,
+            port: get("port"),
+            via: get("proxyjump"),
+            runs: get("remotecommand"),
+        })
     }
 }
 
@@ -181,6 +240,111 @@ mod tests {
                 ("remotecommand", "sudo ssh -t ubuntu@10.148.0.31"),
             ]
         );
+    }
+
+    #[test]
+    fn the_route_is_picked_by_key_whatever_order_ssh_printed() {
+        let preview = Preview::parse(
+            "proxyjump stg-bastion\nport 2222\nremotecommand sudo -i\nhostname 10.0.0.5\nuser ops\n",
+        );
+        assert_eq!(
+            preview.route(),
+            Some(Route {
+                user: Some("ops"),
+                hostname: "10.0.0.5",
+                port: Some("2222"),
+                via: Some("stg-bastion"),
+                runs: Some("sudo -i"),
+            })
+        );
+    }
+
+    #[test]
+    fn the_target_is_user_at_hostname_colon_port_with_what_is_there() {
+        let route = |user, port| Route {
+            user,
+            hostname: "10.0.0.5",
+            port,
+            via: Some("ignored"),
+            runs: Some("ignored"),
+        };
+        assert_eq!(route(Some("ops"), Some("22")).target(), "ops@10.0.0.5:22");
+        assert_eq!(route(None, Some("22")).target(), "10.0.0.5:22");
+        assert_eq!(route(Some("ops"), None).target(), "ops@10.0.0.5");
+        assert_eq!(route(None, None).target(), "10.0.0.5");
+    }
+
+    #[test]
+    fn the_route_keeps_the_default_port_and_leaves_out_what_ssh_did_not_print() {
+        let preview = Preview::parse("user ubuntu\nhostname 192.0.2.11\nport 22\n");
+        assert_eq!(
+            preview.route(),
+            Some(Route {
+                user: Some("ubuntu"),
+                hostname: "192.0.2.11",
+                port: Some("22"),
+                via: None,
+                runs: None,
+            })
+        );
+    }
+
+    #[test]
+    fn there_is_no_route_without_a_hostname_and_an_empty_piece_is_absent() {
+        assert_eq!(Preview::parse("user ubuntu\nport 22\n").route(), None);
+        assert_eq!(Preview::parse("").route(), None);
+        let preview = Preview::parse("user \nhostname a\nproxyjump  \n");
+        assert_eq!(
+            preview.route(),
+            Some(Route {
+                user: None,
+                hostname: "a",
+                port: None,
+                via: None,
+                runs: None,
+            })
+        );
+    }
+
+    #[test]
+    fn the_headline_is_the_first_line_ssh_said() {
+        let ssh = |stderr: &str| ResolveError::Ssh {
+            code: Some(255),
+            stderr: stderr.to_owned(),
+        };
+        assert_eq!(
+            ssh("/home/me/.ssh/config line 12: Bad configuration option: foo\n/home/me/.ssh/config: terminating, 1 bad configuration options").headline(),
+            "ssh -G failed: /home/me/.ssh/config line 12: Bad configuration option: foo"
+        );
+        assert_eq!(
+            ssh("\n  \n  second  \nthird").headline(),
+            "ssh -G failed: second",
+            "blank lines and indentation are skipped"
+        );
+        assert_eq!(
+            ssh("bad \x1b[31moption\x07\tx").headline(),
+            "ssh -G failed: bad  [31moption  x"
+        );
+    }
+
+    #[test]
+    fn the_headline_reads_as_the_other_failures_already_do() {
+        let silent = ResolveError::Ssh {
+            code: Some(255),
+            stderr: String::new(),
+        };
+        assert_eq!(silent.headline(), "ssh -G exited with 255");
+        let killed = ResolveError::Ssh {
+            code: None,
+            stderr: String::new(),
+        };
+        assert_eq!(killed.headline(), "ssh -G was killed by a signal");
+        assert_eq!(
+            ResolveError::Timeout.headline(),
+            "ssh -G gave no answer within 2 s"
+        );
+        let spawn = ResolveError::Spawn(io::Error::other("no such file\nor directory"));
+        assert_eq!(spawn.headline(), "cannot run ssh -G: no such file");
     }
 
     #[test]

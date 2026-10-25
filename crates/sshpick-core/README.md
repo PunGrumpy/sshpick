@@ -25,8 +25,9 @@ sshpick-core
     ├── keymap.rs - BINDINGS: every key Picker::handle acts on, which the popup, `sshpick pick
     │   --help` and the docs/picker.md table read; tests tie it to the picker
     ├── preview.rs - Previews: one worker thread that runs ssh -G, and a Slot per host
-    └── ssh.rs - resolve(): ssh -G with a timeout, as a Preview or a ResolveError; command() and
-        exec(): ssh -- <host>
+    └── ssh.rs - resolve(): ssh -G with a timeout, as a Preview or a ResolveError; Preview::route()
+        and ResolveError::headline() are the one row the picker shows; command() and exec():
+        ssh -- <host>
 ```
 
 ## Notes
