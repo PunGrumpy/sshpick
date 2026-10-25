@@ -224,6 +224,11 @@ impl Session {
         ok(self.writer.flush(), "send keys");
     }
 
+    /// Not through the pty: a Ctrl-C typed into a raw terminal is a key, not a signal.
+    pub fn signal(&self, signal: Signal) {
+        ok(kill(self.pid, signal), "signal sshpick");
+    }
+
     pub fn frame(&self) -> Frame {
         let (shared, _) = &*self.link;
         Frame::of(&lock(shared).parser)

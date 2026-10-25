@@ -934,6 +934,7 @@ dependencies = [
  "portable-pty",
  "serde_json",
  "sshpick-cli",
+ "test-case",
  "vt100",
 ]
 
@@ -966,6 +967,7 @@ dependencies = [
  "crossterm",
  "insta",
  "ratatui",
+ "signal-hook",
  "sshpick-core",
  "test-case",
 ]

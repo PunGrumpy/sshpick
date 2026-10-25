@@ -4,7 +4,9 @@
 #[path = "common/pty.rs"]
 mod pty;
 
+use nix::sys::signal::Signal;
 use pty::{Exit, Options, Session};
+use test_case::test_case;
 
 const SHELL: &[&str] = &["$ git status", "clean", "$ sshpick"];
 
@@ -90,4 +92,14 @@ fn typing_before_the_first_frame_is_not_lost() {
     session.wait_for("the typed query", |frame| {
         frame.alternate && frame.rows[0].starts_with("> consul") && frame.rows[0].ends_with("2/5")
     });
+}
+
+#[test_case(Signal::SIGTERM ; "term")]
+#[test_case(Signal::SIGHUP ; "hup")]
+#[test_case(Signal::SIGINT ; "int")]
+fn a_killed_picker_restores_the_terminal_and_dies_of_the_signal(signal: Signal) {
+    let mut session = started();
+    session.signal(signal);
+    assert_eq!(session.exit(), Exit::Signal(signal));
+    assert_restored(&session);
 }

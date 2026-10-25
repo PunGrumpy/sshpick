@@ -44,6 +44,9 @@ The help is a popup over the list. It does not take over the keyboard: typing, m
 still work while it is open. The list is top-down with the best match first and the selection on
 it, like fzf's `--layout=reverse`. The text cursor is always at the end of the query.
 
+A picker that is killed (SIGINT, SIGTERM, SIGHUP or SIGQUIT) puts the terminal back first, then
+ends by that signal, so the shell sees 130, 143, 129 or 131.
+
 ## Appearance
 
 The screen reads top-down. The first row is the prompt: `> `, the query, and on the right the

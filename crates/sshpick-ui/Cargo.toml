@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 crossterm = { workspace = true }
 ratatui = { workspace = true }
+signal-hook = { workspace = true }
 sshpick-core = { workspace = true }
 
 [dev-dependencies]
