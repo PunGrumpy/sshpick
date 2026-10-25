@@ -18,6 +18,8 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
   `sshpick pick doctor` is the host.
 - `broken/.ssh/config`: one host, `stg-broken`, for which the fake `ssh -G` fails, so `doctor` has a
   failing `resolve` check.
+- `controls/.ssh/`: an ESC and a BEL in the label line, the WHAT comment and a `Host` token, so
+  `--list` must print them as spaces and drop the token.
 - `bin/ssh`: stands in for `ssh` on `PATH`. `ssh -V` prints a version on stderr, as OpenSSH does.
   `ssh -G -- host` answers like ssh (and fails for `stg-broken`); anything else prints how it was
   called. When its stdin is a terminal it first prints `COOKED` or `RAW` on stderr, from

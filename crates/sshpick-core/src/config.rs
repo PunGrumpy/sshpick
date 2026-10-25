@@ -42,7 +42,7 @@ pub struct Loaded {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("cannot read {}: {source}", .path.display())]
+#[error("cannot read {}: {source}", shown(.path))]
 pub struct LoadError {
     path: PathBuf,
     source: io::Error,
@@ -50,13 +50,13 @@ pub struct LoadError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Warning {
-    #[error("{}: skipped, {source}", .path.display())]
+    #[error("{}: skipped, {source}", shown(.path))]
     Unreadable { path: PathBuf, source: io::Error },
-    #[error("{}: skipped, Include nested deeper than {MAX_DEPTH} levels", .path.display())]
+    #[error("{}: skipped, Include nested deeper than {MAX_DEPTH} levels", shown(.path))]
     TooDeep { path: PathBuf },
-    #[error("{}: skipped, include cycle", .path.display())]
+    #[error("{}: skipped, include cycle", shown(.path))]
     Cycle { path: PathBuf },
-    #[error("Include {arg}: skipped, {reason}")]
+    #[error("Include {}: skipped, {}", printable(.arg), printable(.reason))]
     BadInclude { arg: String, reason: String },
 }
 
@@ -87,7 +87,7 @@ impl Host {
         let literal = !token.is_empty()
             && !token.starts_with('!')
             && !token.contains(['*', '?'])
-            && !token.contains(char::is_whitespace);
+            && !token.contains(|c: char| c.is_whitespace() || c.is_control());
         literal.then(|| Host(token.to_owned()))
     }
 }
@@ -151,7 +151,10 @@ impl<'a> Walk<'a> {
             }
         };
         self.out.included += 1;
-        let env = label::env_label(path, text.lines().next().unwrap_or_default());
+        let env = printable(&label::env_label(
+            path,
+            text.lines().next().unwrap_or_default(),
+        ));
         self.lines(path, &text, &env, depth);
     }
 
@@ -279,7 +282,7 @@ impl<'a> Walk<'a> {
         self.out.entries.push(Entry {
             env: env.to_owned(),
             host,
-            what: what.to_owned(),
+            what: printable(what),
             aliases,
         });
     }
@@ -343,12 +346,16 @@ fn arguments(text: &str) -> Vec<String> {
     args
 }
 
-/// Turns every control character into a space, so text from the config cannot drive a terminal
-/// when it is shown. For display only: what reaches `ssh` is the text as written.
+/// Turns every control character into a space, so text from the config or from ssh cannot drive
+/// a terminal when it is shown. For display only: what reaches `ssh` is the text as written.
 pub fn printable(text: &str) -> String {
     text.chars()
         .map(|c| if c.is_control() { ' ' } else { c })
         .collect()
+}
+
+fn shown(path: &Path) -> String {
+    printable(&path.to_string_lossy())
 }
 
 fn read(path: &Path) -> io::Result<String> {
@@ -398,7 +405,9 @@ mod tests {
     #[test]
     fn literal_rejects_patterns_and_negation() {
         assert!(Host::literal("web-1").is_some());
-        for token in ["", "*", "web-?", "*.corp", "!neg", "a b"] {
+        for token in [
+            "", "*", "web-?", "*.corp", "!neg", "a b", "a\u{1b}b", "a\u{7}b",
+        ] {
             assert!(Host::literal(token).is_none(), "{token:?}");
         }
     }
@@ -557,6 +566,21 @@ mod tests {
             .map(|e| e.names().collect())
             .collect();
         assert_eq!(names, [vec!["web", "web.corp", "web2"], vec!["solo"]]);
+    }
+
+    #[test]
+    fn control_characters_in_config_text_become_spaces() {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        walk.host(&["web".to_owned()], "x\u{1b}y", "");
+        assert_eq!(walk.out.entries[0].what, "x y");
+        let cycle = Warning::Cycle {
+            path: PathBuf::from("/h/.ssh/a\u{1b}b.conf"),
+        };
+        assert_eq!(
+            cycle.to_string(),
+            "/h/.ssh/a b.conf: skipped, include cycle"
+        );
     }
 
     #[test]

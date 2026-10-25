@@ -117,14 +117,9 @@ fn summary(matched: usize, total: usize, query: &str) -> String {
 fn write_rows(out: impl Write, rows: &[&Entry]) -> io::Result<()> {
     let mut out = io::BufWriter::new(out);
     for entry in rows {
-        let (env, what) = (tsv_cell(&entry.env), tsv_cell(&entry.what));
-        writeln!(out, "{env}\t{}\t{what}", entry.host)?;
+        writeln!(out, "{}\t{}\t{}", entry.env, entry.host, entry.what)?;
     }
     out.flush()
-}
-
-fn tsv_cell(text: &str) -> String {
-    text.replace('\t', " ")
 }
 
 #[cfg(test)]
@@ -138,12 +133,6 @@ mod tests {
         assert_eq!(summary(4, 12, "consul"), "4 of 12 hosts match \"consul\"");
         assert_eq!(summary(1, 12, "a b"), "1 of 12 hosts matches \"a b\"");
         assert_eq!(summary(0, 12, "zzz"), "0 of 12 hosts match \"zzz\"");
-    }
-
-    #[test]
-    fn a_tab_in_a_comment_becomes_a_space() {
-        assert_eq!(tsv_cell("one\ttwo"), "one two");
-        assert_eq!(tsv_cell("plain"), "plain");
     }
 
     #[test]
