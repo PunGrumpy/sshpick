@@ -13,4 +13,5 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
 - `empty/.ssh/config`: no literal host (only `Host *`), so `sshpick` has nothing to pick.
 - `tabs/.ssh/config`: a tab inside the WHAT comment, so `--list` must still print three columns.
 - `bin/ssh`: stands in for `ssh` on `PATH`. `ssh -G -- host` answers like ssh (and fails for
-  `stg-broken`); anything else prints how it was called.
+  `stg-broken`); anything else prints how it was called. When its stdin is a terminal it first
+  prints `COOKED` or `RAW` on stderr, from `stty -a`, for `picker_test.rs`.

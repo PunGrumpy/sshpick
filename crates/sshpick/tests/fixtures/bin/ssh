@@ -10,4 +10,11 @@ if [ "$1" = "-G" ]; then
   printf 'host %s\nuser ubuntu\nhostname 192.0.2.11\nport 22\naddressfamily any\nproxyjump stg-bastion\n' "$3"
   exit 0
 fi
+if [ -t 0 ]; then
+  if stty -a | grep -Eq '(^|[[:space:]])-(icanon|echo)([[:space:]]|$)'; then
+    echo RAW >&2
+  else
+    echo COOKED >&2
+  fi
+fi
 echo "ssh $*"
