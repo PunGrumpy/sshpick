@@ -36,6 +36,13 @@ impl Output {
         self.columns
     }
 
+    /// Columns and rows, when stdout is a terminal that reports both.
+    pub fn size(&self) -> Option<(u16, u16)> {
+        self.human
+            .then(crossterm::terminal::size)
+            .and_then(reported)
+    }
+
     pub fn stdout_colors(&self) -> ColorConfig {
         self.stdout
     }
@@ -82,6 +89,11 @@ pub fn error_text(
         text.push_str(&format!("{} {docs}\n", colors.bold("Learn More:")));
     }
     text
+}
+
+fn reported(size: io::Result<(u16, u16)>) -> Option<(u16, u16)> {
+    size.ok()
+        .filter(|(columns, rows)| *columns > 0 && *rows > 0)
 }
 
 fn columns(human: bool, var: &dyn Fn(&str) -> Option<OsString>) -> usize {
@@ -171,6 +183,15 @@ mod tests {
         assert_eq!(columns(false, &vars(&[("COLUMNS", " 60 ")])), 60);
         assert_eq!(columns(false, &vars(&[("COLUMNS", "wide")])), 80);
         assert_eq!(columns(false, &vars(&[("COLUMNS", "0")])), 80);
+    }
+
+    #[test]
+    fn a_terminal_size_counts_only_when_both_sides_are_known() {
+        assert_eq!(reported(Ok((120, 30))), Some((120, 30)));
+        assert_eq!(reported(Ok((0, 0))), None, "some pty wrappers report 0x0");
+        assert_eq!(reported(Ok((80, 0))), None);
+        assert_eq!(reported(Ok((0, 24))), None);
+        assert_eq!(reported(Err(io::Error::other("no tty"))), None);
     }
 
     #[test]
