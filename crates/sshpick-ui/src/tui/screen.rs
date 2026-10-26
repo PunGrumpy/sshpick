@@ -4,7 +4,7 @@ use sshpick_core::{Entry, Picker, Slot};
 
 use super::help::{self, help};
 use super::plan::{Plan, Space, plan};
-use super::route::route;
+use super::route;
 use super::table::{HostTable, hint_row, prompt_row};
 
 #[derive(Debug)]
@@ -54,7 +54,7 @@ impl Screen {
         prompt_row(frame, prompt, &view, selection);
         self.table.list(frame, list, &view);
         self.table.header(frame, header);
-        route(frame, route_area, slot);
+        route::row(frame, route_area, slot);
         help(frame, help_area);
         hint_row(frame, hint_area, &view);
     }

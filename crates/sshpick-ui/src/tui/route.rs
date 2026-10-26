@@ -12,19 +12,19 @@ use crate::text::fit_parts;
 
 const INDENT: &str = "  ";
 const ARROW: &str = "→";
-const RESOLVING: &str = "→ resolving…";
+const RESOLVING: &str = "resolving…";
 const VIA: &str = "via";
 const RUNS: &str = "runs";
 const PLAIN: Style = Style::new();
 
-pub(super) fn route(frame: &mut Frame, area: Rect, slot: Option<&Slot>) {
+pub(super) fn row(frame: &mut Frame, area: Rect, slot: Option<&Slot>) {
     let Some(slot) = slot else {
         return;
     };
     let (target, headline);
     let mut parts = vec![(INDENT, PLAIN)];
     match slot {
-        Slot::Waiting => parts.push((RESOLVING, DIM)),
+        Slot::Waiting => parts.extend([(ARROW, DIM), (" ", DIM), (RESOLVING, DIM)]),
         Slot::Failed(error) => {
             headline = error.headline();
             parts.extend([(ARROW, DIM), (" ", PLAIN), (&headline, PLAIN)]);
@@ -42,8 +42,15 @@ pub(super) fn route(frame: &mut Frame, area: Rect, slot: Option<&Slot>) {
             }
         }
     }
-    let spans = fit_parts(&parts, usize::from(area.width), PLAIN)
-        .into_iter()
-        .map(|(text, style)| Span::styled(text, style));
-    frame.render_widget(Line::from_iter(spans), area);
+    frame.render_widget(
+        spans(&fit_parts(&parts, usize::from(area.width), PLAIN)),
+        area,
+    );
+}
+
+fn spans<'a>(parts: &[(&'a str, Style)]) -> Line<'a> {
+    parts
+        .iter()
+        .map(|&(text, style)| Span::styled(text, style))
+        .collect()
 }
