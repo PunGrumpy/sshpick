@@ -10,7 +10,7 @@
 
 The route row runs `ssh -G -- <host>` and shows `user`, `hostname` and `port`, then `proxyjump`
 after `via` and `remotecommand` after `runs`, so `Match`, `ProxyJump` and `%` tokens show what ssh
-will actually do. A broken config shows the first line of ssh's own error there. Results are kept
+will actually do. From 100 columns a panel beside the list shows the same keys, one per row. A broken config shows the first line of ssh's own error there. Results are kept
 for the session, except that a host whose `ssh -G` gives no answer within 2 seconds is asked again
 the next time it is selected.
 

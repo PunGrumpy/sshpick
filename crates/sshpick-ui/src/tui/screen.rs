@@ -103,22 +103,38 @@ mod tests {
         consul.backend_mut().assert_cursor_position((2 + 6, 0));
     }
 
+    fn sample<'a>(text: &'a str, command: &str) -> Option<Vec<&'a str>> {
+        text.split("```text\n")
+            .find_map(|block| block.strip_prefix(command)?.strip_prefix('\n'))
+            .and_then(|block| block.split("\n```").next())
+            .map(|block| block.lines().collect())
+    }
+
     #[test]
     fn the_docs_show_the_real_screen() {
         let (screen, mut picker) = setup("ui", "");
         let lines = render(&mut terminal(80, 24), &screen, &mut picker, &ready());
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let read = |doc| std::fs::read_to_string(root.join(doc)).unwrap();
         for doc in ["README.md", "docs/picker.md"] {
-            let text = std::fs::read_to_string(root.join(doc)).unwrap();
-            let sample: Vec<&str> = text
-                .split("```text\n")
-                .find_map(|block| block.strip_prefix("~/work $ sshpick\n"))
-                .and_then(|block| block.split("\n```").next())
-                .unwrap_or_else(|| panic!("{doc} has no sample screen"))
-                .lines()
-                .collect();
-            assert_eq!(sample, lines, "{doc}");
+            let text = read(doc);
+            let shown = sample(&text, "~/work $ sshpick");
+            assert_eq!(
+                shown,
+                Some(lines.iter().map(String::as_str).collect()),
+                "{doc}"
+            );
         }
+
+        let (screen, mut picker) = setup("ui", "consul");
+        let wide = render(&mut terminal(100, 24), &screen, &mut picker, &ready());
+        let text = read("docs/picker.md");
+        let shown = sample(&text, "~/work $ sshpick consul");
+        assert_eq!(
+            shown,
+            Some(wide.iter().map(String::as_str).collect()),
+            "the panel"
+        );
     }
 
     #[test]

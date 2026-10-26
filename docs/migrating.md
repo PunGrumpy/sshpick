@@ -16,7 +16,7 @@ What differs from the script:
 - All words on the command line are used (`sshpick new consul`). The script used the first.
 - CRLF files and a BOM are handled, and labels do not depend on the locale.
 - Other names on a `Host` line are searchable.
-- Columns are aligned and matches are highlighted. The route row shows ssh's error.
+- Columns are aligned and matches are highlighted. The route shows ssh's error.
 
 `make install` removes a symlink at `~/.local/bin/sshpick` before it installs. It leaves a regular
 file alone, because cargo replaces its own binary.
