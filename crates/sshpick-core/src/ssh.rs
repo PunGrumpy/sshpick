@@ -127,7 +127,7 @@ pub fn command(host: &Host) -> [&str; 3] {
 /// Replace this process with `ssh -- <host>`. Returns only if exec failed.
 ///
 /// The caller restores the terminal first: exec runs no destructors, so raw mode and the
-/// picker's block would pass straight to ssh.
+/// alternate screen would pass straight to ssh.
 pub fn exec(host: &Host) -> io::Error {
     let [program, dashes, name] = command(host);
     Command::new(program).args([dashes, name]).exec()

@@ -8,5 +8,9 @@ expression: frame(&lines)
  3|  LAB         lab-b          build box
  4|  NEW STAGING newstg-consul1 consul server 1 — mgmt
  5|  NEW STAGING newstg-consul2
- 6|  → ubuntu@10.11.212.191:22 via newstg-bastion
- 7|  ↑↓ move   enter ssh   esc quit   ? keys                                    1–4
+ 6|  NEW STAGING newstg-bastion bastion
+ 7|
+ 8|
+ 9|
+10|  → ubuntu@10.11.212.191:22 via newstg-bastion
+11|  ↑↓ move   enter ssh   esc quit   ? keys
