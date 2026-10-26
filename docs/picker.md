@@ -34,7 +34,7 @@ it was. With an empty filter, at 80 columns:
 | ?, F1                       | toggle this help (? only on an empty filter) |
 
 The help is a section of the block, not a popup: opening it makes the block taller, with the keys
-below the route row and above the hint row, and closing it gives the rows back. It does not take
+just above the hint row, and closing it gives the rows back. It does not take
 over the keyboard: typing, moving and Enter still work while it is open, and Esc closes it before
 a second Esc quits. The hint row says `esc close` meanwhile. If the keys do not fit, the list
 keeps at least three rows and the last row of the help is `+N more · sshpick pick --help`.
@@ -55,7 +55,7 @@ The picker is a block of rows on the line under the command, where the cursor wa
 each for the prompt, the header, the route and the hint, and one per host, but at most half the
 terminal (at least 8 rows when the terminal has them) and never all of it, so the command that
 started it stays in sight. It is sized from every host, not from the matches, so it keeps its
-height while you type, and fewer matches leave blank rows above the route. Started at the bottom
+height while you type, and fewer matches leave blank rows under the list. Started at the bottom
 of the screen, it scrolls the lines above it up to make room; they stay in the scrollback.
 
 Esc erases the block and leaves the cursor where the block began, so the shell's next prompt takes
@@ -79,9 +79,28 @@ RemoteCommand. Until ssh answers it reads `→ resolving…`. If ssh fails it re
 row is cut with `…` at the edge of the terminal and never wraps, and it is blank when nothing
 matches.
 
+From 100 columns the route takes no row. It moves into a panel beside the header and the list,
+two fifths of the width wide, behind a dim rule: the selected host, then one row per key, with the
+names and in the order `sshpick inspect` prints under Resolved. `resolving…` reads the same as on
+the row, and a failure wraps over the panel's rows, ending in `…` if it does not fit. The panel
+needs six rows beside it, so a config of fewer than five hosts, or a terminal too short for them,
+keeps the route row. With a query, at 100 columns:
+
+```text
+~/work $ sshpick consul
+> consul                                                                                         2/5
+  ENV         HOST           WHAT                           │ newstg-consul1
+▌ NEW STAGING newstg-consul1 consul server 1 — mgmt         │ user       ubuntu
+  NEW STAGING newstg-consul2                                │ hostname   10.11.212.191
+                                                            │ port       22
+                                                            │ proxyjump  newstg-bastion
+                                                            │
+  ↑↓ move   enter ssh   esc quit   F1 keys
+```
+
 The selected row is reversed video with a `▌` marker. Matched characters are bold. ENV, WHAT,
-the header, the count, the arrow and the words `via` and `runs`, and the hint row are dim. Nothing
-has a colour, so `NO_COLOR` has nothing to remove here.
+the header, the count, the arrow and the words `via` and `runs`, the hint row, and the panel's
+rule and keys are dim. Nothing has a colour, so `NO_COLOR` has nothing to remove here.
 
 When nothing matches, the first list row shows a dim `no matching hosts`. An empty prompt shows
 a dim `type to filter`. A WHAT wider than its column ends in `…`, and one too narrow for more
@@ -89,7 +108,8 @@ than that is left out. HOST and ENV are never cut.
 
 A shorter terminal gets fewer rows of the same block, never another layout: the header goes
 first, then the route row, then hosts, and the hint row with `enter` and `esc` outlasts every host
-but one. A block of one row shows the selected host where the count was, so Enter is never blind. A resize, or the help opening or closing, erases the block and draws it again from
-the same row.
+but one. Width changes one thing: under 100 columns the panel is the route row again. A block of
+one row shows the selected host where the count was, so Enter is never blind. A resize, or the
+help opening or closing, erases the block and draws it again from the same row.
 
 There is no animation or fade, by design. Each key press is one redraw.

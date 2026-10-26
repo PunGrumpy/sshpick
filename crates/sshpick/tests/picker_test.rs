@@ -115,6 +115,43 @@ fn enter_says_which_host_runs_where_the_block_was_then_ssh_starts_on_a_cooked_te
 }
 
 #[test]
+fn a_wide_terminal_shows_the_route_beside_the_list_and_enter_leaves_none_of_it() {
+    let mut options = Options::new("ui");
+    options.shell = SHELL;
+    options.cols = 120;
+    let mut session = Session::start(options);
+    let frame = session.wait_for("the panel", |frame| {
+        frame.rows[TOP + 2].ends_with("│ user       ubuntu")
+    });
+    assert!(frame.rows[TOP + 1].ends_with("│ lab-a"), "{frame}");
+    assert!(
+        frame.rows[TOP + 3].ends_with("│ hostname   192.0.2.11"),
+        "{frame}"
+    );
+    assert!(frame.rows[HINT - 1].contains("esc quit"), "{frame}");
+    assert!(!frame.has("→"), "the route is drawn once: {frame}");
+    session.send("\r");
+    assert_eq!(session.exit(), Exit::Code(0));
+    let frame = session.frame();
+    assert_eq!(
+        frame.rows[..TOP + 3],
+        [
+            "$ git status",
+            "clean",
+            "$ sshpick",
+            "> ssh -- lab-a",
+            "COOKED",
+            "ssh -- lab-a"
+        ],
+        "{frame}"
+    );
+    assert!(
+        frame.rows[TOP + 3..].iter().all(String::is_empty),
+        "{frame}"
+    );
+}
+
+#[test]
 fn a_query_with_one_match_says_which_host_runs_before_ssh_starts() {
     let mut options = Options::new("ui");
     options.shell = &["$ sshpick lab-a"];
@@ -363,8 +400,13 @@ fn a_resize_leaves_exactly_one_block_and_the_shell_above_it() {
     session.wait_for("the route", resolved);
     for (cols, rows) in [(50, 24), (120, 24), (40, 24), (80, 12)] {
         session.resize(cols, rows);
-        // At 12 rows the block is 8: one host fewer.
-        let hint = if rows == 12 { HINT - 1 } else { HINT };
+        // At 12 rows the block is 8: one host fewer. At 120 columns it is 8 too: the route moves
+        // into a panel beside the list.
+        let hint = if rows == 12 || cols >= 100 {
+            HINT - 1
+        } else {
+            HINT
+        };
         let frame = session.wait_for(&format!("a frame at {cols}x{rows}"), |frame| {
             frame.rows[TOP].chars().count() == usize::from(cols)
                 && frame.rows[TOP].ends_with("5/5")
@@ -383,7 +425,14 @@ fn a_resize_leaves_exactly_one_block_and_the_shell_above_it() {
             .filter(|row| row.contains("esc quit"))
             .count();
         assert_eq!((prompts, hints), (1, 1), "{frame}");
-        assert!(frame.rows[hint - 1].contains("ubuntu@"), "{frame}");
+        if cols >= 100 {
+            assert!(
+                frame.rows[TOP + 2].ends_with("user       ubuntu"),
+                "{frame}"
+            );
+        } else {
+            assert!(frame.rows[hint - 1].contains("ubuntu@"), "{frame}");
+        }
         assert!(
             frame.rows[hint + 1..].iter().all(String::is_empty),
             "{frame}"

@@ -73,8 +73,8 @@ stops at 16 levels of `Include`.
 
 ## `ssh -G` fails or is slow
 
-The route row shows `→ ssh -G failed: …` instead of where the host goes, or `→ resolving…` for a
-long time. `doctor` asks `ssh -G` about the first host and times it:
+The route shows `ssh -G failed: …` instead of where the host goes, or `resolving…` for a long
+time. `doctor` asks `ssh -G` about the first host and times it:
 
 ```text
 [fail] resolve: ssh -G failed for stg-broken: /home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus; run `sshpick inspect stg-broken` for ssh's full answer

@@ -25,14 +25,16 @@ sshpick-ui
         ├── inline.rs - Inline: the ratatui backend for the block, the only writer to the terminal
         │   while the picker is open: relative moves, rows erased one at a time, no query
         ├── plan.rs - plan(): how many rows the block takes and which, from the terminal's size,
-        │   the number of hosts and the open help; one ladder of what goes first
+        │   the number of hosts and the open help; one ladder of what goes first, and from 100
+        │   columns the route as a panel beside the list
         ├── input.rs - crossterm key event to Key, one to one, no policy
-        ├── screen.rs - lays out one block: prompt, header, list, route row, help, hint row
+        ├── screen.rs - lays out one block: prompt, header, list, route row or panel, help, hint row
         ├── signals.rs - a thread that restores the terminal on SIGINT, SIGTERM, SIGHUP or SIGQUIT,
         │   then ends the process by that signal
         ├── table.rs - the prompt row, the header, the host rows and the hint row
-        ├── route.rs - the route row: where the selected host goes, `resolving…` or why ssh -G failed
-        ├── help.rs - the key help as rows between the route row and the hint row, which make the
+        ├── route.rs - where the selected host goes, `resolving…` or why ssh -G failed: one row cut
+        │   with `…`, or a panel of one row per key with the failure wrapped
+        ├── help.rs - the key help as rows just above the hint row, which make the
         │   block taller: rows from BINDINGS, cut with a `+N more · sshpick pick --help` pointer
         ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans
         ├── terminal.rs - Tty: raw mode and the block, and the one idempotent restore that
