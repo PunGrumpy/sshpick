@@ -3,22 +3,21 @@ source: crates/sshpick-ui/src/tui/help.rs
 expression: frame(&lines)
 ---
  0|> consul                                                                                                             2/5
- 1|  ENV         HOST           WHAT
- 2|▌ NEW STAGING newstg-consul1 consul server 1 — mgmt
- 3|  NEW STAGING newstg-consul2
- 4|
- 5|
- 6|
- 7|  → ubuntu@10.11.212.191:22 via newstg-bastion
- 8|
- 9|  Enter                       - ssh to the selected host
-10|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
-11|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
-12|  Down, Ctrl-N, Ctrl-J        - select the next host; wraps to the first
-13|  type                        - filter; 'exact ^prefix suffix$ !not
-14|  Backspace, Ctrl-H           - delete the last character
-15|  Ctrl-U                      - clear the filter
-16|  Ctrl-W                      - delete the last word
-17|  Ctrl-D                      - quit when the filter is empty
-18|  ?, F1                       - toggle this help (? only on an empty filter)
-19|  ↑↓ move   enter ssh   esc close
+ 1|  ENV         HOST           WHAT                                       │ newstg-consul1
+ 2|▌ NEW STAGING newstg-consul1 consul server 1 — mgmt                     │ user       ubuntu
+ 3|  NEW STAGING newstg-consul2                                            │ hostname   10.11.212.191
+ 4|                                                                        │ port       22
+ 5|                                                                        │ proxyjump  newstg-bastion
+ 6|                                                                        │
+ 7|
+ 8|  Enter                       - ssh to the selected host
+ 9|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
+10|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
+11|  Down, Ctrl-N, Ctrl-J        - select the next host; wraps to the first
+12|  type                        - filter; 'exact ^prefix suffix$ !not
+13|  Backspace, Ctrl-H           - delete the last character
+14|  Ctrl-U                      - clear the filter
+15|  Ctrl-W                      - delete the last word
+16|  Ctrl-D                      - quit when the filter is empty
+17|  ?, F1                       - toggle this help (? only on an empty filter)
+18|  ↑↓ move   enter ssh   esc close

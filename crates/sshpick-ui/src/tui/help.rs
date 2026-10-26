@@ -237,7 +237,7 @@ mod tests {
     }
 
     #[test]
-    fn a_wide_terminal_gets_the_same_rows_with_more_room() {
+    fn a_wide_terminal_keeps_the_panel_above_the_help() {
         let (screen, mut picker) = setup("ui", "consul");
         open(&mut picker);
         let lines = render(&mut terminal(120, 30), &screen, &mut picker, &ready());

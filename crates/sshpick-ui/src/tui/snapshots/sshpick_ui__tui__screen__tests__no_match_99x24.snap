@@ -2,7 +2,7 @@
 source: crates/sshpick-ui/src/tui/screen.rs
 expression: frame(&lines)
 ---
- 0|> zzzz                                                                                                               0/5
+ 0|> zzzz                                                                                          0/5
  1|  ENV         HOST           WHAT
  2|  no matching hosts
  3|

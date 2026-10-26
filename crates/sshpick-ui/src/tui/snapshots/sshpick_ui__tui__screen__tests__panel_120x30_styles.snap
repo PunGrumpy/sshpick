@@ -1,0 +1,12 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: styles(&wide)
+---
+y0  BOLD[0..0] DIM[2..15] DIM[116..119]
+y1  DIM[0..72]
+y2  REV[0..71] DIM[72..72] DIM[74..84]
+y3  DIM[2..4] DIM[29..37] DIM[72..72] DIM[74..84]
+y4  DIM[2..12] DIM[29..50] DIM[72..72] DIM[74..84]
+y5  DIM[2..12] DIM[72..72] DIM[74..84]
+y6  DIM[2..12] DIM[29..35] DIM[72..72]
+y7  DIM[2..40]

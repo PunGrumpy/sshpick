@@ -1,8 +1,13 @@
 //! On two rows or more the block never takes the whole screen, so the command that started it
-//! stays in sight. A shorter terminal gets fewer rows of the same block, never another layout.
+//! stays in sight. A shorter terminal gets fewer rows of the same block, never another layout. A
+//! wider one moves the route out of its row into a panel beside the list.
 
-/// Prompt, header, route and hint: the rows that are not hosts.
-const CHROME: u16 = 4;
+/// Prompt, header and hint: the rows that are not hosts, without the route row.
+const CHROME: u16 = 3;
+/// The list keeps 60 columns beside a panel of two fifths of the width.
+const PANEL_FROM: u16 = 100;
+/// The host, then one row for each piece of a route, so that the panel is never cut.
+const PANEL_ROWS: u16 = 6;
 const FLOOR: u16 = 8;
 /// With the help open the list gives up rows down to this many before the help is cut.
 const LIST_WITH_HELP: u16 = 3;
@@ -26,24 +31,31 @@ impl Space {
 }
 
 /// The block's rows, top to bottom: the prompt (always), the header, `list` host rows, the route,
-/// `help` rows of key help and the hint.
+/// `help` rows of key help and the hint. With `panel`, the route sits beside the header and the
+/// list instead of in a row of its own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Plan {
     pub(super) cols: u16,
     pub(super) header: bool,
     pub(super) list: u16,
     pub(super) route: bool,
+    pub(super) panel: bool,
     pub(super) help: u16,
     pub(super) hint: bool,
 }
 
 impl Plan {
     pub(super) fn height(self) -> u16 {
-        1 + u16::from(self.header)
-            + self.list
-            + u16::from(self.route)
-            + self.help
-            + u16::from(self.hint)
+        1 + self.beside() + u16::from(self.route) + self.help + u16::from(self.hint)
+    }
+
+    /// The header and the host rows, which the panel sits beside.
+    pub(super) fn beside(self) -> u16 {
+        u16::from(self.header) + self.list
+    }
+
+    pub(super) fn panel_cols(self) -> u16 {
+        if self.panel { self.cols / 5 * 2 } else { 0 }
     }
 }
 
@@ -70,32 +82,42 @@ enum Part {
 /// is closed.
 pub(super) fn plan(space: Space, hosts: usize, help: u16) -> Plan {
     let hosts = u16::try_from(hosts).unwrap_or(u16::MAX).max(1);
-    let wanted = CHROME.saturating_add(hosts).saturating_add(help);
-    let height = wanted.min(cap(space.rows, help > 0));
-    if height == wanted {
-        return Plan {
-            cols: space.cols,
-            header: true,
-            list: hosts,
-            route: true,
-            help,
-            hint: true,
-        };
+    if space.cols >= PANEL_FROM {
+        let wide = layout(space, hosts, help, true);
+        if wide.beside() >= PANEL_ROWS {
+            return wide;
+        }
     }
-    if help > 0 && height > CHROME + LIST_WITH_HELP {
+    layout(space, hosts, help, false)
+}
+
+fn layout(space: Space, hosts: u16, help: u16, panel: bool) -> Plan {
+    let chrome = CHROME + u16::from(!panel);
+    let wanted = chrome.saturating_add(hosts).saturating_add(help);
+    let height = wanted.min(cap(space.rows, help > 0));
+    let whole = Plan {
+        cols: space.cols,
+        header: true,
+        list: hosts,
+        route: !panel,
+        panel,
+        help,
+        hint: true,
+    };
+    if height == wanted {
+        return whole;
+    }
+    if help > 0 && height > chrome + LIST_WITH_HELP {
         let list = hosts
-            .min(height.saturating_sub(CHROME + help))
+            .min(height.saturating_sub(chrome + help))
             .max(hosts.min(LIST_WITH_HELP));
         return Plan {
-            cols: space.cols,
-            header: true,
             list,
-            route: true,
-            help: height - CHROME - list,
-            hint: true,
+            help: height - chrome - list,
+            ..whole
         };
     }
-    squeeze(space.cols, height, hosts)
+    squeeze(space.cols, height, hosts, panel)
 }
 
 fn cap(rows: u16, help_open: bool) -> u16 {
@@ -108,13 +130,14 @@ fn cap(rows: u16, help_open: bool) -> u16 {
 }
 
 /// A host row is skipped once every host has one, so a short config never gets a blank row ahead
-/// of the route.
-fn squeeze(cols: u16, height: u16, hosts: u16) -> Plan {
+/// of the route. A panel costs no row, so its rung is skipped too.
+fn squeeze(cols: u16, height: u16, hosts: u16, panel: bool) -> Plan {
     let mut plan = Plan {
         cols,
         header: false,
         list: 0,
         route: false,
+        panel,
         help: 0,
         hint: false,
     };
@@ -127,6 +150,7 @@ fn squeeze(cols: u16, height: u16, hosts: u16) -> Plan {
             Part::List if plan.list >= hosts => continue,
             Part::List => plan.list += 1,
             Part::Hint => plan.hint = true,
+            Part::Route if panel => continue,
             Part::Route => plan.route = true,
             Part::Header => plan.header = true,
         }
@@ -163,7 +187,7 @@ mod tests {
     #[test_case(80, 24, 5, (9, true, 5, true, 0, true); "80x24, five hosts: everything the hosts need")]
     #[test_case(80, 24, 1, (5, true, 1, true, 0, true); "a short config is a short block")]
     #[test_case(80, 24, 29, (12, true, 8, true, 0, true); "29 hosts: half the terminal")]
-    #[test_case(120, 30, 29, (15, true, 11, true, 0, true); "120x30: half, and the width changes nothing")]
+    #[test_case(99, 30, 29, (15, true, 11, true, 0, true); "99x30: half")]
     #[test_case(60, 12, 5, (8, true, 4, true, 0, true); "60x12: the floor of 8 rows")]
     #[test_case(40, 8, 5, (7, true, 3, true, 0, true); "40x8: all but one row")]
     #[test_case(80, 7, 5, (6, false, 3, true, 0, true); "the header goes first")]
@@ -201,12 +225,51 @@ mod tests {
         assert_eq!(shape(plan(Space { cols: 80, rows }, 5, keys())), want);
     }
 
+    // The header and the list give the panel its six rows, or the route keeps its row.
+    //          cols rows hosts    height header list route panel
+    #[test_case(100, 24, 5, (8, true, 5, false, true); "100x24, five hosts: the route needs no row")]
+    #[test_case(99, 24, 5, (9, true, 5, true, false); "one column short: the route row")]
+    #[test_case(120, 30, 29, (15, true, 12, false, true); "29 hosts: the route's row goes to the list")]
+    #[test_case(120, 24, 4, (8, true, 4, true, false); "four hosts and the header are too few rows")]
+    #[test_case(120, 9, 5, (8, true, 5, false, true); "the floor of 8 holds it")]
+    #[test_case(120, 8, 5, (7, true, 3, true, false); "a row shorter: the route row")]
+    fn from_100_columns_the_route_is_a_panel_beside_the_list(
+        cols: u16,
+        rows: u16,
+        hosts: usize,
+        want: (u16, bool, u16, bool, bool),
+    ) {
+        let p = plan(Space { cols, rows }, hosts, 0);
+        assert_eq!((p.height(), p.header, p.list, p.route, p.panel), want);
+    }
+
+    //          rows    height list help panel
+    #[test_case(24, (19, 5, 11, true); "the help keeps the panel")]
+    #[test_case(20, (19, 5, 11, true); "the shortest terminal that takes all of it")]
+    #[test_case(19, (18, 3, 11, false); "a list cut to three is too short for it")]
+    fn the_help_keeps_the_panel_while_the_list_has_its_rows(
+        rows: u16,
+        want: (u16, u16, u16, bool),
+    ) {
+        let p = plan(Space { cols: 120, rows }, 5, keys());
+        assert_eq!((p.height(), p.list, p.help, p.panel), want);
+    }
+
+    #[test]
+    fn the_panel_takes_two_fifths_of_the_width() {
+        let wide = |cols| plan(Space { cols, rows: 24 }, 5, 0).panel_cols();
+        assert_eq!([wide(99), wide(100), wide(120), wide(200)], [0, 40, 48, 80]);
+    }
+
     #[test]
     fn whatever_the_size_the_block_fits_and_keeps_what_matters() {
-        for rows in 0..=60 {
+        for (cols, rows) in [80, 120]
+            .into_iter()
+            .flat_map(|c| (0..=60).map(move |r| (c, r)))
+        {
             for hosts in [0, 1, 2, 5, 29, 500] {
                 for help in [0, keys()] {
-                    let p = plan(Space { cols: 80, rows }, hosts, help);
+                    let p = plan(Space { cols, rows }, hosts, help);
                     let height = p.height();
                     assert!(height >= 1, "rows {rows}");
                     if rows >= 2 {
@@ -228,6 +291,10 @@ mod tests {
                     if help == 0 {
                         assert!(height <= (rows / 2).max(FLOOR), "at most half: {p:?}");
                     }
+                    assert!(!(p.route && p.panel), "the route is drawn once: {p:?}");
+                    if p.panel {
+                        assert!(p.beside() >= PANEL_ROWS, "never a cut panel: {p:?}");
+                    }
                 }
             }
         }
@@ -235,11 +302,14 @@ mod tests {
 
     #[test]
     fn a_taller_terminal_never_shrinks_the_block() {
-        for hosts in [1, 5, 29, 500] {
+        for (cols, hosts) in [80, 120]
+            .into_iter()
+            .flat_map(|c| [1, 4, 5, 29, 500].map(|h| (c, h)))
+        {
             for help in [0, keys()] {
                 let mut last = 0;
                 for rows in 0..=80 {
-                    let height = plan(Space { cols: 80, rows }, hosts, help).height();
+                    let height = plan(Space { cols, rows }, hosts, help).height();
                     assert!(
                         height >= last,
                         "{hosts} hosts: {rows} rows gave {height} after {last}"
@@ -251,9 +321,12 @@ mod tests {
     }
 
     #[test]
-    fn the_width_never_changes_the_height() {
-        for cols in [1, 10, 40, 80, 100, 120, 400] {
-            assert_eq!(plan(Space { cols, rows: 24 }, 29, 0).height(), 12);
+    fn the_width_changes_the_height_by_the_route_row_at_most() {
+        for cols in [1, 10, 40, 80, 99, 100, 120, 400] {
+            let space = Space { cols, rows: 24 };
+            assert_eq!(plan(space, 29, 0).height(), 12, "a full block stays full");
+            let few = if cols < 100 { 9 } else { 8 };
+            assert_eq!(plan(space, 5, 0).height(), few, "{cols}");
         }
     }
 
