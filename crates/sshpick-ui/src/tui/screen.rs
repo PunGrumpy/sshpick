@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn the_docs_show_the_real_screen() {
         let (screen, mut picker) = setup("ui", "");
-        let lines = render(&mut terminal(80, 9), &screen, &mut picker, &ready());
+        let lines = render(&mut terminal(80, 12), &screen, &mut picker, &ready());
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let read = |doc| std::fs::read_to_string(root.join(doc)).unwrap();
         for doc in ["README.md", "docs/picker.md"] {
@@ -127,7 +127,7 @@ mod tests {
         }
 
         let (screen, mut picker) = setup("ui", "consul");
-        let wide = render(&mut terminal(100, 8), &screen, &mut picker, &ready());
+        let wide = render(&mut terminal(100, 12), &screen, &mut picker, &ready());
         let text = read("docs/picker.md");
         let shown = sample(&text, "~/work $ sshpick consul");
         assert_eq!(

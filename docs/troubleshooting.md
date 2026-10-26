@@ -114,9 +114,9 @@ the `doctor` tokens.
 
 ## The terminal looks wrong after sshpick was killed
 
-Killed by SIGINT, SIGTERM, SIGHUP or SIGQUIT, sshpick erases the picker and puts the terminal back
-before it ends. SIGKILL (`kill -9`) cannot be handled, and neither can a power cut, so the terminal
-can stay in raw mode with a hidden cursor and no echo.
+Killed by SIGINT, SIGTERM, SIGHUP or SIGQUIT, sshpick leaves the alternate screen and puts the
+terminal back before it ends. SIGKILL (`kill -9`) cannot be handled, and neither can a power cut,
+so the terminal can stay on the picker's screen in raw mode, with a hidden cursor and no echo.
 
 Nothing in `sshpick doctor` shows this: it checks what sshpick finds, not what a killed process
 left behind. Its `terminal` line does name the `TERM` that `reset` will use:
