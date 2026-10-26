@@ -38,6 +38,9 @@ sshpick doctor                # check the config, ssh and this terminal
   NEW STAGING newstg-consul1 consul server 1 — mgmt
   NEW STAGING newstg-consul2
   NEW STAGING newstg-bastion bastion
+
+
+
   → ubuntu@10.11.212.191:22 via newstg-bastion
   ↑↓ move   enter ssh   esc quit   ? keys
 ```

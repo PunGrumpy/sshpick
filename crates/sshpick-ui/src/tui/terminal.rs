@@ -1,27 +1,32 @@
 //! Every way out ends in `restore_to`, which is idempotent, so the first to run wins and the rest
 //! write nothing: `Tty::leave` before `exec`, the panic hook before the message is printed, and
-//! `signals.rs` before the default action. It erases the block from the extent the writer
-//! published and leaves raw mode, so none of them needs the writer.
+//! `signals.rs` before the default action.
 
-use std::io::{self, Stdout, StdoutLock, Write};
+use std::io::{self, StdoutLock, Write};
 use std::sync::Once;
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode};
-use ratatui::layout::{Rect, Size};
-use ratatui::{Frame, Terminal, TerminalOptions, Viewport};
+use crossterm::execute;
+use crossterm::terminal::{
+    BeginSynchronizedUpdate, EndSynchronizedUpdate, EnterAlternateScreen, disable_raw_mode,
+    enable_raw_mode,
+};
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::Rect;
+use ratatui::{DefaultTerminal, Frame, Terminal, TerminalOptions, Viewport};
 
-use super::inline::{Inline, restore_bytes};
 use super::plan::{Plan, Space};
 use super::signals;
 
+/// End a frame cut short, reset the attributes, show the cursor and leave the alternate screen.
+const RESTORE: &[u8] = b"\x1b[?2026l\x1b[0m\x1b[?25h\x1b[?1049l";
+
 static OPEN: AtomicBool = AtomicBool::new(false);
-static EXTENT: AtomicU16 = AtomicU16::new(0);
 static HOOKS: Once = Once::new();
 
 pub(super) struct Tty {
-    terminal: Terminal<Inline<'static, Stdout>>,
-    shape: (Space, Plan),
+    terminal: DefaultTerminal,
+    area: Rect,
 }
 
 impl Space {
@@ -33,7 +38,7 @@ impl Space {
 }
 
 impl Tty {
-    pub(super) fn enter(space: Space, plan: Plan) -> io::Result<Tty> {
+    pub(super) fn enter(plan: Plan) -> io::Result<Tty> {
         HOOKS.call_once(|| {
             let previous = std::panic::take_hook();
             std::panic::set_hook(Box::new(move |info| {
@@ -45,7 +50,7 @@ impl Tty {
         });
         enable_raw_mode()?;
         OPEN.store(true, Ordering::SeqCst);
-        match Tty::build(space, plan) {
+        match Tty::build(plan) {
             Ok(tty) => Ok(tty),
             Err(error) => {
                 restore();
@@ -54,41 +59,39 @@ impl Tty {
         }
     }
 
-    fn build(space: Space, plan: Plan) -> io::Result<Tty> {
-        let size = size(plan);
+    fn build(plan: Plan) -> io::Result<Tty> {
+        execute!(io::stdout(), EnterAlternateScreen)?;
+        let area = area(plan);
+        // Fixed, not Fullscreen: the size comes from the resize events the picker already reads,
+        // and the 80x24 that stands in for a terminal reporting 0x0.
         let terminal = Terminal::with_options(
-            Inline::open(io::stdout(), size, &EXTENT),
-            // Fixed, not Inline: an Inline viewport asks the backend where the cursor is to place
-            // itself, and this backend knows only the block's own rows.
+            CrosstermBackend::new(io::stdout()),
             TerminalOptions {
-                viewport: Viewport::Fixed(area(size)),
+                viewport: Viewport::Fixed(area),
             },
         )?;
-        Ok(Tty {
-            terminal,
-            shape: (space, plan),
-        })
+        Ok(Tty { terminal, area })
     }
 
-    /// A resize that keeps the plan erases and redraws the block too, in case the terminal cut
-    /// rows.
-    pub(super) fn fit(&mut self, space: Space, plan: Plan) -> io::Result<()> {
-        if self.shape == (space, plan) {
-            return Ok(());
+    /// A new size clears the screen and draws every cell again.
+    pub(super) fn fit(&mut self, plan: Plan) -> io::Result<()> {
+        let area = area(plan);
+        if self.area != area {
+            self.terminal.resize(area)?;
+            self.area = area;
         }
-        let size = size(plan);
-        self.terminal.backend_mut().retarget(size);
-        self.terminal.resize(area(size))?;
-        self.shape = (space, plan);
         Ok(())
     }
 
     pub(super) fn draw(&mut self, render: impl FnOnce(&mut Frame)) -> io::Result<()> {
-        self.terminal.draw(render).map(|_| ())
+        execute!(self.terminal.backend_mut(), BeginSynchronizedUpdate)?;
+        let drawn = self.terminal.draw(render).map(|_| ());
+        execute!(self.terminal.backend_mut(), EndSynchronizedUpdate)?;
+        drawn
     }
 
     pub(super) fn leave(&mut self) -> io::Result<()> {
-        restore_to(&OPEN, &EXTENT, &mut io::stdout().lock())
+        restore_to(&OPEN, &mut io::stdout().lock())
     }
 }
 
@@ -98,36 +101,30 @@ impl Drop for Tty {
     }
 }
 
-fn size(plan: Plan) -> Size {
-    Size::new(plan.cols, plan.height())
-}
-
-fn area(size: Size) -> Rect {
-    Rect::new(0, 0, size.width, size.height)
+fn area(plan: Plan) -> Rect {
+    Rect::new(0, 0, plan.cols, plan.height())
 }
 
 fn restore() {
-    let _ = restore_to(&OPEN, &EXTENT, &mut io::stdout().lock());
+    let _ = restore_to(&OPEN, &mut io::stdout().lock());
 }
 
 /// Keeps stdout locked after restoring, so the picker cannot draw over the restored terminal in
 /// the moment before the process ends.
 pub(super) fn restore_and_hold() -> StdoutLock<'static> {
     let mut out = io::stdout().lock();
-    let _ = restore_to(&OPEN, &EXTENT, &mut out);
+    let _ = restore_to(&OPEN, &mut out);
     out
 }
 
-fn restore_to(open: &AtomicBool, extent: &AtomicU16, out: &mut impl Write) -> io::Result<()> {
+fn restore_to(open: &AtomicBool, out: &mut impl Write) -> io::Result<()> {
     if !open.swap(false, Ordering::SeqCst) {
         return Ok(());
     }
     // Raw mode first: a terminal that no longer takes bytes must not keep raw mode on.
     let raw = disable_raw_mode();
-    let block = out
-        .write_all(&restore_bytes(extent.load(Ordering::SeqCst)))
-        .and_then(|()| out.flush());
-    raw.and(block)
+    let screen = out.write_all(RESTORE).and_then(|()| out.flush());
+    raw.and(screen)
 }
 
 #[cfg(test)]
@@ -137,31 +134,17 @@ mod tests {
     #[test]
     fn a_restore_writes_once_however_often_it_runs() {
         let open = AtomicBool::new(true);
-        let extent = AtomicU16::new(9);
         let mut out = Vec::new();
-        restore_to(&open, &extent, &mut out).unwrap();
-        restore_to(&open, &extent, &mut out).unwrap();
-        assert_eq!(out, restore_bytes(9));
+        restore_to(&open, &mut out).unwrap();
+        restore_to(&open, &mut out).unwrap();
+        assert_eq!(out, RESTORE);
     }
 
     #[test]
     fn a_restore_before_the_terminal_is_taken_writes_nothing() {
         let open = AtomicBool::new(false);
         let mut out = Vec::new();
-        restore_to(&open, &AtomicU16::new(9), &mut out).unwrap();
+        restore_to(&open, &mut out).unwrap();
         assert!(out.is_empty());
-    }
-
-    #[test]
-    fn a_restore_erases_the_extent_and_shows_the_cursor_without_leaving_any_screen() {
-        assert_eq!(
-            restore_bytes(3),
-            b"\x1b[?2026l\x1b[0m\r\x1b[2K\n\x1b[2K\n\x1b[2K\x1b[2A\x1b[?25h"
-        );
-        assert_eq!(
-            restore_bytes(0),
-            b"\x1b[?2026l\x1b[0m\x1b[?25h",
-            "before the first frame there is nothing to erase"
-        );
     }
 }

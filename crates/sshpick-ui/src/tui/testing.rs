@@ -21,8 +21,8 @@ pub(super) fn setup(home: &str, query: &str) -> (Screen, Picker) {
     (Screen::new(&entries), Picker::new(entries, query))
 }
 
-/// The picker's block in a terminal of a given size, as `Tty` keeps it: the backend is the block,
-/// and a new plan starts a new one, as `Tty::fit` makes ratatui draw every cell again.
+/// The picker in a terminal of a given size. A new plan starts a new backend, so that ratatui
+/// draws every cell again, as it does after a resize.
 pub(super) struct Block {
     space: Space,
     plan: Option<Plan>,

@@ -12,10 +12,10 @@ use super::terminal::Tty;
 const BUSY_POLL: Duration = Duration::from_millis(15);
 const IDLE_POLL: Duration = Duration::from_secs(3600);
 
-/// Erase the block before returning: `exec` comes after this.
+/// Leave the alternate screen before returning: `exec` comes after this.
 pub fn run(screen: &Screen, picker: &mut Picker, previews: &mut Previews) -> io::Result<Outcome> {
     let mut space = Space::detect();
-    let mut tty = Tty::enter(space, screen.plan(space, picker))?;
+    let mut tty = Tty::enter(screen.plan(space, picker))?;
     let outcome = events(&mut tty, &mut space, screen, picker, previews);
     tty.leave()?;
     outcome
@@ -30,7 +30,7 @@ fn events(
 ) -> io::Result<Outcome> {
     loop {
         let plan = screen.plan(*space, picker);
-        tty.fit(*space, plan)?;
+        tty.fit(plan)?;
         let selected = picker.selected().cloned();
         let slot = selected.as_ref().map(|host| previews.fetch(host));
         tty.draw(|frame| screen.draw(frame, picker, slot, plan))?;

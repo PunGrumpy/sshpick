@@ -9,4 +9,26 @@ expression: frame(&lines)
  4|  NEW STAGING newstg-consul1 consul server 1 — mgmt                     │ port       22
  5|  NEW STAGING newstg-consul2                                            │ proxyjump  newstg-bastion
  6|  NEW STAGING newstg-bastion bastion                                    │
- 7|  ↑↓ move   enter ssh   esc quit   ? keys
+ 7|                                                                        │
+ 8|                                                                        │
+ 9|                                                                        │
+10|                                                                        │
+11|                                                                        │
+12|                                                                        │
+13|                                                                        │
+14|                                                                        │
+15|                                                                        │
+16|                                                                        │
+17|                                                                        │
+18|                                                                        │
+19|                                                                        │
+20|                                                                        │
+21|                                                                        │
+22|                                                                        │
+23|                                                                        │
+24|                                                                        │
+25|                                                                        │
+26|                                                                        │
+27|                                                                        │
+28|                                                                        │
+29|  ↑↓ move   enter ssh   esc quit   ? keys

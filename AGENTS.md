@@ -40,8 +40,8 @@
   else.
 - An error is `Error:`, then `Fix:` when there is a concrete next step, then `Learn More:`. A
   warning is `! message`. There is no `sshpick:` prefix.
-- While the picker is open, bytes reach the terminal only through `sshpick-ui`'s `tui/inline.rs`,
-  which moves the cursor relatively and never asks the terminal anything.
+- While the picker is open, bytes reach the terminal only through `sshpick-ui`'s `tui/terminal.rs`,
+  on the alternate screen, and it never asks the terminal anything.
 - Colour is decided per stream in `sshpick-ui`'s `ColorConfig`. A stream that is not a terminal
   gets no escape bytes unless `CLICOLOR_FORCE` is set.
 - Never prompt under `--non-interactive`. The picker is the only prompt.

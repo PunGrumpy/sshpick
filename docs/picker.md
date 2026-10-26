@@ -2,8 +2,8 @@
 
 Press `?` on an empty filter, or `F1`, for the key list.
 
-The picker opens under the command line, in a block of rows, and the rest of the screen stays as
-it was. With an empty filter, at 80 columns:
+The picker opens on the whole screen, as `less` and `vim` do, and gives the shell its screen back,
+scrollback included, when it closes. With an empty filter, in a terminal of 80 by 12:
 
 ```text
 ~/work $ sshpick
@@ -14,6 +14,9 @@ it was. With an empty filter, at 80 columns:
   NEW STAGING newstg-consul1 consul server 1 — mgmt
   NEW STAGING newstg-consul2
   NEW STAGING newstg-bastion bastion
+
+
+
   → ubuntu@10.11.212.191:22 via newstg-bastion
   ↑↓ move   enter ssh   esc quit   ? keys
 ```
@@ -33,8 +36,8 @@ it was. With an empty filter, at 80 columns:
 | Ctrl-D                      | quit when the filter is empty                |
 | ?, F1                       | toggle this help (? only on an empty filter) |
 
-The help is a section of the block, not a popup: opening it makes the block taller, with the keys
-just above the hint row, and closing it gives the rows back. It does not take
+The help is a section of the screen, not a popup: opening it takes the blank rows under the list
+first, with the keys just above the hint row, and closing it gives them back. It does not take
 over the keyboard: typing, moving and Enter still work while it is open, and Esc closes it before
 a second Esc quits. The hint row says `esc close` meanwhile. If the keys do not fit, the list
 keeps at least three rows and the last row of the help is `+N more · sshpick pick --help`.
@@ -43,27 +46,25 @@ The list is top-down with the best match first and the selection on it, like fzf
 `--layout=reverse`. The text cursor is always at the end of the query.
 
 Config warnings are not drawn in the picker. `sshpick` prints each one as a `! …` line on stderr
-before the block opens, once, on every path, so it sits above the block and is still there when
-the picker closes.
+before the picker opens, once, on every path, so it is on the shell's screen when the picker
+closes.
 
-A picker that is killed (SIGINT, SIGTERM, SIGHUP or SIGQUIT) erases the block and puts the
-terminal back first, then ends by that signal, so the shell sees 130, 143, 129 or 131.
+A picker that is killed (SIGINT, SIGTERM, SIGHUP or SIGQUIT) gives the shell its screen back and
+puts the terminal back first, then ends by that signal, so the shell sees 130, 143, 129 or 131.
 
 ## Appearance
 
-The picker is a block of rows on the line under the command, where the cursor was. It takes a row
-each for the prompt, the header, the route and the hint, and one per host, but at most half the
-terminal (at least 8 rows when the terminal has them) and never all of it, so the command that
-started it stays in sight. It is sized from every host, not from the matches, so it keeps its
-height while you type, and fewer matches leave blank rows under the list. Started at the bottom
-of the screen, it scrolls the lines above it up to make room; they stay in the scrollback.
+The picker takes the alternate screen: the whole window, with the shell's screen and scrollback
+kept aside until it closes. The prompt is on the top row, the route and the hint row are on the
+bottom two, and the list fills the rows between. Rows the hosts do not need stay blank, so a short
+config, or a query that matches fewer hosts, leaves blank rows above the route.
 
-Esc erases the block and leaves the cursor where the block began, so the shell's next prompt takes
-that row. Enter erases it too, and `> ssh -- <host>` takes that row before ssh starts. Enter with
-nothing matched exits 1 and says so. The picker never asks the terminal where the cursor is: it
-assumes the command line ended with a new line, as a shell's does.
+Esc gives the shell its screen back as it was, with the cursor where the command left it. Enter
+does the same, and `> ssh -- <host>` is printed there before ssh starts. Enter with nothing
+matched exits 1 and says so. The picker never asks the terminal anything, such as where the
+cursor is.
 
-The block reads top-down. The first row is the prompt: `> `, the query, and on the right the count
+The screen reads top-down. The first row is the prompt: `> `, the query, and on the right the count
 of matches out of all hosts (`5/29`). A dim header follows, then the list, best match first. The
 last row is one dim hint row: `↑↓ move   enter ssh   esc quit   ? keys`. The row shows the widest
 form that fits and always keeps `esc`, and `enter` whenever something matches. A narrower
@@ -83,8 +84,8 @@ From 100 columns the route takes no row. It moves into a panel beside the header
 two fifths of the width wide, behind a dim rule: the selected host, then one row per key, with the
 names and in the order `sshpick inspect` prints under Resolved. `resolving…` reads the same as on
 the row, and a failure wraps over the panel's rows, ending in `…` if it does not fit. The panel
-needs six rows beside it, so a config of fewer than five hosts, or a terminal too short for them,
-keeps the route row. With a query, at 100 columns:
+needs six rows beside it, so a terminal shorter than 8 rows keeps the route row. With a query, in
+a terminal of 100 by 12:
 
 ```text
 ~/work $ sshpick consul
@@ -94,6 +95,10 @@ keeps the route row. With a query, at 100 columns:
   NEW STAGING newstg-consul2                                │ hostname   10.11.212.191
                                                             │ port       22
                                                             │ proxyjump  newstg-bastion
+                                                            │
+                                                            │
+                                                            │
+                                                            │
                                                             │
   ↑↓ move   enter ssh   esc quit   F1 keys
 ```
@@ -106,10 +111,10 @@ When nothing matches, the first list row shows a dim `no matching hosts`. An emp
 a dim `type to filter`. A WHAT wider than its column ends in `…`, and one too narrow for more
 than that is left out. HOST and ENV are never cut.
 
-A shorter terminal gets fewer rows of the same block, never another layout: the header goes
+A shorter terminal gets fewer rows of the same screen, never another layout: the header goes
 first, then the route row, then hosts, and the hint row with `enter` and `esc` outlasts every host
-but one. Width changes one thing: under 100 columns the panel is the route row again. A block of
-one row shows the selected host where the count was, so Enter is never blind. A resize, or the
-help opening or closing, erases the block and draws it again from the same row.
+but one. Width changes one thing: under 100 columns the panel is the route row again. A screen of
+one row shows the selected host where the count was, so Enter is never blind. A resize clears the
+screen and draws it again.
 
 There is no animation or fade, by design. Each key press is one redraw.

@@ -70,20 +70,21 @@ mod tests {
     }
 
     #[test]
-    fn the_help_grows_the_block_under_the_route_row_with_every_binding() {
+    fn the_help_takes_the_blank_rows_above_the_hint_row_with_every_binding() {
         let (screen, mut picker) = setup("ui", "");
-        let mut terminal = terminal(80, 24);
+        open(&mut picker);
+        let lines = render(&mut terminal(80, 24), &screen, &mut picker, &ready());
+        assert_snapshot!("help_80x24", frame(&lines));
+        picker.handle(Key::Esc);
+
+        // Twenty rows: the five hosts, the route and every key, with no blank row left.
+        let mut terminal = terminal(80, 20);
         let plain = render(&mut terminal, &screen, &mut picker, &ready());
         open(&mut picker);
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
-        assert_snapshot!("help_80x24", frame(&lines));
-
-        assert_eq!(lines.len(), plain.len() + BINDINGS.len() + 1);
-        assert_eq!(
-            lines[..8],
-            plain[..8],
-            "the prompt, header, hosts and route stay"
-        );
+        assert_eq!(lines.len(), plain.len(), "the screen does not grow");
+        assert_eq!(lines[..7], plain[..7], "the prompt, header and hosts stay");
+        assert_eq!(lines[7], plain[18], "the route moves up under the list");
         assert!(lines[8].is_empty(), "a blank row opens the section");
         for (row, binding) in lines[9..19].iter().zip(BINDINGS) {
             assert!(
@@ -108,7 +109,7 @@ mod tests {
     fn the_help_is_non_modal_so_the_list_still_follows_what_is_typed() {
         let (screen, mut picker) = setup("ui", "");
         open(&mut picker);
-        let mut terminal = terminal(80, 24);
+        let mut terminal = terminal(80, 20);
         for c in "consul".chars() {
             assert_eq!(picker.handle(Key::Char(c)), None);
         }
@@ -127,7 +128,7 @@ mod tests {
         let plain = render(&mut terminal, &screen, &mut picker, &ready());
         open(&mut picker);
         let with_help = render(&mut terminal, &screen, &mut picker, &ready());
-        assert!(with_help.len() > plain.len());
+        assert_ne!(with_help, plain);
         assert_eq!(picker.handle(Key::Esc), None);
         assert_eq!(render(&mut terminal, &screen, &mut picker, &ready()), plain);
     }
@@ -139,24 +140,24 @@ mod tests {
         let mut terminal = terminal(80, 12);
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
         assert_snapshot!("help_80x12", frame(&lines));
-        assert_eq!(lines.len(), 11, "all but one row of the terminal");
-        assert_eq!(lines[9], "  +8 more · sshpick pick --help");
-        assert!(dim(&cell(&terminal, 2, 9)) && dim(&cell(&terminal, 30, 9)));
+        assert_eq!(lines.len(), 12, "the whole terminal");
+        assert_eq!(lines[10], "  +7 more · sshpick pick --help");
+        assert!(dim(&cell(&terminal, 2, 10)) && dim(&cell(&terminal, 30, 10)));
         assert_eq!(
-            lines[10],
+            lines[11],
             format!("{:<77}1–3", "  ↑↓ move   enter ssh   esc close"),
             "the list kept three rows, so the range shows"
         );
     }
 
     #[test_case(24, 0, 11 ; "every key fits")]
-    #[test_case(21, 0, 11 ; "the shortest terminal that takes the whole block")]
-    #[test_case(19, 0, 11 ; "the list gave up two hosts")]
-    #[test_case(18, 2, 10 ; "two keys short")]
-    #[test_case(15, 5, 7 ; "half of them")]
-    #[test_case(12, 8, 4 ; "the 80x12 terminal")]
-    #[test_case(10, 10, 2 ; "only the blank row and the pointer")]
-    #[test_case(9, 10, 1 ; "only the pointer")]
+    #[test_case(20, 0, 11 ; "the shortest terminal that takes the whole help")]
+    #[test_case(18, 0, 11 ; "the list gave up two hosts")]
+    #[test_case(17, 2, 10 ; "two keys short")]
+    #[test_case(14, 5, 7 ; "half of them")]
+    #[test_case(11, 8, 4 ; "two keys")]
+    #[test_case(9, 10, 2 ; "only the blank row and the pointer")]
+    #[test_case(8, 10, 1 ; "only the pointer")]
     fn the_list_keeps_three_rows_and_the_help_gets_the_rest(
         height: u16,
         hidden: usize,
@@ -199,9 +200,9 @@ mod tests {
     #[test]
     fn with_no_room_the_help_draws_nothing_and_the_list_keeps_its_rows() {
         let (screen, mut picker) = setup("ui", "");
-        let plain = render(&mut terminal(80, 7), &screen, &mut picker, &ready());
+        let plain = render(&mut terminal(80, 6), &screen, &mut picker, &ready());
         open(&mut picker);
-        let lines = render(&mut terminal(80, 7), &screen, &mut picker, &ready());
+        let lines = render(&mut terminal(80, 6), &screen, &mut picker, &ready());
         assert_eq!(lines.len(), plain.len());
         assert_eq!(lines[..5], plain[..5]);
         assert!(
@@ -227,9 +228,9 @@ mod tests {
                     .all(|line| line.chars().count() <= usize::from(width)),
                 "{width}x{height}"
             );
-            assert!(lines.len() < usize::from(height).max(2), "{width}x{height}");
+            assert_eq!(lines.len(), usize::from(height.max(1)), "{width}x{height}");
         }
-        let lines = render(&mut terminal(40, 24), &screen, &mut picker, &ready());
+        let lines = render(&mut terminal(40, 20), &screen, &mut picker, &ready());
         assert!(
             lines[9..19].iter().any(|line| line.ends_with('…')),
             "a long key row ends in an ellipsis: {lines:#?}"
