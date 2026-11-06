@@ -120,6 +120,70 @@ fn a_read_only_command_leaves_stderr_empty(args: &[&str]) {
     assert_eq!(stderr(&out), "", "{args:?}");
 }
 
+#[test_case("inspect", &["inspect", "zzz", "--json"], 1, "no_match", "action_required", true; "no match")]
+#[test_case("inspect", &["inspect", "consul", "--json"], 2, "several_matches", "action_required", true; "several matches")]
+#[test_case("inspect", &["inspect", "stg-broken", "--json"], 2, "ssh_failed", "error", false; "ssh -G failed")]
+#[test_case("empty", &["ls", "--json"], 2, "no_hosts", "error", true; "no hosts")]
+#[test_case("home", &["pick", "--json"], 2, "usage", "action_required", true; "pick has no json")]
+#[test_case("home", &["help", "nosuch", "--json"], 2, "usage", "action_required", true; "help for an unknown command")]
+fn a_failure_under_json_is_one_line_on_stderr(
+    home: &str,
+    args: &[&str],
+    code: i32,
+    reason: &str,
+    status: &str,
+    has_fix: bool,
+) -> Result<(), serde_json::Error> {
+    let out = sshpick(home).args(args).assert().code(code).stdout("");
+    let text = stderr(&out);
+    assert_eq!(text.lines().count(), 1, "{text}");
+    assert!(text.ends_with('\n'));
+    let document: serde_json::Value = serde_json::from_str(&text)?;
+    assert_eq!(document["reason"], reason);
+    assert_eq!(document["status"], status);
+    assert!(document["message"].is_string());
+    assert_eq!(document.get("fix").is_some(), has_fix, "{text}");
+    Ok(())
+}
+
+#[test]
+fn a_misspelt_json_flag_was_not_a_request_for_json() {
+    let out = sshpick("home")
+        .args(["ls", "--jsn"])
+        .assert()
+        .code(2)
+        .stdout("");
+    assert!(stderr(&out).starts_with("Error: unknown option \"--jsn\"\n"));
+}
+
+#[test]
+fn a_failure_under_json_carries_the_warnings_the_run_found() {
+    let out = sshpick("cycle")
+        .args(["inspect", "zzz", "--json"])
+        .assert()
+        .code(1)
+        .stdout("");
+    let document: serde_json::Value = serde_json::from_str(&stderr(&out)).unwrap();
+    assert_eq!(
+        document["warnings"],
+        serde_json::json!([{
+            "kind": "cycle",
+            "path": "<fixtures>/cycle/.ssh/config",
+            "message": "<fixtures>/cycle/.ssh/config: skipped, include cycle",
+        }])
+    );
+}
+
+#[test]
+fn help_under_json_is_still_help() {
+    let out = sshpick("home")
+        .args(["--help", "--json"])
+        .assert()
+        .code(0)
+        .stderr("");
+    assert!(String::from_utf8_lossy(&out.get_output().stdout).starts_with("sshpick "));
+}
+
 #[test]
 fn help_wins_over_an_unknown_option() {
     sshpick("home")

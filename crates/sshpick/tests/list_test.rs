@@ -206,5 +206,11 @@ fn list_json_carries_the_warnings_the_run_found() {
             "message": format!("{}: skipped, include cycle", path.display()),
         }])
     );
+    assert_eq!(stderr(&out), "", "the warnings are in the document");
+}
+
+#[test]
+fn a_warning_is_still_on_stderr_without_json() {
+    let out = sshpick("cycle").arg("ls").assert().code(0);
     assert_snapshot!("warning_still_on_stderr", stderr(&out));
 }

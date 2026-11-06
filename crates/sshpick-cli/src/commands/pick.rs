@@ -65,6 +65,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
             return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
                 did_you_mean: did_you_mean(query),
+                warnings: Vec::new(),
             });
         }
         (Resolution::Many(count), Some(refusal)) => {
@@ -88,6 +89,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
         Ok(Outcome::NoMatch) => Err(cli::Error::NoMatch {
             query: picker.query().to_owned(),
             did_you_mean: did_you_mean(picker.query()),
+            warnings: Vec::new(),
         }),
         Err(error) => Err(Error::Terminal(error).into()),
     }

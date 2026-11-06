@@ -1,9 +1,9 @@
 use std::io::{self, Write};
 
 use serde::Serialize;
-use sshpick_core::{Entry, Picker, Warning};
+use sshpick_core::{Entry, Picker};
 
-use super::{CommandBase, HostView, note_if_also_a_host, write_json};
+use super::{CommandBase, HostView, WarningView, note_if_also_a_host, write_json};
 use crate::cli;
 use crate::cli::Exit;
 
@@ -32,30 +32,6 @@ struct View<'a> {
     total: usize,
     hosts: Vec<HostView<'a>>,
     warnings: Vec<WarningView>,
-}
-
-#[derive(Serialize)]
-struct WarningView {
-    kind: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    path: Option<String>,
-    message: String,
-}
-
-impl WarningView {
-    fn of(warning: &Warning) -> WarningView {
-        let (kind, path) = match warning {
-            Warning::Unreadable { path, .. } => ("unreadable", Some(path)),
-            Warning::TooDeep { path } => ("too_deep", Some(path)),
-            Warning::Cycle { path } => ("cycle", Some(path)),
-            Warning::BadInclude { .. } => ("bad_include", None),
-        };
-        WarningView {
-            kind,
-            path: path.map(|path| path.display().to_string()),
-            message: warning.to_string(),
-        }
-    }
 }
 
 pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Error> {
@@ -133,31 +109,5 @@ mod tests {
         assert_eq!(summary(4, 12, "consul"), "4 of 12 hosts match \"consul\"");
         assert_eq!(summary(1, 12, "a b"), "1 of 12 hosts matches \"a b\"");
         assert_eq!(summary(0, 12, "zzz"), "0 of 12 hosts match \"zzz\"");
-    }
-
-    #[test]
-    fn each_warning_has_a_stable_kind_and_a_path_when_it_has_one() {
-        let path = std::path::PathBuf::from("/h/.ssh/a.conf");
-        let cycle = WarningView::of(&Warning::Cycle { path: path.clone() });
-        assert_eq!(
-            (cycle.kind, cycle.path.as_deref()),
-            ("cycle", Some("/h/.ssh/a.conf"))
-        );
-        assert_eq!(cycle.message, "/h/.ssh/a.conf: skipped, include cycle");
-        let deep = WarningView::of(&Warning::TooDeep { path });
-        assert_eq!(deep.kind, "too_deep");
-        let bad = WarningView::of(&Warning::BadInclude {
-            arg: "${X}".to_owned(),
-            reason: "${X} is not set".to_owned(),
-        });
-        assert_eq!((bad.kind, bad.path), ("bad_include", None));
-        let unreadable = WarningView::of(&Warning::Unreadable {
-            path: std::path::PathBuf::from("/h/.ssh/b.conf"),
-            source: io::Error::from(io::ErrorKind::PermissionDenied),
-        });
-        assert_eq!(
-            (unreadable.kind, unreadable.path.as_deref()),
-            ("unreadable", Some("/h/.ssh/b.conf"))
-        );
     }
 }

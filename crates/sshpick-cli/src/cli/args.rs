@@ -14,6 +14,7 @@ pub(crate) struct Args {
 pub(crate) struct GlobalArgs {
     pub(crate) no_color: bool,
     pub(crate) non_interactive: bool,
+    pub(crate) json: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -91,6 +92,7 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
 
     let accepts =
         |long: &str| named.is_some_and(|spec| spec.options.iter().any(|o| o.long == long));
+    let asked_json = scoped.iter().any(|(_, long)| *long == "json");
     let mut json = false;
     for (arg, long) in scoped {
         if accepts(long) {
@@ -103,6 +105,7 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
     let global = GlobalArgs {
         no_color: flags.no_color,
         non_interactive: flags.non_interactive,
+        json: asked_json,
     };
     let command = if flags.help {
         Ok(Command::Help {
