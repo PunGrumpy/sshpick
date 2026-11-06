@@ -13,7 +13,8 @@ When stdout is not a terminal `ls` prints the matching hosts as `ENV`, `HOST` an
 by tabs, with no header and no styling. The order is the picker's list read top to bottom, best
 match first; with no query it is the order of the config. There are always three columns, so
 `cut -f2` gives the host names even when ENV is empty. Tabs and other control characters inside a
-comment become spaces. Warnings go to stderr. The exit status is 1 when nothing matches.
+comment become spaces. Warnings go to stderr, except under `--json`, where they are in the document.
+The exit status is 1 when nothing matches.
 
 `--list` and `-l` stay as hidden spellings of `ls` that always print the tab-separated rows,
 even on a terminal, so `sshpick --list | fzf` keeps working.
@@ -41,10 +42,36 @@ on stdout. Keys are fixed and an empty result still prints the object (and `ls` 
 
 `env` and `what` are always there, as `""` when empty. A warning is `{"kind", "path", "message"}`
 with `kind` one of `unreadable`, `too_deep`, `cycle` or `bad_include`; `path` is left out when
-the warning has none. `inspect --json` is `{host, env, what, names, resolved, command}`, where
-`resolved` has ssh's own keys (`user`, `hostname`, `port`, `remotecommand`, `proxyjump`) and
-leaves out the ones ssh did not print, and `command` is the argv that `pick` would run.
-Errors still go to stderr as text.
+the warning has none. `inspect --json` is `{host, env, what, names, resolved, command, warnings}`,
+where `resolved` has ssh's own keys (`user`, `hostname`, `port`, `remotecommand`, `proxyjump`) and
+leaves out the ones ssh did not print, `command` is the argv that `pick` would run, and `warnings`
+is shaped as in `ls --json`. Under `--json` stderr stays empty when the command succeeds.
+
+### Errors under `--json`
+
+When `--json` is on the command line and a command fails, stdout stays empty and stderr gets one
+line of JSON. Without `--json`, an error is text, as below. The exit status does not change.
+`--jsn` is not `--json`, so a misspelt flag gets the text error.
+
+    $ sshpick inspect zzz --json
+    {"status":"action_required","reason":"no_match","message":"no host matches \"zzz\"","fix":"list every host with `sshpick ls`."}
+
+`warnings` is shaped as in `ls --json` and is left out when there are none, and so is `fix` when
+there is no next step. A no-match from `ls` is not an error: it stays an empty document with exit 1.
+
+| `reason`          | `status`          | Meaning                                                      |
+|-------------------|-------------------|--------------------------------------------------------------|
+| `usage`           | `action_required` | unknown option or command, a missing query, a stray argument |
+| `no_match`        | `action_required` | no host matches the query                                    |
+| `several_matches` | `action_required` | several hosts match where one is needed                      |
+| `no_hosts`        | `error`           | the config has no `Host` lines                               |
+| `config_error`    | `error`           | the config cannot be read, or there is no home directory     |
+| `ssh_failed`      | `error`           | `ssh` could not be run, or `ssh -G` failed                   |
+| `write_failed`    | `error`           | stdout or the terminal could not be written                  |
+
+`status` follows from `reason`: `action_required` means a different command line would have run.
+`reason` is stable and new ones may be added; `message` and `fix` are for people and may be
+reworded.
 
 Only results go to stdout. Help and `--version` also go to stdout; warnings, errors and the `>`
 line go to stderr. When stdout is a terminal, `> ssh -- host` is printed before ssh starts. An

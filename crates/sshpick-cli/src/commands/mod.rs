@@ -16,15 +16,21 @@ pub(crate) struct CommandBase<'a> {
     home: PathBuf,
     output: &'a Output,
     non_interactive: bool,
+    json: bool,
 }
 
 impl<'a> CommandBase<'a> {
-    pub(crate) fn new(output: &'a Output, non_interactive: bool) -> Result<CommandBase<'a>, Error> {
+    pub(crate) fn new(
+        output: &'a Output,
+        non_interactive: bool,
+        json: bool,
+    ) -> Result<CommandBase<'a>, Error> {
         let home = std::env::home_dir().ok_or(Error::NoHome)?;
         Ok(CommandBase {
             home,
             output,
             non_interactive,
+            json,
         })
     }
 
@@ -32,14 +38,44 @@ impl<'a> CommandBase<'a> {
         let loaded = sshpick_core::load(&self.home)?;
         if loaded.entries.is_empty() {
             self.warn_all(&loaded.warnings);
-            return Err(Error::NoHosts);
+            return Err(Error::NoHosts {
+                warnings: loaded.warnings,
+            });
         }
         Ok(loaded)
     }
 
+    /// Under `--json` the warnings travel in the document, so stderr stays empty.
     pub(crate) fn warn_all(&self, warnings: &[Warning]) {
+        if self.json {
+            return;
+        }
         for warning in warnings {
             self.output.warn(warning);
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub(crate) struct WarningView {
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    path: Option<String>,
+    message: String,
+}
+
+impl WarningView {
+    pub(crate) fn of(warning: &Warning) -> WarningView {
+        let (kind, path) = match warning {
+            Warning::Unreadable { path, .. } => ("unreadable", Some(path)),
+            Warning::TooDeep { path } => ("too_deep", Some(path)),
+            Warning::Cycle { path } => ("cycle", Some(path)),
+            Warning::BadInclude { .. } => ("bad_include", None),
+        };
+        WarningView {
+            kind,
+            path: path.map(|path| path.display().to_string()),
+            message: warning.to_string(),
         }
     }
 }
@@ -163,6 +199,32 @@ mod tests {
         assert_eq!(
             String::from_utf8(out).unwrap(),
             "{\n  \"host\": \"a\",\n  \"env\": \"\",\n  \"what\": \"x\",\n  \"names\": [\n    \"a\",\n    \"b\"\n  ]\n}\n"
+        );
+    }
+
+    #[test]
+    fn each_warning_has_a_stable_kind_and_a_path_when_it_has_one() {
+        let path = std::path::PathBuf::from("/h/.ssh/a.conf");
+        let cycle = WarningView::of(&Warning::Cycle { path: path.clone() });
+        assert_eq!(
+            (cycle.kind, cycle.path.as_deref()),
+            ("cycle", Some("/h/.ssh/a.conf"))
+        );
+        assert_eq!(cycle.message, "/h/.ssh/a.conf: skipped, include cycle");
+        let deep = WarningView::of(&Warning::TooDeep { path });
+        assert_eq!(deep.kind, "too_deep");
+        let bad = WarningView::of(&Warning::BadInclude {
+            arg: "${X}".to_owned(),
+            reason: "${X} is not set".to_owned(),
+        });
+        assert_eq!((bad.kind, bad.path), ("bad_include", None));
+        let unreadable = WarningView::of(&Warning::Unreadable {
+            path: std::path::PathBuf::from("/h/.ssh/b.conf"),
+            source: io::Error::from(io::ErrorKind::PermissionDenied),
+        });
+        assert_eq!(
+            (unreadable.kind, unreadable.path.as_deref()),
+            ("unreadable", Some("/h/.ssh/b.conf"))
         );
     }
 }

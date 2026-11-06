@@ -199,6 +199,19 @@ fn no_color_is_read_whether_or_not_the_command_line_parses(args: &[&str], want: 
     assert_eq!(parse(argv(args)).global.no_color, want, "{args:?}");
 }
 
+#[test_case(&["inspect", "x", "--json"], true; "after a command")]
+#[test_case(&["--json", "inspect", "x"], true; "before a command")]
+#[test_case(&["pick", "--json"], true; "on a command that has no json")]
+#[test_case(&["help", "nosuch", "--json"], true; "on a failed help")]
+#[test_case(&["--json"], true; "alone")]
+#[test_case(&["--bogus", "--json"], true; "beside an unknown option")]
+#[test_case(&["--jsn", "ls"], false; "a misspelling was not json")]
+#[test_case(&["ls", "--", "--json"], false; "after -- it is query text")]
+#[test_case(&["ls"], false; "absent")]
+fn json_is_read_whether_or_not_the_command_accepts_it(args: &[&str], want: bool) {
+    assert_eq!(parse(argv(args)).global.json, want, "{args:?}");
+}
+
 #[test]
 fn the_table_has_no_two_commands_with_the_same_name() {
     let mut words: Vec<&str> = COMMANDS
@@ -220,20 +233,91 @@ fn the_table_has_no_two_commands_with_the_same_name() {
 #[test_case(Error::Usage(UsageError::MissingQuery("inspect")), 2; "missing query")]
 #[test_case(Error::Usage(UsageError::Unexpected { command: "doctor", word: "x".to_owned() }), 2; "unexpected argument")]
 #[test_case(Error::Doctor(doctor::Error::Write(io::Error::other("x"))), 2; "doctor write")]
-#[test_case(Error::Inspect(inspect::Error::Several { count: 2, query: "x".to_owned(), names: vec![] }), 2; "inspect several")]
+#[test_case(Error::Inspect(inspect::Error::Several { count: 2, query: "x".to_owned(), names: vec![], warnings: vec![] }), 2; "inspect several")]
 #[test_case(Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Timeout)), 2; "ssh -G failed")]
 #[test_case(Error::Inspect(inspect::Error::Write(io::Error::other("x"))), 2; "inspect write")]
 #[test_case(Error::Pick(several(4, Refusal::NoTerminal)), 2; "several matches")]
 #[test_case(Error::Pick(several(4, Refusal::DumbTerminal)), 2; "several matches on a dumb terminal")]
 #[test_case(Error::Stdout(io::Error::other("x")), 2; "stdout")]
 #[test_case(Error::NoHome, 2; "no home")]
-#[test_case(Error::NoHosts, 2; "no hosts")]
+#[test_case(no_hosts(), 2; "no hosts")]
 #[test_case(Error::List(list::Error::Write(io::Error::other("x"))), 2; "list write")]
 #[test_case(Error::Pick(pick::Error::Previews(io::Error::other("x"))), 2; "previews")]
 #[test_case(Error::Pick(pick::Error::Terminal(io::Error::other("x"))), 2; "terminal")]
 #[test_case(Error::Pick(pick::Error::Exec(io::Error::other("x"))), 127; "exec failed")]
 fn errors_map_to_the_documented_exit_codes(error: Error, code: u8) {
     assert_eq!(error.exit_code(), code);
+}
+
+fn usage() -> Error {
+    Error::Usage(UsageError::MissingQuery("inspect"))
+}
+
+fn inspect_several() -> Error {
+    Error::Inspect(inspect::Error::Several {
+        count: 2,
+        query: "x".to_owned(),
+        names: vec![],
+        warnings: vec![],
+    })
+}
+
+fn io_error() -> io::Error {
+    io::Error::other("x")
+}
+
+#[test_case(usage(), "usage", "action_required"; "usage")]
+#[test_case(no_match("x"), "no_match", "action_required"; "no match")]
+#[test_case(Error::Pick(several(4, Refusal::NoTerminal)), "several_matches", "action_required"; "pick several")]
+#[test_case(inspect_several(), "several_matches", "action_required"; "inspect several")]
+#[test_case(no_hosts(), "no_hosts", "error"; "no hosts")]
+#[test_case(Error::NoHome, "config_error", "error"; "no home")]
+#[test_case(Error::Load(sshpick_core::load(std::path::Path::new("/nonexistent-home")).unwrap_err()), "config_error", "error"; "load")]
+#[test_case(Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Timeout)), "ssh_failed", "error"; "ssh -G failed")]
+#[test_case(Error::Pick(pick::Error::Exec(io_error())), "ssh_failed", "error"; "exec failed")]
+#[test_case(Error::Pick(pick::Error::Previews(io_error())), "ssh_failed", "error"; "previews")]
+#[test_case(Error::Stdout(io_error()), "write_failed", "error"; "stdout")]
+#[test_case(Error::List(list::Error::Write(io_error())), "write_failed", "error"; "list write")]
+#[test_case(Error::Inspect(inspect::Error::Write(io_error())), "write_failed", "error"; "inspect write")]
+#[test_case(Error::Doctor(doctor::Error::Write(io_error())), "write_failed", "error"; "doctor write")]
+#[test_case(Error::Pick(pick::Error::Terminal(io_error())), "write_failed", "error"; "terminal")]
+fn an_error_has_a_stable_reason_and_a_status_that_follows_from_it(
+    error: Error,
+    reason: &str,
+    status: &str,
+) {
+    let document: serde_json::Value = serde_json::from_str(&error.document().unwrap()).unwrap();
+    assert_eq!(document["reason"], reason);
+    assert_eq!(document["status"], status);
+    assert_eq!(document["message"], error.to_string());
+}
+
+#[test]
+fn the_document_is_one_line_with_the_fix_and_warnings_only_when_there_are_some() {
+    let bare = no_hosts().document().unwrap();
+    assert!(!bare.contains('\n'));
+    let bare: serde_json::Value = serde_json::from_str(&bare).unwrap();
+    assert!(bare.get("warnings").is_none());
+    assert!(no_match("x").fix().is_some());
+    let none: serde_json::Value = serde_json::from_str(&Error::NoHome.document().unwrap()).unwrap();
+    assert!(none.get("fix").is_none());
+
+    let error = Error::NoMatch {
+        query: "x".to_owned(),
+        did_you_mean: None,
+        warnings: vec![sshpick_core::Warning::Cycle {
+            path: "/h/a.conf".into(),
+        }],
+    };
+    let document: serde_json::Value = serde_json::from_str(&error.document().unwrap()).unwrap();
+    assert_eq!(
+        document["warnings"],
+        serde_json::json!([{
+            "kind": "cycle",
+            "path": "/h/a.conf",
+            "message": "/h/a.conf: skipped, include cycle",
+        }])
+    );
 }
 
 #[test]
@@ -579,6 +663,13 @@ fn no_match(query: &str) -> Error {
     Error::NoMatch {
         query: query.to_owned(),
         did_you_mean: None,
+        warnings: Vec::new(),
+    }
+}
+
+fn no_hosts() -> Error {
+    Error::NoHosts {
+        warnings: Vec::new(),
     }
 }
 
@@ -636,6 +727,7 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
             Error::NoMatch {
                 query: "lst new".to_owned(),
                 did_you_mean: Some("list new".to_owned()),
+                warnings: Vec::new(),
             },
         ),
         ("sshpick nope < /dev/null", no_match("nope")),
@@ -644,6 +736,7 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
             Error::NoMatch {
                 query: "inspekt stg-consul1".to_owned(),
                 did_you_mean: Some("inspect stg-consul1".to_owned()),
+                warnings: Vec::new(),
             },
         ),
         (
@@ -665,6 +758,7 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
                 names: ["stg-consul1", "stg-consul2", "stg-consul3"]
                     .map(str::to_owned)
                     .to_vec(),
+                warnings: Vec::new(),
             }),
         ),
         (
@@ -673,6 +767,7 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
                 count: 8,
                 query: "web".to_owned(),
                 names: (1..=8).map(|n| format!("web{n}")).collect(),
+                warnings: Vec::new(),
             }),
         ),
         (
@@ -686,7 +781,7 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
             "sshpick inspect stg-slow",
             Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Timeout)),
         ),
-        ("sshpick  # no Host lines", Error::NoHosts),
+        ("sshpick  # no Host lines", no_hosts()),
         ("sshpick  # no ~/.ssh/config", Error::Load(load)),
         ("sshpick  # no HOME", Error::NoHome),
         (
@@ -715,7 +810,7 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
 #[test]
 fn colour_is_only_in_the_labels() {
     let colors = ColorConfig::new(true, false, &|_| None);
-    let error = Error::NoHosts;
+    let error = no_hosts();
     let text = sshpick_ui::error_text(colors, &error, error.fix().as_deref(), error.docs());
     assert_eq!(strip_escapes(&text), shown(&error));
     assert!(text.starts_with("\x1b[31mError:\x1b[39m no hosts found"));

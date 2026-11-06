@@ -18,11 +18,15 @@ pub(crate) use self::error::{Error, Exit};
 
 pub(crate) fn run(argv: impl IntoIterator<Item = OsString>) -> u8 {
     let args = args::parse(argv);
+    let json = args.global.json;
     let output = Output::new(args.global.no_color);
     match dispatch(args, &output) {
         Ok(code) => code,
         Err(error) => {
-            output.error(&error, error.fix().as_deref(), error.docs());
+            match json.then(|| error.document().ok()).flatten() {
+                Some(document) => output.error_line(&document),
+                None => output.error(&error, error.fix().as_deref(), error.docs()),
+            }
             error.exit_code()
         }
     }
@@ -30,6 +34,7 @@ pub(crate) fn run(argv: impl IntoIterator<Item = OsString>) -> u8 {
 
 fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
     let non_interactive = args.global.non_interactive;
+    let json = args.global.json;
     match args.command? {
         Command::Help { topic } => {
             let spec = topic.and_then(spec::command);
@@ -40,7 +45,7 @@ fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
         }
         Command::Version => print(output, concat!("sshpick ", env!("CARGO_PKG_VERSION"), "\n")),
         Command::List { query, format } => list::run(
-            &CommandBase::new(output, non_interactive)?,
+            &CommandBase::new(output, non_interactive, json)?,
             &list::Request {
                 query: &query,
                 format,
@@ -48,7 +53,7 @@ fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
             },
         ),
         Command::Inspect { query, json } => inspect::run(
-            &CommandBase::new(output, non_interactive)?,
+            &CommandBase::new(output, non_interactive, json)?,
             &query,
             json,
             args.typed.as_deref().unwrap_or(spec::INSPECT.name),
@@ -61,7 +66,9 @@ fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
                 typed: args.typed.as_deref().unwrap_or(spec::DOCTOR.name),
             },
         ),
-        Command::Pick { query } => pick::run(&CommandBase::new(output, non_interactive)?, &query),
+        Command::Pick { query } => {
+            pick::run(&CommandBase::new(output, non_interactive, json)?, &query)
+        }
     }
 }
 

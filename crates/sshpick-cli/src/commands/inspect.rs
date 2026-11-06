@@ -2,10 +2,10 @@ use std::io;
 use std::time::Instant;
 
 use serde::Serialize;
-use sshpick_core::{Entry, Picker, Preview, Resolution};
+use sshpick_core::{Entry, Picker, Preview, Resolution, Warning};
 use sshpick_ui::ColorConfig;
 
-use super::{CommandBase, HostView, did_you_mean, note_if_also_a_host, write_json};
+use super::{CommandBase, HostView, WarningView, did_you_mean, note_if_also_a_host, write_json};
 use crate::cli;
 use crate::cli::Exit;
 
@@ -18,6 +18,7 @@ pub(crate) enum Error {
         count: usize,
         query: String,
         names: Vec<String>,
+        warnings: Vec<Warning>,
     },
     #[error(transparent)]
     Resolve(#[from] sshpick_core::ResolveError),
@@ -59,6 +60,7 @@ struct View<'a> {
     host: HostView<'a>,
     resolved: Resolved<'a>,
     command: [&'a str; 3],
+    warnings: Vec<WarningView>,
 }
 
 /// ssh's own key names.
@@ -113,6 +115,7 @@ pub(crate) fn run(
                 count,
                 query: query.to_owned(),
                 names: listing.iter().map(|entry| entry.host.to_string()).collect(),
+                warnings: loaded.warnings,
             }
             .into());
         }
@@ -120,6 +123,7 @@ pub(crate) fn run(
             return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
                 did_you_mean: did_you_mean(query),
+                warnings: loaded.warnings,
             });
         }
     };
@@ -134,6 +138,7 @@ pub(crate) fn run(
             host: HostView::of(entry),
             resolved: Resolved::of(&preview),
             command,
+            warnings: loaded.warnings.iter().map(WarningView::of).collect(),
         };
         write_json(out, &view).map_err(Error::Write)?;
     } else {
@@ -235,6 +240,7 @@ mod tests {
             host: HostView::of(&entry),
             resolved: Resolved::of(&preview),
             command: sshpick_core::command(&entry.host),
+            warnings: Vec::new(),
         };
         let mut out = Vec::new();
         write_json(&mut out, &view).unwrap();
@@ -259,6 +265,7 @@ mod tests {
             count,
             query: "web".to_owned(),
             names: (1..=count).map(|n| format!("web{n}")).collect(),
+            warnings: Vec::new(),
         };
         assert_eq!(
             several(3).fix().as_deref(),

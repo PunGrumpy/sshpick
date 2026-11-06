@@ -68,6 +68,11 @@ impl Output {
         eprint!("{}", error_text(self.stderr, why, fix, docs));
     }
 
+    /// One line on stderr, as given: the `--json` form of [`Output::error`].
+    pub fn error_line(&self, line: &str) {
+        eprintln!("{line}");
+    }
+
     /// `! <warning>`.
     pub fn warn(&self, warning: &dyn Display) {
         eprintln!("{} {warning}", self.stderr.yellow("!"));

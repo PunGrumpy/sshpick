@@ -55,8 +55,20 @@ fn inspect_json_has_the_host_what_ssh_resolved_and_the_command() {
                 "proxyjump": "stg-bastion",
             },
             "command": ["ssh", "--", "stg-consul1"],
+            "warnings": [],
         })
     );
+}
+
+#[test]
+fn inspect_json_carries_the_warnings_the_run_found() {
+    let out = sshpick("cycle")
+        .args(["inspect", "solo", "--json"])
+        .assert()
+        .code(0);
+    assert_eq!(stderr(&out), "", "the warnings are in the document");
+    let value: serde_json::Value = serde_json::from_slice(&out.get_output().stdout).unwrap();
+    assert_eq!(value["warnings"][0]["kind"], "cycle");
 }
 
 #[test]
@@ -104,13 +116,17 @@ fn no_match_exits_one_and_a_typo_in_the_command_word_is_spotted() {
 
 #[test]
 fn a_failing_ssh_g_exits_two_with_nothing_on_stdout() {
-    for args in [
-        &["inspect", "stg-broken"][..],
-        &["inspect", "stg-broken", "--json"][..],
-    ] {
-        let out = sshpick("inspect").args(args).assert().code(2).stdout("");
-        assert_snapshot!("ssh_g_failed", stderr(&out));
-    }
+    let out = sshpick("inspect")
+        .args(["inspect", "stg-broken"])
+        .assert()
+        .code(2)
+        .stdout("");
+    assert_snapshot!("ssh_g_failed", stderr(&out));
+    sshpick("inspect")
+        .args(["inspect", "stg-broken", "--json"])
+        .assert()
+        .code(2)
+        .stdout("");
 }
 
 #[test]

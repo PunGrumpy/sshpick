@@ -40,6 +40,8 @@
   else.
 - An error is `Error:`, then `Fix:` when there is a concrete next step, then `Learn More:`. A
   warning is `! message`. There is no `sshpick:` prefix.
+- Under `--json` a failure is one JSON line on stderr with a stable `reason`, and warnings go in
+  the document, not on stderr. Every new `Error` variant gets a `reason` in `cli/error.rs`.
 - While the picker is open, bytes reach the terminal only through `sshpick-ui`'s `tui/terminal.rs`,
   on the alternate screen, and it never asks the terminal anything.
 - Colour is decided per stream in `sshpick-ui`'s `ColorConfig`. A stream that is not a terminal

@@ -56,7 +56,8 @@ query that matches exactly one host, and add `--non-interactive` so it can never
 one match connects, none exits 1, several exit 2.
 
 Results go to stdout and nothing else does. Errors are an `Error:` line and, when there is a next
-step, a `Fix:` line on stderr. Exit codes: 0 success (after a pick, ssh's own), 1 no match, 2 usage,
+step, a `Fix:` line on stderr. Under `--json` a failure is one JSON line on stderr instead, with a
+stable `reason`. Exit codes: 0 success (after a pick, ssh's own), 1 no match, 2 usage,
 config or ssh error or a failed `doctor` check, 127 ssh could not be run, 130 cancelled. The JSON
 shapes are in [Scripting](docs/scripting.md).
 
