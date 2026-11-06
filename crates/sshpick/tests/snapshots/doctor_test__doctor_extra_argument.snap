@@ -2,5 +2,5 @@
 source: crates/sshpick/tests/doctor_test.rs
 expression: stderr(&out)
 ---
-Error: sshpick doctor takes no arguments, got "extra"
+Error: unexpected argument "extra" for sshpick doctor
 Fix: sshpick doctor accepts --help, --json, --no-color, --non-interactive, --version.

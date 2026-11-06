@@ -2,9 +2,9 @@
 
 | Command                  | What it does                                                      |
 |--------------------------|-------------------------------------------------------------------|
-| `pick [query ...]`       | The default. Connect when one host matches, else open the picker  |
-| `list`, `ls [query ...]` | Print the hosts that match, best first                            |
-| `inspect query ...`      | Show where the one matching host resolves, as `ssh -G` sees it    |
+| `pick [query]...`        | The default. Connect when one host matches, else open the picker  |
+| `list`, `ls [query]...`  | Print the hosts that match, best first                            |
+| `inspect <query>...`     | Show where the one matching host resolves, as `ssh -G` sees it    |
 | `doctor`                 | Check the config, ssh and this terminal; changes nothing          |
 | `help [command]`         | Show help for a command; `sshpick help ls` is `sshpick ls --help` |
 
@@ -12,15 +12,17 @@
 first word is query text, so `sshpick consul` still searches. A host named exactly like a command
 word is reached with `sshpick pick list`, `sshpick pick doctor` or `sshpick -- list`; when `list`,
 `inspect` or `doctor` is also a host or an alias, a terminal gets a note saying so. `doctor` takes
-no query: `sshpick doctor extra` is a usage error. `-h` and `--help` work anywhere and win
-over every other error. `--version` and `-V` print the version; `-v` is the same flag.
+no query: `sshpick doctor extra` is a usage error, and `help` takes one command, so
+`sshpick help list extra` is too. `-h` and `--help` work anywhere and win over every other error.
+`--version` and `-V` work anywhere, after a command too, and lose only to `--help`; `-v` is the
+same flag.
 
 Options go anywhere before a bare `--`:
 
 | Option              | Effect                                                                 |
 |---------------------|------------------------------------------------------------------------|
 | `-h`, `--help`      | Show help; wins over every other error                                 |
-| `-V`, `--version`   | Print the version (when no command is named)                           |
+| `-V`, `--version`   | Print the version and exit 0; loses only to `--help`                   |
 | `--no-color`        | Same as `NO_COLOR=1`                                                   |
 | `--non-interactive` | Never open the picker: one match connects, none exits 1, several exit 2 |
 

@@ -37,7 +37,7 @@ pub(crate) enum UsageError {
     Command(String),
     #[error("sshpick {0} needs a query")]
     MissingQuery(&'static str),
-    #[error("sshpick {command} takes no arguments, got \"{word}\"")]
+    #[error("unexpected argument \"{word}\" for sshpick {command}")]
     Unexpected { command: &'static str, word: String },
 }
 
@@ -52,7 +52,7 @@ struct Flags {
 
 /// Options are accepted anywhere before a bare `--`. The first positional selects a command when
 /// it names one; otherwise every positional is `pick`'s query. Everything after `--` is query
-/// text. `--help` beats every other error, and `--version` counts only when no command is named.
+/// text. `--help` beats every other error, and `--version` beats everything but `--help`.
 pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
     let mut argv = argv
         .into_iter()
@@ -108,13 +108,13 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
         Ok(Command::Help {
             topic: named.map(|spec| spec.name),
         })
+    } else if flags.version {
+        Ok(Command::Version)
     } else if let Some(option) = unknown {
         Err(UsageError::Option {
             option,
             command: named.map(|spec| spec.name),
         })
-    } else if flags.version && named.is_none() {
-        Ok(Command::Version)
     } else {
         route(named, words, flags.list, json)
     };
@@ -131,6 +131,14 @@ fn route(
     list: bool,
     json: bool,
 ) -> Result<Command, UsageError> {
+    if let Some(spec) = named.filter(|spec| !spec.arguments.iter().any(|a| a.multiple))
+        && let Some(word) = words.get(spec.arguments.len())
+    {
+        return Err(UsageError::Unexpected {
+            command: spec.name,
+            word: word.clone(),
+        });
+    }
     let name = named.map_or(spec::PICK.name, |spec| spec.name);
     if name == spec::HELP.name {
         return match words.first() {
@@ -141,14 +149,6 @@ fn route(
                 })
                 .ok_or_else(|| UsageError::Command(word.clone())),
         };
-    }
-    if let Some(spec) = named.filter(|spec| spec.arguments.is_empty())
-        && let Some(word) = words.first()
-    {
-        return Err(UsageError::Unexpected {
-            command: spec.name,
-            word: word.clone(),
-        });
     }
     if name == spec::DOCTOR.name {
         return Ok(Command::Doctor { json });

@@ -59,24 +59,16 @@ pub(crate) const PICK: CommandSpec = CommandSpec {
     keys: BINDINGS,
     examples: &[
         Example {
-            name: "Open the picker with every host",
-            command: "sshpick",
-        },
-        Example {
-            name: "Open it filtered to hosts matching both words",
+            name: "Open the picker filtered to hosts matching both words",
             command: "sshpick new consul",
         },
         Example {
-            name: "Connect without the picker when one host matches",
-            command: "sshpick stg-bastion",
+            name: "Connect when one host matches, and never open the picker",
+            command: "sshpick --non-interactive stg-bastion",
         },
         Example {
             name: "Search for a word that is also a command name",
             command: "sshpick pick list",
-        },
-        Example {
-            name: "Search for text that starts with a dash",
-            command: "sshpick -- -bastion",
         },
     ],
 };
@@ -96,20 +88,12 @@ pub(crate) const LIST: CommandSpec = CommandSpec {
     keys: &[],
     examples: &[
         Example {
-            name: "List every host",
-            command: "sshpick list",
-        },
-        Example {
             name: "List the hosts matching both words",
             command: "sshpick list new consul",
         },
         Example {
-            name: "Pipe the host table to another tool",
-            command: "sshpick ls | fzf",
-        },
-        Example {
             name: "Print only the host names",
-            command: "sshpick ls | cut -f2",
+            command: "sshpick list | cut -f2",
         },
         Example {
             name: "List the hosts as JSON",
@@ -139,10 +123,6 @@ pub(crate) const INSPECT: CommandSpec = CommandSpec {
         Example {
             name: "Inspect the one host that a query matches",
             command: "sshpick inspect new consul",
-        },
-        Example {
-            name: "Show the result as JSON",
-            command: "sshpick inspect stg-consul1 --json",
         },
         Example {
             name: "Read one field in a script",
@@ -221,7 +201,7 @@ pub(crate) const GLOBAL: &[OptionSpec] = &[
         long: "no-color",
         short: None,
         aliases: &[],
-        description: "No color mode (default off)",
+        description: "Disable color",
         hidden: false,
     },
     OptionSpec {
@@ -242,28 +222,16 @@ pub(crate) const GLOBAL: &[OptionSpec] = &[
 
 pub(crate) const ROOT_EXAMPLES: &[Example] = &[
     Example {
-        name: "Open the picker with every host",
-        command: "sshpick",
-    },
-    Example {
-        name: "Open it filtered to hosts matching both words",
+        name: "Open the picker filtered to hosts matching both words",
         command: "sshpick new consul",
     },
     Example {
         name: "Print the matching host names for a script",
-        command: "sshpick ls new consul | cut -f2",
+        command: "sshpick list new consul | cut -f2",
     },
     Example {
         name: "Show where a host resolves",
         command: "sshpick inspect stg-consul1",
-    },
-    Example {
-        name: "Search for a word that is also a command name",
-        command: "sshpick pick list",
-    },
-    Example {
-        name: "Check the setup",
-        command: "sshpick doctor",
     },
 ];
 
