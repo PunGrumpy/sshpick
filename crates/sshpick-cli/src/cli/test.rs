@@ -136,6 +136,7 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["doctor", "extra", "-h"] => help_for(Some("doctor")); "help beats an extra argument")]
 #[test_case(&["help", "list"] => help_for(Some("list")); "help list")]
 #[test_case(&["help", "--help"] => help_for(Some("help")); "help for help")]
+#[test_case(&["help", "list", "extra"] => unexpected("help", "extra"); "help takes one command")]
 #[test_case(&["help", "lst"] => unknown_command("lst"); "help for an unknown command")]
 #[test_case(&["--bogus", "-h"] => help_for(None); "help beats an earlier unknown option")]
 #[test_case(&["ls", "--bogus", "--help"] => help_for(Some("list")); "help beats an unknown option")]
@@ -152,7 +153,12 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["-V"] => Ok(Command::Version); "short version")]
 #[test_case(&["-v"] => Ok(Command::Version); "hidden lowercase version")]
 #[test_case(&["db", "-V"] => Ok(Command::Version); "version after a query word")]
-#[test_case(&["ls", "-V"] => list_as("", ListFormat::Auto); "version is ignored when a command is named")]
+#[test_case(&["ls", "-V"] => Ok(Command::Version); "version after ls")]
+#[test_case(&["pick", "--version"] => Ok(Command::Version); "version after pick")]
+#[test_case(&["doctor", "-V"] => Ok(Command::Version); "version after doctor")]
+#[test_case(&["inspect", "-V"] => Ok(Command::Version); "version after inspect without a query")]
+#[test_case(&["doctor", "extra", "-V"] => Ok(Command::Version); "version beats an extra argument")]
+#[test_case(&["--version", "--jsn"] => Ok(Command::Version); "version beats an unknown option")]
 #[test_case(&["--no-color", "db"] => pick_for("db"); "no-color is a flag, not a word")]
 #[test_case(&["--non-interactive", "db"] => pick_for("db"); "non-interactive is a flag, not a word")]
 fn argv_selects_a_command(args: &[&str]) -> Result<Command, UsageError> {
@@ -426,6 +432,20 @@ fn the_root_help_wraps_to_the_width(width: usize) {
 }
 
 #[test]
+fn every_page_has_at_most_three_examples_and_no_prompt() {
+    let pages = COMMANDS
+        .iter()
+        .map(|spec| spec.examples)
+        .chain([spec::ROOT_EXAMPLES]);
+    for examples in pages {
+        assert!(examples.len() <= 3, "{} examples", examples.len());
+        for example in examples {
+            assert!(!example.command.starts_with('$'), "{}", example.command);
+        }
+    }
+}
+
+#[test]
 fn help_for_ls_and_list_is_the_same_page() {
     assert_eq!(page("ls", 80), page("list", 80));
 }
@@ -537,9 +557,8 @@ fn colour_changes_the_styling_and_nothing_else() {
     for topic in [None, spec::command("pick"), spec::command("list")] {
         let styled = help::render(topic, 80, colors);
         assert_eq!(strip_escapes(&styled), help::render(topic, 80, PLAIN));
-        assert!(styled.contains("\x1b[2mGlobal Options\x1b[22m:"));
-        assert!(styled.contains("\x1b[90m-\x1b[39m"));
-        assert!(styled.contains("\x1b[36m$ sshpick"));
+        assert!(styled.contains("\x1b[1mExamples\x1b[22m:"));
+        assert!(styled.contains("\x1b[36msshpick"));
         assert!(styled.contains("\x1b[1msshpick\x1b[22m"));
     }
     let root = help::render(None, 80, colors);

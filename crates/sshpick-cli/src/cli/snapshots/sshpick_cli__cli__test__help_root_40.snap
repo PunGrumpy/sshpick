@@ -4,14 +4,12 @@ expression: "versionless(help::render(None, width, PLAIN))"
 ---
 sshpick [version]
 
-  ▌ sshpick [options] [command | query ...]
+  ▌ sshpick [command] [query]... [options]
 
-  For picker help, run `sshpick pick --help`
   Scripts and agents: ls, inspect and
   doctor take --json and change nothing.
 
   Commands:
-
     pick       Pick a host and ssh to it
                (default)
     ls | list  List the hosts that match a
@@ -21,13 +19,10 @@ sshpick [version]
                terminal
     help       Show help for a command
 
-
   Global Options:
-
   -h,  --help             Output usage
                           information
-       --no-color         No color mode
-                          (default off)
+       --no-color         Disable color
        --non-interactive  Never open the
                           picker;
                           connect only
@@ -37,9 +32,7 @@ sshpick [version]
   -V,  --version          Output the
                           version number
 
-
   Environment:
-
   NO_COLOR        No color; bold, dim
                   and reverse video stay
                   on a terminal
@@ -49,9 +42,7 @@ sshpick [version]
                   bold, and the picker
                   will not open
 
-
   Exit Status:
-
   0    Success; after a pick, ssh's own
        status
   1    No host matches
@@ -61,33 +52,14 @@ sshpick [version]
   127  ssh could not be run
   130  Cancelled
 
-
   Examples:
+  Open the picker filtered to hosts matching both words
+    sshpick new consul
 
-  - Open the picker with every host
+  Print the matching host names for a script
+    sshpick list new consul | cut -f2
 
-    $ sshpick
+  Show where a host resolves
+    sshpick inspect stg-consul1
 
-  - Open it filtered to hosts matching both words
-
-    $ sshpick new consul
-
-  - Print the matching host names for a script
-
-    $ sshpick ls new consul | cut -f2
-
-  - Show where a host resolves
-
-    $ sshpick inspect stg-consul1
-
-  - Search for a word that is also a command name
-
-    $ sshpick pick list
-
-  - Check the setup
-
-    $ sshpick doctor
-
-  Documentation:
-
-    https://github.com/PunGrumpy/sshpick#readme
+  Learn more: https://github.com/PunGrumpy/sshpick#readme

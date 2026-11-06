@@ -76,7 +76,7 @@ fn help_goes_to_stdout_and_leads_with_the_version() {
     let out = sshpick("home").arg("--help").assert().code(0).stderr("");
     let text = String::from_utf8_lossy(&out.get_output().stdout).into_owned();
     let lead = format!(
-        "sshpick {}\n\n  ▌ sshpick [options] [command | query ...]\n",
+        "sshpick {}\n\n  ▌ sshpick [command] [query]... [options]\n",
         env!("CARGO_PKG_VERSION")
     );
     assert!(text.starts_with(&lead));
@@ -91,7 +91,7 @@ fn help_for_a_command_is_the_same_page_three_ways() {
         String::from_utf8_lossy(&out.get_output().stdout).into_owned()
     };
     let list = page(&["list", "--help"]);
-    assert!(list.starts_with("\n  ▌ sshpick list [query ...] [options]\n"));
+    assert!(list.starts_with("\n  ▌ sshpick list [query]... [options]\n"));
     assert_eq!(list, page(&["ls", "-h"]));
     assert_eq!(list, page(&["help", "ls"]));
     assert_eq!(list, page(&["help", "list"]));
@@ -148,6 +148,20 @@ fn version_prints_one_line_and_a_hidden_lowercase_alias_agrees() {
             .code(0)
             .stdout(format!("sshpick {}\n", env!("CARGO_PKG_VERSION")))
             .stderr("");
+    }
+}
+
+#[test]
+fn version_works_after_any_command_without_running_ssh() {
+    for command in ["pick", "doctor", "inspect", "ls"] {
+        for flag in ["-V", "--version"] {
+            sshpick("home")
+                .args([command, flag])
+                .assert()
+                .code(0)
+                .stdout(format!("sshpick {}\n", env!("CARGO_PKG_VERSION")))
+                .stderr("");
+        }
     }
 }
 

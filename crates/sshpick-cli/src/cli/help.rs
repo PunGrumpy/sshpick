@@ -41,11 +41,10 @@ impl Page {
             concat!("sshpick ", env!("CARGO_PKG_VERSION")).to_owned(),
             String::new(),
             format!(
-                "{INDENT}{LOGO} {} [options] [command | query ...]",
+                "{INDENT}{LOGO} {} [command] [query]... [options]",
                 colors.bold(NAME)
             ),
             String::new(),
-            format!("{INDENT}For picker help, run `sshpick pick --help`"),
         ];
         lines.extend(
             wrap(READ_ONLY, self.width - INDENT.len())
@@ -59,9 +58,7 @@ impl Page {
         lines.extend(self.rows("Exit Status", EXIT_STATUS));
         lines.extend(self.examples(ROOT_EXAMPLES));
         lines.push(String::new());
-        lines.push(self.heading("Documentation"));
-        lines.push(String::new());
-        lines.push(format!("{INDENT}{INDENT}{URL}"));
+        lines.push(format!("{INDENT}Learn more: {URL}"));
         lines
     }
 
@@ -80,7 +77,11 @@ impl Page {
             let keys: Vec<Row> = spec.keys.iter().map(|b| (b.keys, b.does)).collect();
             lines.extend(self.rows("Keys", &keys));
         }
-        lines.extend(self.options("Global Options", GLOBAL));
+        lines.push(format!(
+            "{} See `sshpick --help`",
+            self.heading("Global Options")
+        ));
+        lines.push(String::new());
         lines.extend(self.examples(spec.examples));
         lines
     }
@@ -92,11 +93,11 @@ impl Page {
             self.colors.bold(spec.name)
         );
         for argument in spec.arguments {
-            let dots = if argument.multiple { " ..." } else { "" };
+            let dots = if argument.multiple { "..." } else { "" };
             if argument.required {
-                line.push_str(&format!(" {}{dots}", argument.name));
+                line.push_str(&format!(" <{}>{dots}", argument.name));
             } else {
-                line.push_str(&format!(" [{}{dots}]", argument.name));
+                line.push_str(&format!(" [{}]{dots}", argument.name));
             }
         }
         if !spec.options.is_empty() {
@@ -106,13 +107,12 @@ impl Page {
     }
 
     fn heading(&self, title: &str) -> String {
-        format!("{INDENT}{}:", self.colors.dim(title))
+        format!("{INDENT}{}:", self.colors.bold(title))
     }
 
     fn table(&self, title: &str, rows: Vec<String>) -> Vec<String> {
-        let mut lines = vec![self.heading(title), String::new()];
+        let mut lines = vec![self.heading(title)];
         lines.extend(rows);
-        lines.push(String::new());
         lines.push(String::new());
         lines
     }
@@ -198,20 +198,15 @@ impl Page {
     }
 
     fn examples(&self, examples: &[Example]) -> Vec<String> {
-        let mut lines = vec![self.heading("Examples"), String::new()];
+        let mut lines = vec![self.heading("Examples")];
         for (index, example) in examples.iter().enumerate() {
             if index > 0 {
                 lines.push(String::new());
             }
+            lines.push(format!("{INDENT}{}", example.name));
             lines.push(format!(
-                "{INDENT}{} {}",
-                self.colors.gray("-"),
-                example.name
-            ));
-            lines.push(String::new());
-            lines.push(format!(
-                "{INDENT}{INDENT}{}",
-                self.colors.cyan(&format!("$ {}", example.command))
+                "{COMMAND_INDENT}{}",
+                self.colors.cyan(example.command)
             ));
         }
         lines
