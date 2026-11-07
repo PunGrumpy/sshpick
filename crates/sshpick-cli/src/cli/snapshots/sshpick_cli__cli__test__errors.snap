@@ -67,6 +67,7 @@ Error: /home/me/.ssh/config: terminating, 1 bad configuration options
 
 $ sshpick inspect stg-slow
 Error: ssh -G gave no answer within 2 s
+Fix: retry once; if it stays slow, time `ssh -G -- <host>` yourself: a `Match exec` or `ProxyCommand` in the config is probably waiting on something.
 
 $ sshpick  # no Host lines
 Error: no hosts found in ~/.ssh/config or the files it Includes

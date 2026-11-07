@@ -73,7 +73,8 @@ every other reason.
 | `several_matches` | `action_required` | several hosts match where one is needed                      |
 | `no_hosts`        | `error`           | the config has no `Host` lines                               |
 | `config_error`    | `error`           | the config cannot be read, or there is no home directory     |
-| `ssh_failed`      | `error`           | `ssh` could not be run, or `ssh -G` failed                   |
+| `ssh_failed`      | `error`           | `ssh` could not be run, or `ssh -G` failed with an error     |
+| `timeout`         | `error`           | `ssh -G` gave no answer within 2 s; a retry may work         |
 | `write_failed`    | `error`           | stdout or the terminal could not be written                  |
 
 `status` follows from `reason`: `action_required` means a different command line would have run.
