@@ -25,7 +25,7 @@ Options go anywhere before a bare `--`:
 | `-V`, `--version`   | Print the version and exit 0; loses only to `--help`                   |
 | `--no-color`        | Same as `NO_COLOR=1`                                                   |
 | `--json`            | Print one JSON document; `ls`, `inspect` and `doctor` take it          |
-| `--non-interactive` | Never open the picker: one match connects, none exits 1, several exit 2 |
+| `--non-interactive` | Never open the picker: an exact host name or alias connects, a loose single match exits 1, none exits 1, several exit 2 |
 
 ## Search
 
@@ -39,6 +39,9 @@ case-sensitive).
 | `^stg`   | prefix                   |
 | `1$`     | suffix                   |
 | `!ui`    | rows without `ui`        |
+
+A query equal to one host's name or alias selects that host, even when it also matches other rows.
+Any other query that leaves one row connects on a terminal, and exits 1 under `--non-interactive`.
 
 There is no `a | b` OR. The query is matched against ENV, HOST, WHAT and the other names on
 the `Host` line.

@@ -31,8 +31,9 @@ and `TERM` is not `dumb`. The `terminal` check names the first of these that fai
 - `the picker needs a terminal that moves the cursor (TERM=dumb)`: set `TERM` to your terminal's
   type, such as `xterm-256color`.
 
-When the picker is refused, a query that matches exactly one host still connects, none exits 1 and
-several exit 2.
+When the picker is refused by the terminal, a query that matches exactly one host still connects,
+none exits 1 and several exit 2. Under `--non-interactive` only an exact host name or alias
+connects; a loose single match exits 1 and names the host it would have guessed.
 
 ## A host is missing
 
