@@ -1,0 +1,5 @@
+#!/bin/sh
+printf 'host x\nuser ubuntu\nhostname 192.0.2.10\nport 22\n'
+perl -e 'use POSIX; POSIX::setsid(); exec "sleep", "30"' &
+echo $! > "$3"
+exit 0

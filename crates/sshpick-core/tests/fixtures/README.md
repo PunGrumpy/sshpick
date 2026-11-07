@@ -9,4 +9,5 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
 - `bin/`: fake `ssh` programs for `ssh::resolve` and `Previews` tests. `ssh-hang-pid` writes its
   pid to the file named by the host, then hangs. `ssh-orphan-pid` answers at once but leaves a
   `sleep` holding stdout; `ssh-hang-child-pid` never answers and waits on a `sleep`. Both write
-  that `sleep`'s pid to the file named by the host.
+  that `sleep`'s pid to the file named by the host. `ssh-setsid-pid` answers at once but leaves a
+  `sleep` in a new session holding stdout, out of reach of a group kill, and writes its pid there.

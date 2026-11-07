@@ -15,6 +15,9 @@ pub(crate) const SSH: &str = "ssh";
 
 const POLL: Duration = Duration::from_millis(5);
 
+/// How long a pipe may stay open after the group is killed, for a holder outside the group.
+const GRACE: Duration = Duration::from_millis(100);
+
 /// What `ssh -G` prints on stderr on every call (`RequestTTY`), whatever the exit status.
 const TTY_NOTICE: &str = "Pseudo-terminal will not be allocated";
 
@@ -249,28 +252,40 @@ fn run(mut command: Command, timeout: Duration) -> Result<Finished, RunError> {
     })
 }
 
-/// A reader thread's bytes, delivered over a channel so the wait can be bounded.
+/// A reader thread's chunks, sent as they arrive so the wait for them can be bounded.
 fn drain(pipe: Option<impl Read + Send + 'static>) -> mpsc::Receiver<Vec<u8>> {
     let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
-        let mut bytes = Vec::new();
-        if let Some(mut pipe) = pipe {
-            let _ = pipe.read_to_end(&mut bytes);
+        let Some(mut pipe) = pipe else { return };
+        let mut buf = [0u8; 4096];
+        while let Ok(n) = pipe.read(&mut buf) {
+            if n == 0 || sender.send(buf[..n].to_vec()).is_err() {
+                break;
+            }
         }
-        let _ = sender.send(bytes);
     });
     receiver
 }
 
+/// Everything the pipe carried before the deadline. Past it, the group is killed and whatever a
+/// holder outside the group still owes is abandoned after a short grace.
 fn collect(reader: mpsc::Receiver<Vec<u8>>, deadline: Instant, child: &Child) -> Vec<u8> {
-    let left = deadline.saturating_duration_since(Instant::now());
-    match reader.recv_timeout(left) {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            kill_group(child);
-            reader.recv().unwrap_or_default()
+    let mut bytes = Vec::new();
+    let mut until = deadline;
+    let mut killed = false;
+    loop {
+        match reader.recv_timeout(until.saturating_duration_since(Instant::now())) {
+            Ok(chunk) => bytes.extend(chunk),
+            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            Err(mpsc::RecvTimeoutError::Timeout) if killed => break,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                kill_group(child);
+                killed = true;
+                until = Instant::now() + GRACE;
+            }
         }
     }
+    bytes
 }
 
 /// Kill ssh and everything it started (a `Match exec` child, a backgrounded helper). The group
@@ -625,6 +640,30 @@ mod tests {
             "orphan {} outlived the answer",
             pid.trim()
         );
+    }
+
+    #[test]
+    fn a_holder_outside_the_group_does_not_delay_the_answer() {
+        let (dir, pid_file) = pid_file("setsid");
+        let started = Instant::now();
+        let result = resolve_with(
+            fake("ssh-setsid-pid").as_os_str(),
+            &host(pid_file.to_str().unwrap()),
+            Duration::from_millis(300),
+        );
+        let took = started.elapsed();
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        Command::new("kill")
+            .args(["-9", pid.trim()])
+            .status()
+            .unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        let preview = result.unwrap();
+        assert_eq!(
+            preview.route().map(|route| route.hostname),
+            Some("192.0.2.10")
+        );
+        assert!(took < Duration::from_secs(2), "{took:?}");
     }
 
     #[test]
