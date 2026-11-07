@@ -13,6 +13,7 @@ pub(crate) enum Error {
     Several {
         count: usize,
         query: String,
+        names: Vec<String>,
         refusal: Refusal,
     },
     #[error("no host is named \"{query}\"; \"{nearest}\" matches loosely")]
@@ -87,6 +88,11 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
             return Err(Error::Several {
                 count,
                 query: query.to_owned(),
+                names: picker
+                    .listing()
+                    .iter()
+                    .map(|entry| entry.host.to_string())
+                    .collect(),
                 refusal,
             }
             .into());

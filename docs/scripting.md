@@ -59,6 +59,13 @@ line of JSON. Without `--json`, an error is text, as below. The exit status does
 `warnings` is shaped as in `ls --json` and is left out when there are none, and so is `fix` when
 there is no next step. A no-match from `ls` is not an error: it stays an empty document with exit 1.
 
+When `reason` is `several_matches`, `candidates` lists every host the query matched, best first,
+with no cap. Each name resolves on its own, so a script can retry with one. It is left out for
+every other reason.
+
+    $ sshpick inspect consul --json
+    {"status":"action_required","reason":"several_matches","message":"2 hosts match \"consul\"; inspect needs exactly one","fix":"name one of stg-consul1, stg-consul2, or list them with `sshpick ls consul`.","candidates":["stg-consul1","stg-consul2"]}
+
 | `reason`          | `status`          | Meaning                                                      |
 |-------------------|-------------------|--------------------------------------------------------------|
 | `usage`           | `action_required` | unknown option or command, a missing query, a stray argument |

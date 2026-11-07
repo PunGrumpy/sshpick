@@ -296,6 +296,29 @@ fn an_error_has_a_stable_reason_and_a_status_that_follows_from_it(
 }
 
 #[test]
+fn the_candidates_are_in_the_document_only_for_several_matches() {
+    let several = Error::Inspect(inspect::Error::Several {
+        count: 2,
+        query: "x".to_owned(),
+        names: vec!["a".to_owned(), "b".to_owned()],
+        warnings: vec![],
+    });
+    let document: serde_json::Value = serde_json::from_str(&several.document().unwrap()).unwrap();
+    assert_eq!(document["candidates"], serde_json::json!(["a", "b"]));
+    let pick = Error::Pick(pick::Error::Several {
+        count: 1,
+        query: "x".to_owned(),
+        names: vec!["c".to_owned()],
+        refusal: Refusal::NoTerminal,
+    });
+    let document: serde_json::Value = serde_json::from_str(&pick.document().unwrap()).unwrap();
+    assert_eq!(document["candidates"], serde_json::json!(["c"]));
+    let document: serde_json::Value =
+        serde_json::from_str(&no_match("x").document().unwrap()).unwrap();
+    assert!(document.get("candidates").is_none());
+}
+
+#[test]
 fn the_document_is_one_line_with_the_fix_and_warnings_only_when_there_are_some() {
     let bare = no_hosts().document().unwrap();
     assert!(!bare.contains('\n'));
@@ -472,7 +495,14 @@ fn the_error_example_in_the_docs_has_a_real_reason() {
     for key in ["message", "reason", "status"] {
         assert!(keys.contains(&key), "the error example lacks {key}");
     }
-    let allowed = ["fix", "message", "reason", "status", "warnings"];
+    let allowed = [
+        "candidates",
+        "fix",
+        "message",
+        "reason",
+        "status",
+        "warnings",
+    ];
     assert!(
         keys.iter().all(|key| allowed.contains(key)),
         "the error example in docs/scripting.md has {keys:?}"
@@ -822,6 +852,7 @@ fn several(count: usize, refusal: Refusal) -> pick::Error {
     pick::Error::Several {
         count,
         query: "consul".to_owned(),
+        names: Vec::new(),
         refusal,
     }
 }
@@ -864,6 +895,7 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
             Error::Pick(pick::Error::Several {
                 count: 12,
                 query: String::new(),
+                names: Vec::new(),
                 refusal: Refusal::NonInteractive,
             }),
         ),
