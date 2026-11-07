@@ -209,6 +209,27 @@ fn a_failure_under_json_carries_the_warnings_the_run_found() {
 }
 
 #[test]
+fn several_matches_under_json_lists_every_candidate_best_first() {
+    let out = sshpick("inspect")
+        .args(["inspect", "consul", "--json"])
+        .assert()
+        .code(2)
+        .stdout("");
+    let document: serde_json::Value = serde_json::from_str(&stderr(&out)).unwrap();
+    assert_eq!(
+        document["candidates"],
+        serde_json::json!(["stg-consul1", "stg-consul2"])
+    );
+    let out = sshpick("inspect")
+        .args(["inspect", "zzz", "--json"])
+        .assert()
+        .code(1)
+        .stdout("");
+    let document: serde_json::Value = serde_json::from_str(&stderr(&out)).unwrap();
+    assert!(document.get("candidates").is_none(), "{document}");
+}
+
+#[test]
 fn help_under_json_is_still_help() {
     let out = sshpick("home")
         .args(["--help", "--json"])
