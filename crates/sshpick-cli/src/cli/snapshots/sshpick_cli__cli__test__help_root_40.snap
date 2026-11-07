@@ -26,9 +26,9 @@ sshpick [version]
        --non-interactive  Never open the
                           picker;
                           connect only
-                          when exactly
-                          one host
-                          matches
+                          to an exact
+                          host name or
+                          alias
   -V,  --version          Output the
                           version number
 

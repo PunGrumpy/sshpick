@@ -111,7 +111,7 @@ struct Document {
 impl Error {
     pub(crate) fn exit_code(&self) -> u8 {
         match self {
-            Error::NoMatch { .. } => Exit::NoMatch,
+            Error::NoMatch { .. } | Error::Pick(pick::Error::Loose { .. }) => Exit::NoMatch,
             Error::Pick(pick::Error::Exec(_)) => Exit::ExecFailed,
             Error::Usage(_)
             | Error::Load(_)
@@ -129,7 +129,7 @@ impl Error {
     pub(crate) fn reason(&self) -> Reason {
         match self {
             Error::Usage(_) => Reason::Usage,
-            Error::NoMatch { .. } => Reason::NoMatch,
+            Error::NoMatch { .. } | Error::Pick(pick::Error::Loose { .. }) => Reason::NoMatch,
             Error::Pick(pick::Error::Several { .. })
             | Error::Inspect(inspect::Error::Several { .. }) => Reason::SeveralMatches,
             Error::NoHosts { .. } => Reason::NoHosts,

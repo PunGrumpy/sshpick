@@ -170,3 +170,14 @@ fn inspect_is_a_dry_run_of_pick() {
         .code(0)
         .stdout("ssh -- stg-consul2\n");
 }
+
+#[test]
+fn inspect_resolves_an_exact_name_that_prefixes_another_host() {
+    let out = sshpick("names")
+        .args(["inspect", "web", "--json"])
+        .assert()
+        .code(0);
+    let document: serde_json::Value = serde_json::from_slice(&out.get_output().stdout).unwrap();
+    assert_eq!(document["host"], "web");
+    assert_eq!(document["command"], json!(["ssh", "--", "web"]));
+}

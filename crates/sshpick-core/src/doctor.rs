@@ -296,7 +296,7 @@ fn terminal(terminal: &Terminal) -> Check {
     };
     let fix = match refusal {
         Refusal::NonInteractive => {
-            "leave out `--non-interactive` to open the picker; `sshpick <query>` still connects when one host matches"
+            "leave out `--non-interactive` to open the picker; with it, `sshpick <host>` connects only to an exact host name or alias"
         }
         Refusal::NoTerminal => "`sshpick <query>` still connects when one host matches",
         Refusal::DumbTerminal => {
@@ -638,7 +638,7 @@ mod tests {
         "TERM=dumb")]
     #[test_case(true, true, true, false, Some((80, 24)), Some("xterm"), true, "stdout is a terminal",
         Status::Warn, "80x24, TERM=xterm, colour on (stdout is a terminal); --non-interactive never opens the picker",
-        Some("leave out `--non-interactive` to open the picker; `sshpick <query>` still connects when one host matches");
+        Some("leave out `--non-interactive` to open the picker; with it, `sshpick <host>` connects only to an exact host name or alias");
         "--non-interactive")]
     #[allow(clippy::too_many_arguments)]
     fn terminal_says_what_the_picker_would_find(

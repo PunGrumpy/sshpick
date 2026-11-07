@@ -18,8 +18,8 @@ sshpick [version]
   Global Options:
   -h,  --help             Output usage information
        --no-color         Disable color
-       --non-interactive  Never open the picker; connect only when exactly one
-                          host matches
+       --non-interactive  Never open the picker; connect only to an exact host
+                          name or alias
   -V,  --version          Output the version number
 
   Environment:

@@ -51,9 +51,9 @@ List the hosts with `sshpick ls --json`, see where one resolves with
 `sshpick inspect <host> --json`, and check the setup with `sshpick doctor --json`. These three
 change nothing and never prompt, so run them freely.
 
-Only `sshpick <query>` connects to a host. It replaces itself with `ssh -- <host>`, so give it a
-query that matches exactly one host, and add `--non-interactive` so it can never open the picker:
-one match connects, none exits 1, several exit 2.
+Only `sshpick <query>` connects to a host. It replaces itself with `ssh -- <host>`, so give it the
+exact host name or alias from `ls --json`, and add `--non-interactive` so it can never open the
+picker or guess: an exact name connects, a loose match or no match exits 1, several exit 2.
 
 Results go to stdout and nothing else does. Errors are an `Error:` line and, when there is a next
 step, a `Fix:` line on stderr. Under `--json` a failure is one JSON line on stderr instead, with a

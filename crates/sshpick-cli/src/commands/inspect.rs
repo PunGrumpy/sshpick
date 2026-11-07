@@ -110,19 +110,22 @@ pub(crate) fn run(
         note_if_also_a_host(base.output, typed, &loaded.entries);
     }
     let picker = Picker::new(loaded.entries, query);
-    let listing = picker.listing();
-    let (host, entry) = match (picker.resolve(), listing.first()) {
-        (Resolution::One(host), Some(entry)) => (host, *entry),
-        (Resolution::Many(count), _) => {
+    let entry = match picker.resolve() {
+        Resolution::One(entry) | Resolution::Loose(entry) => entry,
+        Resolution::Many(count) => {
             return Err(Error::Several {
                 count,
                 query: query.to_owned(),
-                names: listing.iter().map(|entry| entry.host.to_string()).collect(),
+                names: picker
+                    .listing()
+                    .iter()
+                    .map(|entry| entry.host.to_string())
+                    .collect(),
                 warnings: loaded.warnings,
             }
             .into());
         }
-        _ => {
+        Resolution::NoMatch => {
             return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
                 did_you_mean: did_you_mean(query),
@@ -130,6 +133,7 @@ pub(crate) fn run(
             });
         }
     };
+    let host = &entry.host;
 
     let started = Instant::now();
     let preview = sshpick_core::resolve(host).map_err(Error::Resolve)?;

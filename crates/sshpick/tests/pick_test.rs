@@ -73,6 +73,39 @@ fn non_interactive_never_opens_the_picker() {
 }
 
 #[test]
+fn an_exact_name_connects_even_when_it_prefixes_another_host() {
+    sshpick("names")
+        .args(["--non-interactive", "web"])
+        .assert()
+        .code(0)
+        .stdout("ssh -- web\n");
+    sshpick("names")
+        .args(["--non-interactive", "pg-primary"])
+        .assert()
+        .code(0)
+        .stdout("ssh -- db-prod\n");
+}
+
+#[test]
+fn non_interactive_refuses_a_loose_match_and_names_it() {
+    let out = sshpick("names")
+        .args(["--non-interactive", "db-stg"])
+        .assert()
+        .code(1)
+        .stdout("");
+    assert_snapshot!("non_interactive_loose", stderr(&out));
+}
+
+#[test]
+fn a_loose_match_still_connects_when_only_the_terminal_is_missing() {
+    sshpick("names")
+        .arg("db-stg")
+        .assert()
+        .code(0)
+        .stdout("ssh -- db-prod\n");
+}
+
+#[test]
 fn a_config_without_hosts_exits_two_for_the_picker_and_for_list() {
     for args in [&[][..], &["--list"][..], &["ls"][..]] {
         let out = sshpick("empty").args(args).assert().code(2).stdout("");
