@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use crate::config::{Host, LoadError, Loaded, Warning, printable};
 use crate::interaction::{Interaction, Refusal, refusal};
-use crate::ssh::ResolveError;
+use crate::ssh::{ResolveError, TIMEOUT};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Status {
@@ -245,6 +245,17 @@ fn resolve(probe: &Probe) -> Check {
             Status::Ok,
             format!("ssh -G answered for {host} in {} ms", took.as_millis()),
             None,
+        ),
+        Err(error) if error.is_transient() => check(
+            Name::Resolve,
+            Status::Warn,
+            format!(
+                "ssh -G gave no answer for {host} within {} s",
+                TIMEOUT.as_secs()
+            ),
+            Some(format!(
+                "the picker shows a route once ssh -G answers; time `ssh -G -- {host}` to find the slow `Match exec` or `ProxyCommand`"
+            )),
         ),
         Err(error) => {
             let headline = error.headline();
@@ -587,7 +598,7 @@ mod tests {
     #[test_case(Ok(()), Status::Ok, "ssh -G answered for lab-a in 14 ms", None; "answered")]
     #[test_case(Err(ssh_said("/h/.ssh/config line 12: Bad configuration option: foo\n/h/.ssh/config: terminating")), Status::Fail, "ssh -G failed for lab-a: /h/.ssh/config line 12: Bad configuration option: foo", Some("run `sshpick inspect lab-a` for ssh's full answer"); "ssh rejects the config")]
     #[test_case(Err(ssh_said("")), Status::Fail, "ssh -G failed for lab-a: ssh -G exited with 255", Some("run `sshpick inspect lab-a` for ssh's full answer"); "ssh says nothing")]
-    #[test_case(Err(ResolveError::Timeout), Status::Fail, "ssh -G failed for lab-a: ssh -G gave no answer within 2 s", Some("run `sshpick inspect lab-a` for ssh's full answer"); "no answer")]
+    #[test_case(Err(ResolveError::Timeout), Status::Warn, "ssh -G gave no answer for lab-a within 2 s", Some("the picker shows a route once ssh -G answers; time `ssh -G -- lab-a` to find the slow `Match exec` or `ProxyCommand`"); "no answer")]
     fn resolve_times_ssh_g_for_the_first_host(
         result: Result<(), ResolveError>,
         status: Status,
