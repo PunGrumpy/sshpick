@@ -425,6 +425,60 @@ fn the_docs_options_table_lists_every_visible_option() {
     }
 }
 
+/// The indented lines under the `$ ...` line of a shell example.
+fn example_output(docs: &str, command: &str) -> String {
+    docs.lines()
+        .skip_while(|line| line.trim() != format!("$ {command}"))
+        .skip(1)
+        .map_while(|line| line.strip_prefix("    "))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn sorted_keys(value: &serde_json::Value) -> Vec<&str> {
+    let mut keys: Vec<&str> = value
+        .as_object()
+        .map(|object| object.keys().map(String::as_str).collect())
+        .unwrap_or_default();
+    keys.sort_unstable();
+    keys
+}
+
+#[test]
+fn the_ls_example_in_the_docs_has_the_documented_keys() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    let text = example_output(docs, "sshpick ls consul --json");
+    let document: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        sorted_keys(&document),
+        ["hosts", "query", "total", "warnings"],
+        "the ls --json example in docs/scripting.md"
+    );
+    let hosts = document["hosts"].as_array().unwrap();
+    assert!(!hosts.is_empty());
+    for host in hosts {
+        assert_eq!(sorted_keys(host), ["env", "host", "names", "what"]);
+    }
+}
+
+#[test]
+fn the_error_example_in_the_docs_has_a_real_reason() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    let text = example_output(docs, "sshpick inspect zzz --json");
+    let document: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let keys = sorted_keys(&document);
+    for key in ["message", "reason", "status"] {
+        assert!(keys.contains(&key), "the error example lacks {key}");
+    }
+    let allowed = ["fix", "message", "reason", "status", "warnings"];
+    assert!(
+        keys.iter().all(|key| allowed.contains(key)),
+        "the error example in docs/scripting.md has {keys:?}"
+    );
+    let reasons: Vec<String> = Reason::ALL.iter().map(json_name).collect();
+    assert!(reasons.contains(&document["reason"].as_str().unwrap().to_owned()));
+}
+
 #[test]
 fn the_docs_list_every_command_word() {
     let docs = include_str!("../../../../docs/commands.md");
