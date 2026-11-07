@@ -3,7 +3,7 @@ use std::io;
 use sshpick_core::{Host, Outcome, Picker, Previews, Refusal, Resolution};
 use sshpick_ui::Screen;
 
-use super::{CommandBase, did_you_mean, interaction};
+use super::{CommandBase, did_you_mean, interaction, shell_words};
 use crate::cli;
 use crate::cli::Exit;
 
@@ -30,7 +30,7 @@ impl Error {
                 let list = if query.is_empty() {
                     "sshpick ls".to_owned()
                 } else {
-                    format!("sshpick ls {query}")
+                    format!("sshpick ls {}", shell_words(query))
                 };
                 Some(format!(
                     "narrow the query to one host, or list them with `{list}`."

@@ -5,7 +5,9 @@ use serde::Serialize;
 use sshpick_core::{Entry, Picker, Preview, Resolution, Warning};
 use sshpick_ui::ColorConfig;
 
-use super::{CommandBase, HostView, WarningView, did_you_mean, note_if_also_a_host, write_json};
+use super::{
+    CommandBase, HostView, WarningView, did_you_mean, note_if_also_a_host, shell_words, write_json,
+};
 use crate::cli;
 use crate::cli::Exit;
 
@@ -40,8 +42,9 @@ impl Error {
                     0 => String::new(),
                     left => format!(" and {left} more"),
                 };
+                let listed = shell_words(query);
                 Some(format!(
-                    "name one of {shown}{more}, or list them with `sshpick ls {query}`."
+                    "name one of {shown}{more}, or list them with `sshpick ls {listed}`."
                 ))
             }
             Error::Resolve(sshpick_core::ResolveError::Spawn(error))
