@@ -108,7 +108,29 @@ pub(crate) fn did_you_mean(query: &str) -> Option<String> {
     let command = suggest::closest(first, &spec::command_words())?;
     let takes_arguments = spec::command(command).is_some_and(|spec| !spec.arguments.is_empty());
     let rest = if takes_arguments { rest } else { "" };
-    Some(format!("{command} {rest}").trim_end().to_owned())
+    Some(
+        format!("{command} {}", shell_words(rest))
+            .trim_end()
+            .to_owned(),
+    )
+}
+
+/// A query as a person can paste it after `sshpick ls`: each word is left bare when it is only
+/// letters, digits and `-_.,:@%+=/`, and single-quoted otherwise.
+pub(crate) fn shell_words(query: &str) -> String {
+    query
+        .split_whitespace()
+        .map(shell_word)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn shell_word(word: &str) -> String {
+    let bare = |c: char| c.is_ascii_alphanumeric() || "-_.,:@%+=/".contains(c);
+    if word.chars().all(bare) {
+        return word.to_owned();
+    }
+    format!("'{}'", word.replace('\'', "'\\''"))
 }
 
 #[derive(Serialize)]
@@ -139,6 +161,8 @@ pub(crate) fn write_json(mut out: impl Write, value: &impl Serialize) -> io::Res
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+
+    use test_case::test_case;
 
     use super::*;
 
@@ -184,6 +208,22 @@ mod tests {
             "doctor takes no query, so the rest is not carried over"
         );
         assert_eq!(did_you_mean(""), None);
+        assert_eq!(
+            did_you_mean("lst 'web"),
+            Some("list ''\\''web'".to_owned()),
+            "the query is quoted for the shell"
+        );
+    }
+
+    #[test_case("web", "web")]
+    #[test_case("new consul", "new consul"; "words stay separate")]
+    #[test_case("'web", "''\\''web'"; "a leading quote is escaped")]
+    #[test_case("^web$", "'^web$'"; "search syntax is quoted")]
+    #[test_case("!ui", "'!ui'"; "history expansion is quoted")]
+    #[test_case("a b  c", "a b c"; "runs of spaces collapse")]
+    #[test_case("", "")]
+    fn a_query_is_quoted_for_the_shell_word_by_word(query: &str, want: &str) {
+        assert_eq!(shell_words(query), want);
     }
 
     #[test]

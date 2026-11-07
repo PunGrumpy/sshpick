@@ -86,6 +86,7 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["a", "--", "-h"] => pick_for("a -h"); "words before and after --")]
 #[test_case(&["--", "--", "-l"] => pick_for("-- -l"); "a second -- is query text")]
 #[test_case(&["--"] => pick_for(""); "a bare --")]
+#[test_case(&["\u{1b}]0;x\u{7}", "zz"] => pick_for(" ]0;x  zz"); "control characters in argv become spaces")]
 #[test_case(&["-"] => pick_for("-"); "a lone dash is query text")]
 #[test_case(&["db", "list"] => pick_for("db list"); "a command word later on is a query")]
 #[test_case(&["lst"] => pick_for("lst"); "a misspelt command is a query")]

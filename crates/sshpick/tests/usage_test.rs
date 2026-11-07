@@ -19,6 +19,17 @@ fn with_stdout_closed(home: &str, args: &[&str]) -> io::Result<Output> {
         .output()
 }
 
+fn with_stderr_closed(home: &str, args: &[&str]) -> io::Result<Output> {
+    let (reader, writer) = io::pipe()?;
+    drop(reader);
+    sshpick_std(home)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(writer)
+        .output()
+}
+
 fn sp(home: &str) -> Command {
     Command::from_std(isolated(env!("CARGO_BIN_EXE_sp"), home))
 }
@@ -279,5 +290,47 @@ fn no_color_removes_the_hue_even_when_colour_is_forced() {
     assert!(
         !text.contains("\x1b[36m") && !text.contains("\x1b[90m"),
         "no hue"
+    );
+}
+
+#[test]
+fn a_closed_stderr_keeps_the_commands_own_exit_code() {
+    let out = with_stderr_closed("home", &["--bogus"]).unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let out = with_stderr_closed("warns", &["ls"]).unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "warnings on a closed stderr are dropped"
+    );
+    assert!(!out.stdout.is_empty(), "the rows still reach stdout");
+}
+
+#[test]
+fn argv_with_control_characters_is_printed_as_spaces() {
+    let out = sshpick("home")
+        .args(["\u{1b}]0;x\u{7} zz", "--non-interactive"])
+        .assert()
+        .code(1)
+        .stdout("");
+    let text = stderr(&out);
+    assert!(!text.contains(['\u{1b}', '\u{7}']), "{text:?}");
+    assert!(
+        text.starts_with("Error: no host matches \" ]0;x  zz\"\n"),
+        "{text:?}"
+    );
+}
+
+#[test]
+fn a_fix_quotes_a_query_that_the_shell_would_misread() {
+    let out = sshpick("inspect")
+        .args(["inspect", "'stg", "--non-interactive"])
+        .assert()
+        .code(2)
+        .stdout("");
+    assert!(
+        stderr(&out).contains("`sshpick ls ''\\''stg'`"),
+        "{}",
+        stderr(&out)
     );
 }

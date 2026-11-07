@@ -59,24 +59,33 @@ impl Output {
     /// A `>` line on stderr, for people only: nothing is printed when stdout is not a terminal.
     pub fn log(&self, text: &str) {
         if self.human {
-            eprintln!("{} {text}", self.stderr.gray(">"));
+            say(&format!("{} {text}\n", self.stderr.gray(">")));
         }
     }
 
     /// `Error: <why>`, then `Fix:` and `Learn More:` when there is something to say.
     pub fn error(&self, why: &dyn Display, fix: Option<&str>, docs: Option<&str>) {
-        eprint!("{}", error_text(self.stderr, why, fix, docs));
+        say(&error_text(self.stderr, why, fix, docs));
     }
 
     /// One line on stderr, as given: the `--json` form of [`Output::error`].
     pub fn error_line(&self, line: &str) {
-        eprintln!("{line}");
+        say(&format!("{line}\n"));
     }
 
     /// `! <warning>`.
     pub fn warn(&self, warning: &dyn Display) {
-        eprintln!("{} {warning}", self.stderr.yellow("!"));
+        say(&format!(
+            "{} {}\n",
+            self.stderr.yellow("!"),
+            sshpick_core::printable(&warning.to_string())
+        ));
     }
+}
+
+/// Stderr is best effort: a reader that hung up is not a reason to fail the command.
+fn say(text: &str) {
+    let _ = io::stderr().lock().write_all(text.as_bytes());
 }
 
 /// The text of [`Output::error`], one line per part, each ending in a newline.

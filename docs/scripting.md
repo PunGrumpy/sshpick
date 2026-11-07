@@ -82,6 +82,10 @@ when the docs help; a warning is a `! message` line:
     Error: 4 hosts match "consul", and the picker needs an interactive terminal
     Fix: narrow the query to one host, or list them with `sshpick ls consul`.
 
+Control characters in an error become spaces, and a query inside a suggested command is quoted so
+the line can be pasted into a shell. A closed stderr is ignored: the exit status stays the
+command's own.
+
 `TERM=dumb` keeps the picker closed too, because a dumb terminal cannot move the cursor: several
 matches exit 2, none exit 1, and exactly one still connects.
 

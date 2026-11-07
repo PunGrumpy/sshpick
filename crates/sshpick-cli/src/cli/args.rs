@@ -57,7 +57,7 @@ struct Flags {
 pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
     let mut argv = argv
         .into_iter()
-        .map(|arg| arg.to_string_lossy().into_owned());
+        .map(|arg| sshpick_core::printable(&arg.to_string_lossy()));
     let mut flags = Flags::default();
     let mut words = Vec::new();
     let mut unknown = None;
