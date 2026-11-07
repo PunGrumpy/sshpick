@@ -51,15 +51,23 @@ List the hosts with `sshpick ls --json`, see where one resolves with
 `sshpick inspect <host> --json`, and check the setup with `sshpick doctor --json`. These three
 change nothing and never prompt, so run them freely.
 
-Only `sshpick <query>` connects to a host. It replaces itself with `ssh -- <host>`, so give it the
-exact host name or alias from `ls --json`, and add `--non-interactive` so it can never open the
-picker or guess: an exact name connects, a loose match or no match exits 1, several exit 2.
+Take the exact host name or alias from `ls --json`, never from memory. Under `--non-interactive`
+an exact name connects, a loose match or no match exits 1, and several exit 2.
+
+`sshpick <query> --non-interactive` replaces itself with an interactive `ssh -- <host>`, which
+needs a terminal. Without one, read `.host` from `sshpick inspect <host> --json` and run `ssh`
+yourself with the remote command.
 
 Results go to stdout and nothing else does. Errors are an `Error:` line and, when there is a next
 step, a `Fix:` line on stderr. Under `--json` a failure is one JSON line on stderr instead, with a
-stable `reason`. Exit codes: 0 success (after a pick, ssh's own), 1 no match, 2 usage,
-config or ssh error or a failed `doctor` check, 127 ssh could not be run, 130 cancelled. The JSON
-shapes are in [Scripting](docs/scripting.md).
+stable `reason`, and `candidates` when several hosts match. `pick` has no `--json`.
+
+Exit codes: 0 success (after a pick, ssh's own), 1 no match, 2 usage, config or ssh error
+or a failed `doctor` check, 127 ssh could not be run, 130 cancelled. The JSON shapes are in
+[Scripting](docs/scripting.md).
+
+The full guide for agents is [`skills/sshpick/SKILL.md`](skills/sshpick/SKILL.md). Copy or symlink
+that directory into your agent's skills folder, for example `~/.claude/skills/`.
 
 Only run `sshpick` with no query when a person is at the keyboard: it opens a picker.
 

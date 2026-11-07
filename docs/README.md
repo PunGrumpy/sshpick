@@ -9,4 +9,6 @@
   exit codes.
 - [Troubleshooting](troubleshooting.md): by symptom, with the `sshpick doctor` line that shows it and
   the fix.
+- [Agent skill](../skills/sshpick/SKILL.md): the guide a coding agent loads to use sshpick without
+  a terminal.
 - [Migrating from the bash script](migrating.md): for anyone who used the fzf script this replaced.
