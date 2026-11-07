@@ -76,6 +76,7 @@ pub(crate) enum Status {
 
 impl Reason {
     /// Every reason, in the order the docs table lists them.
+    #[cfg(test)]
     pub(crate) const ALL: [Reason; 7] = [
         Reason::Usage,
         Reason::NoMatch,

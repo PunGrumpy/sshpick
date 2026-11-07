@@ -392,6 +392,40 @@ fn the_docs_reason_table_is_the_reason_enum() {
 }
 
 #[test]
+fn the_docs_name_every_environment_variable() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    for (name, _) in spec::ENVIRONMENT {
+        assert!(
+            docs.contains(&format!("`{name}")),
+            "docs/scripting.md does not mention `{name}`"
+        );
+    }
+}
+
+#[test]
+fn the_docs_options_table_lists_every_visible_option() {
+    let docs = include_str!("../../../../docs/commands.md");
+    let documented: Vec<&str> = table_rows(docs, "| Option")
+        .iter()
+        .flat_map(|row| {
+            row[0]
+                .split(',')
+                .map(|spelling| spelling.trim().trim_matches('`'))
+        })
+        .collect();
+    let options = GLOBAL
+        .iter()
+        .chain(COMMANDS.iter().flat_map(|spec| spec.options));
+    for option in options.filter(|option| !option.hidden) {
+        assert!(
+            documented.contains(&format!("--{}", option.long).as_str()),
+            "the options table in docs/commands.md lacks --{}",
+            option.long
+        );
+    }
+}
+
+#[test]
 fn the_docs_list_every_command_word() {
     let docs = include_str!("../../../../docs/commands.md");
     let sentence: String = docs
