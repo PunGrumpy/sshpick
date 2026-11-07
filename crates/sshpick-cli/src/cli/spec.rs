@@ -63,7 +63,7 @@ pub(crate) const PICK: CommandSpec = CommandSpec {
             command: "sshpick new consul",
         },
         Example {
-            name: "Connect when one host matches, and never open the picker",
+            name: "Connect to one host by its exact name, and never open the picker",
             command: "sshpick --non-interactive stg-bastion",
         },
         Example {
@@ -208,7 +208,7 @@ pub(crate) const GLOBAL: &[OptionSpec] = &[
         long: "non-interactive",
         short: None,
         aliases: &[],
-        description: "Never open the picker; connect only when exactly one host matches",
+        description: "Never open the picker; connect only to an exact host name or alias",
         hidden: false,
     },
     OptionSpec {

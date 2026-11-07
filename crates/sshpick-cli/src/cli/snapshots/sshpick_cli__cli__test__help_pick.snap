@@ -26,7 +26,7 @@ expression: "page(topic, 80)"
   Open the picker filtered to hosts matching both words
     sshpick new consul
 
-  Connect when one host matches, and never open the picker
+  Connect to one host by its exact name, and never open the picker
     sshpick --non-interactive stg-bastion
 
   Search for a word that is also a command name
