@@ -24,7 +24,7 @@ Options go anywhere before a bare `--`:
 | `-h`, `--help`      | Show help; wins over every other error                                 |
 | `-V`, `--version`   | Print the version and exit 0; loses only to `--help`                   |
 | `--no-color`        | Same as `NO_COLOR=1`                                                   |
-| `--json`            | On `ls`, `inspect` and `doctor`: print one JSON document; see [Scripting](scripting.md) |
+| `--json`            | Print one JSON document; `ls`, `inspect` and `doctor` take it          |
 | `--non-interactive` | Never open the picker: one match connects, none exits 1, several exit 2 |
 
 ## Search
