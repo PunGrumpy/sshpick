@@ -75,6 +75,17 @@ pub(crate) enum Status {
 }
 
 impl Reason {
+    /// Every reason, in the order the docs table lists them.
+    pub(crate) const ALL: [Reason; 7] = [
+        Reason::Usage,
+        Reason::NoMatch,
+        Reason::SeveralMatches,
+        Reason::NoHosts,
+        Reason::ConfigError,
+        Reason::SshFailed,
+        Reason::WriteFailed,
+    ];
+
     pub(crate) fn status(self) -> Status {
         match self {
             Reason::Usage | Reason::NoMatch | Reason::SeveralMatches => Status::ActionRequired,

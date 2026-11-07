@@ -7,7 +7,7 @@ use sshpick_ui::ColorConfig;
 use test_case::test_case;
 
 use super::args::{Command, UsageError, parse};
-use super::error::{Error, Exit};
+use super::error::{Error, Exit, Reason};
 use super::help::{self, MAX_WIDTH};
 use super::spec::{self, COMMANDS, EXIT_STATUS, GLOBAL};
 use crate::commands::list::ListFormat;
@@ -335,6 +335,31 @@ fn exit_codes_are_the_documented_ones() {
             "the root help lacks exit code {code}"
         );
     }
+}
+
+fn json_name(value: impl serde::Serialize) -> String {
+    serde_json::to_value(value)
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+#[test]
+fn every_reason_is_in_all() {
+    for reason in Reason::ALL {
+        match reason {
+            Reason::Usage
+            | Reason::NoMatch
+            | Reason::SeveralMatches
+            | Reason::NoHosts
+            | Reason::ConfigError
+            | Reason::SshFailed
+            | Reason::WriteFailed => {}
+        }
+    }
+    let names: std::collections::BTreeSet<String> = Reason::ALL.iter().map(json_name).collect();
+    assert_eq!(names.len(), Reason::ALL.len());
 }
 
 #[test]
