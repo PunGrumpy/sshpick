@@ -48,6 +48,14 @@ Tests read `crates/*/tests/fixtures`, never your `~/.ssh`, and put a fake `ssh` 
 Help text, usage errors and rendered frames are [insta](https://insta.rs) snapshots. After a
 change, run `INSTA_UPDATE=always cargo test` and read the `.snap` diffs before you commit.
 
+## Releasing
+
+1. Bump `version` in `Cargo.toml` and move the `Unreleased` entries in `CHANGELOG.md` under a new
+   `## [X.Y.Z] - YYYY-MM-DD` heading, in one PR.
+2. After it merges, tag the merge commit `vX.Y.Z` and push the tag. The Release workflow builds
+   Linux and macOS binaries, checks the tag against `Cargo.toml`, and publishes a GitHub release
+   with that CHANGELOG section as its notes.
+
 ## Opening a pull request
 
 Fill in the pull request template. Titles follow

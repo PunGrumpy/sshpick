@@ -3,6 +3,7 @@ name = "sshpick-cli"
 description = "sshpick's command line: argv, help, commands, errors and exit codes"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false

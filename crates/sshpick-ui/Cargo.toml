@@ -3,6 +3,7 @@ name = "sshpick-ui"
 description = "sshpick's terminal: the ratatui picker, raw-mode handling and key mapping"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false

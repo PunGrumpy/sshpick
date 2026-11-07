@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [".github/workflows/release.yml"]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl }
+          - { os: macos-15, target: aarch64-apple-darwin }
+          - { os: macos-15-intel, target: x86_64-apple-darwin }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          target: ${{ matrix.target }}
+          rustflags: ""
+          cache: false
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          set -eu
+          version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          name="sshpick-${version}-${{ matrix.target }}"
+          mkdir -p "dist/${name}"
+          cp "target/${{ matrix.target }}/release/sshpick" "target/${{ matrix.target }}/release/sp" LICENSE README.md "dist/${name}/"
+          tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+          (cd dist && shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256")
+          rm -r "dist/${name}"
+          ls -l dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Check the tag matches Cargo.toml
+        run: |
+          set -eu
+          version="$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)"
+          test "v${version}" = "${GITHUB_REF_NAME}" || { echo "tag ${GITHUB_REF_NAME} but Cargo.toml says ${version}" >&2; exit 1; }
+      - name: Release notes from the changelog
+        run: |
+          set -eu
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "CHANGELOG.md has no section for ${version}" >&2; exit 1; }
+      - run: gh release create "${GITHUB_REF_NAME}" --title "sshpick ${GITHUB_REF_NAME}" --notes-file notes.md dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}
