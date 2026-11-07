@@ -190,7 +190,7 @@ scripts; `detail` and `fix` are for people and may be reworded.
 | `hosts`    | `fail` when no `Host` line names a host                                             |
 | `include`  | one `warn` per config warning, left out when there are none                         |
 | `ssh`      | `fail` when `ssh -V` cannot run                                                     |
-| `resolve`  | `fail` when `ssh -G` fails for the first host; left out when there is no host       |
+| `resolve`  | `fail` when `ssh -G` fails for the first host; `warn` when it gives no answer within 2 s; left out when there is no host |
 | `terminal` | `warn` when the picker would not open here, as `pick` would refuse it               |
 
 ## Exit status
