@@ -106,6 +106,8 @@ struct Document {
     fix: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     warnings: Vec<WarningView>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    candidates: Vec<String>,
 }
 
 impl Error {
@@ -153,6 +155,15 @@ impl Error {
         }
     }
 
+    /// The hosts a query matched when one was needed, best first. Each resolves on its own.
+    fn candidates(&self) -> &[String] {
+        match self {
+            Error::Pick(pick::Error::Several { names, .. })
+            | Error::Inspect(inspect::Error::Several { names, .. }) => names,
+            _ => &[],
+        }
+    }
+
     /// The failure as one line of JSON, for stderr under `--json`.
     pub(crate) fn document(&self) -> Result<String, serde_json::Error> {
         let reason = self.reason();
@@ -162,6 +173,7 @@ impl Error {
             message: self.to_string(),
             fix: self.fix(),
             warnings: self.warnings().iter().map(WarningView::of).collect(),
+            candidates: self.candidates().to_vec(),
         })
     }
 
