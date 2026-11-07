@@ -12,6 +12,9 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
   one warning above its error, and the picker has something to open on.
 - `inspect/.ssh/`: `stg-consul1` (alias `consul1.stg`, label STAGING), `stg-consul2`, `stg-broken`
   (the fake `ssh -G` fails for it) and a host named `list`, for `inspect` and `list --json`.
+- `names/.ssh/config`: `web` and `web-2`, whose names prefix each other, and `db-prod` (alias
+  `pg-primary`, WHAT "Postgres primary"), so `web` is an exact name that also matches another
+  host, and `db-stg` matches only `db-prod`, loosely, through its comment.
 - `empty/.ssh/config`: no literal host (only `Host *`), so `sshpick` has nothing to pick.
 - `tabs/.ssh/config`: a tab inside the WHAT comment, so `--list` must still print three columns.
 - `named-doctor/.ssh/config`: a host named `doctor`, so `sshpick doctor` is the command and

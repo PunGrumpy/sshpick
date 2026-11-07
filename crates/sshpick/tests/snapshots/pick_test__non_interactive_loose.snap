@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: no host is named "db-stg"; "db-prod" matches loosely
+Fix: connect with `sshpick --non-interactive db-prod`, or list candidates with `sshpick ls db-stg`.
