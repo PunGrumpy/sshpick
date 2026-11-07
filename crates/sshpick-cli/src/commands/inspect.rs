@@ -263,6 +263,42 @@ mod tests {
     }
 
     #[test]
+    fn the_json_keys_are_the_ones_the_docs_list() {
+        let entry = entry("web");
+        let preview = preview();
+        let view = View {
+            host: HostView::of(&entry),
+            resolved: Resolved::of(&preview),
+            command: sshpick_core::command(&entry.host),
+            warnings: Vec::new(),
+        };
+        let mut out = Vec::new();
+        write_json(&mut out, &view).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&out).unwrap();
+        let mut coded: Vec<&str> = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let docs = include_str!("../../../../docs/scripting.md");
+        let mut documented: Vec<&str> = docs
+            .split("`inspect --json` is `{")
+            .nth(1)
+            .and_then(|rest| rest.split('}').next())
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .collect();
+        coded.sort_unstable();
+        documented.sort_unstable();
+        assert_eq!(
+            documented, coded,
+            "the inspect --json keys in docs/scripting.md"
+        );
+    }
+
+    #[test]
     fn the_fix_names_up_to_five_hosts_and_counts_the_rest() {
         let several = |count: usize| Error::Several {
             count,

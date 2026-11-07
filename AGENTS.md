@@ -49,7 +49,10 @@
 - Never prompt under `--non-interactive`. The picker is the only prompt.
 - Command names, flags, exit codes, environment variables and TSV columns are a contract. Change
   one only with a test and a line in `docs`.
-- Add a command or flag to `cli/spec.rs` first. Parsing, help and suggestions follow from it.
+- Add a command or flag to `cli/spec.rs` first. Help, suggestions and the docs-sync tests follow
+  from it; parsing needs its own arm in `cli/args.rs`. The docs tables (commands, options, exit
+  codes, `reason`, warning kinds, environment) are tested against the code, so `make test` names
+  the docs row you forgot.
 - A typo suggestion needs exactly one single-edit candidate (`cli/suggest.rs`). No similarity
   scores.
 

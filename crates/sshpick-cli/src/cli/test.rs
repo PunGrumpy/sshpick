@@ -7,7 +7,7 @@ use sshpick_ui::ColorConfig;
 use test_case::test_case;
 
 use super::args::{Command, UsageError, parse};
-use super::error::{Error, Exit};
+use super::error::{Error, Exit, Reason};
 use super::help::{self, MAX_WIDTH};
 use super::spec::{self, COMMANDS, EXIT_STATUS, GLOBAL};
 use crate::commands::list::ListFormat;
@@ -335,6 +335,148 @@ fn exit_codes_are_the_documented_ones() {
             "the root help lacks exit code {code}"
         );
     }
+}
+
+fn json_name(value: impl serde::Serialize) -> String {
+    serde_json::to_value(value)
+        .unwrap()
+        .as_str()
+        .unwrap()
+        .to_owned()
+}
+
+/// The cells of each row of the markdown table whose header row starts with `header`.
+fn table_rows<'a>(docs: &'a str, header: &str) -> Vec<Vec<&'a str>> {
+    docs.lines()
+        .skip_while(|line| !line.starts_with(header))
+        .skip(2)
+        .take_while(|line| line.starts_with('|'))
+        .map(|row| {
+            row.trim_matches('|')
+                .split('|')
+                .map(|cell| cell.trim().trim_matches('`'))
+                .collect()
+        })
+        .collect()
+}
+
+#[test]
+fn every_reason_is_in_all() {
+    for reason in Reason::ALL {
+        match reason {
+            Reason::Usage
+            | Reason::NoMatch
+            | Reason::SeveralMatches
+            | Reason::NoHosts
+            | Reason::ConfigError
+            | Reason::SshFailed
+            | Reason::WriteFailed => {}
+        }
+    }
+    let names: std::collections::BTreeSet<String> = Reason::ALL.iter().map(json_name).collect();
+    assert_eq!(names.len(), Reason::ALL.len());
+}
+
+#[test]
+fn the_docs_reason_table_is_the_reason_enum() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    let documented: Vec<(String, String)> = table_rows(docs, "| `reason`")
+        .iter()
+        .map(|row| (row[0].to_owned(), row[1].to_owned()))
+        .collect();
+    let coded: Vec<(String, String)> = Reason::ALL
+        .iter()
+        .map(|reason| (json_name(reason), json_name(reason.status())))
+        .collect();
+    assert_eq!(documented, coded, "the reason table in docs/scripting.md");
+}
+
+#[test]
+fn the_docs_name_every_environment_variable() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    for (name, _) in spec::ENVIRONMENT {
+        assert!(
+            docs.contains(&format!("`{name}")),
+            "docs/scripting.md does not mention `{name}`"
+        );
+    }
+}
+
+#[test]
+fn the_docs_options_table_lists_every_visible_option() {
+    let docs = include_str!("../../../../docs/commands.md");
+    let documented: Vec<&str> = table_rows(docs, "| Option")
+        .iter()
+        .flat_map(|row| {
+            row[0]
+                .split(',')
+                .map(|spelling| spelling.trim().trim_matches('`'))
+        })
+        .collect();
+    let options = GLOBAL
+        .iter()
+        .chain(COMMANDS.iter().flat_map(|spec| spec.options));
+    for option in options.filter(|option| !option.hidden) {
+        assert!(
+            documented.contains(&format!("--{}", option.long).as_str()),
+            "the options table in docs/commands.md lacks --{}",
+            option.long
+        );
+    }
+}
+
+/// The indented lines under the `$ ...` line of a shell example.
+fn example_output(docs: &str, command: &str) -> String {
+    docs.lines()
+        .skip_while(|line| line.trim() != format!("$ {command}"))
+        .skip(1)
+        .map_while(|line| line.strip_prefix("    "))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn sorted_keys(value: &serde_json::Value) -> Vec<&str> {
+    let mut keys: Vec<&str> = value
+        .as_object()
+        .map(|object| object.keys().map(String::as_str).collect())
+        .unwrap_or_default();
+    keys.sort_unstable();
+    keys
+}
+
+#[test]
+fn the_ls_example_in_the_docs_has_the_documented_keys() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    let text = example_output(docs, "sshpick ls consul --json");
+    let document: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        sorted_keys(&document),
+        ["hosts", "query", "total", "warnings"],
+        "the ls --json example in docs/scripting.md"
+    );
+    let hosts = document["hosts"].as_array().unwrap();
+    assert!(!hosts.is_empty());
+    for host in hosts {
+        assert_eq!(sorted_keys(host), ["env", "host", "names", "what"]);
+    }
+}
+
+#[test]
+fn the_error_example_in_the_docs_has_a_real_reason() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    let text = example_output(docs, "sshpick inspect zzz --json");
+    let document: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let keys = sorted_keys(&document);
+    for key in ["message", "reason", "status"] {
+        assert!(keys.contains(&key), "the error example lacks {key}");
+    }
+    let allowed = ["fix", "message", "reason", "status", "warnings"];
+    assert!(
+        keys.iter().all(|key| allowed.contains(key)),
+        "the error example in docs/scripting.md has {keys:?}"
+    );
+    let reasons: Vec<String> = Reason::ALL.iter().map(json_name).collect();
+    assert!(reasons.contains(&document["reason"].as_str().unwrap().to_owned()));
 }
 
 #[test]

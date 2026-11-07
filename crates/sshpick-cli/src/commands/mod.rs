@@ -267,4 +267,33 @@ mod tests {
             ("unreadable", Some("/h/.ssh/b.conf"))
         );
     }
+
+    #[test]
+    fn the_docs_name_exactly_the_warning_kinds() {
+        let path = std::path::PathBuf::from("/h/.ssh/a.conf");
+        let warnings = [
+            Warning::Unreadable {
+                path: path.clone(),
+                source: io::Error::from(io::ErrorKind::PermissionDenied),
+            },
+            Warning::TooDeep { path: path.clone() },
+            Warning::Cycle { path },
+            Warning::BadInclude {
+                arg: "${X}".to_owned(),
+                reason: "${X} is not set".to_owned(),
+            },
+        ];
+        let mut coded: Vec<&str> = warnings.iter().map(|w| WarningView::of(w).kind).collect();
+        let docs = include_str!("../../../../docs/scripting.md");
+        let sentence = docs
+            .lines()
+            .find(|line| line.contains("with `kind` one of"))
+            .and_then(|line| line.split("one of").nth(1))
+            .and_then(|rest| rest.split(';').next())
+            .unwrap_or_default();
+        let mut documented: Vec<&str> = sentence.split('`').skip(1).step_by(2).collect();
+        coded.sort_unstable();
+        documented.sort_unstable();
+        assert_eq!(documented, coded, "the warning kinds in docs/scripting.md");
+    }
 }
