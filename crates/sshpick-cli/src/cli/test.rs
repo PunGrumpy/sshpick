@@ -345,6 +345,21 @@ fn json_name(value: impl serde::Serialize) -> String {
         .to_owned()
 }
 
+/// The cells of each row of the markdown table whose header row starts with `header`.
+fn table_rows<'a>(docs: &'a str, header: &str) -> Vec<Vec<&'a str>> {
+    docs.lines()
+        .skip_while(|line| !line.starts_with(header))
+        .skip(2)
+        .take_while(|line| line.starts_with('|'))
+        .map(|row| {
+            row.trim_matches('|')
+                .split('|')
+                .map(|cell| cell.trim().trim_matches('`'))
+                .collect()
+        })
+        .collect()
+}
+
 #[test]
 fn every_reason_is_in_all() {
     for reason in Reason::ALL {
@@ -360,6 +375,20 @@ fn every_reason_is_in_all() {
     }
     let names: std::collections::BTreeSet<String> = Reason::ALL.iter().map(json_name).collect();
     assert_eq!(names.len(), Reason::ALL.len());
+}
+
+#[test]
+fn the_docs_reason_table_is_the_reason_enum() {
+    let docs = include_str!("../../../../docs/scripting.md");
+    let documented: Vec<(String, String)> = table_rows(docs, "| `reason`")
+        .iter()
+        .map(|row| (row[0].to_owned(), row[1].to_owned()))
+        .collect();
+    let coded: Vec<(String, String)> = Reason::ALL
+        .iter()
+        .map(|reason| (json_name(reason), json_name(reason.status())))
+        .collect();
+    assert_eq!(documented, coded, "the reason table in docs/scripting.md");
 }
 
 #[test]
