@@ -2,8 +2,12 @@ use std::ffi::OsStr;
 use std::io::{self, Read};
 use std::os::unix::process::CommandExt;
 use std::process::{Child, Command, ExitStatus, Stdio};
-use std::thread::{self, JoinHandle};
+use std::sync::mpsc;
+use std::thread;
 use std::time::{Duration, Instant};
+
+use nix::sys::signal::{Signal, killpg};
+use nix::unistd::Pid;
 
 use crate::config::{Host, printable};
 
@@ -51,7 +55,7 @@ impl Route<'_> {
 pub enum ResolveError {
     #[error("cannot run ssh -G: {0}")]
     Spawn(#[source] io::Error),
-    /// No exit within [`TIMEOUT`]; the child was killed.
+    /// No exit within [`TIMEOUT`]; ssh and its process group were killed.
     #[error("ssh -G gave no answer within {} s", TIMEOUT.as_secs())]
     Timeout,
     /// `ssh -G` exited non-zero (`code` is `None` if a signal killed it). `stderr` is what it
@@ -210,15 +214,16 @@ enum RunError {
 }
 
 fn run(mut command: Command, timeout: Duration) -> Result<Finished, RunError> {
+    let deadline = Instant::now() + timeout;
     let mut child = command
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .process_group(0)
         .spawn()
         .map_err(RunError::Spawn)?;
     let stdout = drain(child.stdout.take());
     let stderr = drain(child.stderr.take());
-    let deadline = Instant::now() + timeout;
     let status = loop {
         match child.try_wait() {
             Ok(Some(status)) => break status,
@@ -233,24 +238,51 @@ fn run(mut command: Command, timeout: Duration) -> Result<Finished, RunError> {
             }
         }
     };
+    // ssh is done. Anything it left behind holding our pipes gets until the deadline, then the
+    // group is killed so the readers see EOF and ssh's own answer stands.
+    let stdout = collect(stdout, deadline, &child);
+    let stderr = collect(stderr, deadline, &child);
     Ok(Finished {
         status,
-        stdout: String::from_utf8_lossy(&stdout.join().unwrap_or_default()).into_owned(),
-        stderr: String::from_utf8_lossy(&stderr.join().unwrap_or_default()).into_owned(),
+        stdout: String::from_utf8_lossy(&stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&stderr).into_owned(),
     })
 }
 
-fn drain(pipe: Option<impl Read + Send + 'static>) -> JoinHandle<Vec<u8>> {
+/// A reader thread's bytes, delivered over a channel so the wait can be bounded.
+fn drain(pipe: Option<impl Read + Send + 'static>) -> mpsc::Receiver<Vec<u8>> {
+    let (sender, receiver) = mpsc::channel();
     thread::spawn(move || {
         let mut bytes = Vec::new();
         if let Some(mut pipe) = pipe {
             let _ = pipe.read_to_end(&mut bytes);
         }
-        bytes
-    })
+        let _ = sender.send(bytes);
+    });
+    receiver
+}
+
+fn collect(reader: mpsc::Receiver<Vec<u8>>, deadline: Instant, child: &Child) -> Vec<u8> {
+    let left = deadline.saturating_duration_since(Instant::now());
+    match reader.recv_timeout(left) {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            kill_group(child);
+            reader.recv().unwrap_or_default()
+        }
+    }
+}
+
+/// Kill ssh and everything it started (a `Match exec` child, a backgrounded helper). The group
+/// id is the child's pid because of `process_group(0)`.
+fn kill_group(child: &Child) {
+    if let Ok(pid) = i32::try_from(child.id()) {
+        let _ = killpg(Pid::from_raw(pid), Signal::SIGKILL);
+    }
 }
 
 fn reap(child: &mut Child) {
+    kill_group(child);
     let _ = child.kill();
     let _ = child.wait();
 }
@@ -525,11 +557,35 @@ mod tests {
         );
     }
 
+    /// A fresh directory and the pid file inside it that a `*-pid` fake writes to.
+    fn pid_file(test: &str) -> (PathBuf, PathBuf) {
+        let dir = std::env::temp_dir().join(format!("sshpick-{test}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("pid");
+        (dir, file)
+    }
+
+    /// Whether `pid` still runs a second after the call. A killed grandchild is reaped by init,
+    /// not by us, so it can take a moment to disappear.
+    fn is_alive(pid: &str) -> bool {
+        let started = Instant::now();
+        loop {
+            let alive = Command::new("kill")
+                .args(["-0", pid])
+                .stderr(Stdio::null())
+                .status()
+                .unwrap()
+                .success();
+            if !alive || started.elapsed() > Duration::from_secs(1) {
+                return alive;
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    }
+
     #[test]
     fn a_timed_out_ssh_is_killed_and_reaped() {
-        let dir = std::env::temp_dir().join(format!("sshpick-reap-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let pid_file = dir.join("pid");
+        let (dir, pid_file) = pid_file("reap");
         let error = resolve_with(
             fake("ssh-hang-pid").as_os_str(),
             &host(pid_file.to_str().unwrap()),
@@ -538,14 +594,59 @@ mod tests {
         .unwrap_err();
         assert!(matches!(error, ResolveError::Timeout), "{error:?}");
         let pid = std::fs::read_to_string(&pid_file).unwrap();
-        let alive = Command::new("kill")
-            .args(["-0", pid.trim()])
-            .stderr(Stdio::null())
-            .status()
-            .unwrap()
-            .success();
         std::fs::remove_dir_all(&dir).unwrap();
-        assert!(!alive, "pid {} outlived the timeout", pid.trim());
+        assert!(
+            !is_alive(pid.trim()),
+            "pid {} outlived the timeout",
+            pid.trim()
+        );
+    }
+
+    #[test]
+    fn an_orphan_holding_the_pipe_does_not_delay_the_answer() {
+        let (dir, pid_file) = pid_file("orphan");
+        let started = Instant::now();
+        let preview = resolve_with(
+            fake("ssh-orphan-pid").as_os_str(),
+            &host(pid_file.to_str().unwrap()),
+            Duration::from_millis(500),
+        )
+        .unwrap();
+        let took = started.elapsed();
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(
+            preview.route().map(|route| route.hostname),
+            Some("192.0.2.10")
+        );
+        assert!(took < Duration::from_secs(2), "{took:?}");
+        assert!(
+            !is_alive(pid.trim()),
+            "orphan {} outlived the answer",
+            pid.trim()
+        );
+    }
+
+    #[test]
+    fn a_hung_ssh_takes_its_children_with_it() {
+        let (dir, pid_file) = pid_file("hang-child");
+        let started = Instant::now();
+        let error = resolve_with(
+            fake("ssh-hang-child-pid").as_os_str(),
+            &host(pid_file.to_str().unwrap()),
+            Duration::from_millis(300),
+        )
+        .unwrap_err();
+        let took = started.elapsed();
+        let pid = std::fs::read_to_string(&pid_file).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
+        assert!(matches!(error, ResolveError::Timeout), "{error:?}");
+        assert!(took < Duration::from_secs(2), "{took:?}");
+        assert!(
+            !is_alive(pid.trim()),
+            "child {} outlived the timeout",
+            pid.trim()
+        );
     }
 
     #[test]

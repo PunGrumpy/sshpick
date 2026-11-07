@@ -956,6 +956,7 @@ name = "sshpick-core"
 version = "0.1.0"
 dependencies = [
  "glob",
+ "nix",
  "nucleo-matcher",
  "test-case",
  "thiserror 2.0.21",
