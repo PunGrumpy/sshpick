@@ -577,32 +577,66 @@ fn code_spans(text: &str) -> impl Iterator<Item = &str> {
     text.split('`').skip(1).step_by(2)
 }
 
-#[test]
-fn the_readme_for_agents_names_only_commands_and_flags_the_table_has() {
-    let mut named = 0;
-    for span in code_spans(for_coding_agents()) {
-        let words: Vec<&str> = span.split_whitespace().collect();
-        if let ["sshpick", word, ..] = words[..]
-            && !word.starts_with(['-', '<'])
-        {
-            let spec = spec::command(word);
-            assert!(spec.is_some(), "`{span}`: sshpick has no command {word}");
-            named += 1;
-            for flag in words.iter().filter(|word| word.starts_with("--")) {
-                let own = spec.is_some_and(|spec| spec.options.iter().any(|o| o.matches(flag)));
-                assert!(
-                    own || spec::option(flag).is_some(),
-                    "`{span}`: {word} has no option {flag}"
-                );
-            }
-        } else if words.first().is_some_and(|word| word.starts_with("--")) {
-            let flag = words[0];
+/// Asserts that a `sshpick ...` line names a real command and only options that command takes,
+/// and says whether it named a command. With no command word the line is `pick`.
+fn names_a_real_command(line: &str) -> bool {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let Some((&"sshpick", rest)) = words.split_first() else {
+        if let Some(flag) = words.first().filter(|word| word.starts_with("--")) {
             assert!(
                 spec::option(flag).is_some() || spec::command_option(flag).is_some(),
-                "`{span}` is not an option in the table"
+                "`{line}` is not an option in the table"
             );
         }
+        return false;
+    };
+    let word = rest.first().filter(|word| !word.starts_with(['-', '<']));
+    let spec = word.and_then(|word| {
+        let spec = spec::command(word);
+        assert!(spec.is_some(), "`{line}`: sshpick has no command {word}");
+        spec
+    });
+    for flag in rest.iter().filter(|word| word.starts_with("--")) {
+        let own = spec.is_some_and(|spec| spec.options.iter().any(|o| o.matches(flag)));
+        assert!(
+            own || spec::option(flag).is_some(),
+            "`{line}`: {} has no option {flag}",
+            word.unwrap_or(&"pick")
+        );
     }
+    word.is_some()
+}
+
+/// Checks every `sshpick ...` in backticks, and every fenced line that runs `sshpick`, and counts
+/// those that name a command.
+fn spans_name_real_commands_and_flags(text: &str) -> usize {
+    let mut prose = String::new();
+    let mut fenced = Vec::new();
+    let mut in_fence = false;
+    for line in text.lines() {
+        if line.starts_with("```") {
+            in_fence = !in_fence;
+        } else if in_fence {
+            fenced.push(line);
+        } else {
+            prose.push_str(line);
+            prose.push('\n');
+        }
+    }
+    let commands = fenced
+        .into_iter()
+        .filter(|line| line.starts_with("sshpick "))
+        .map(|line| line.split_once(" #").map_or(line, |(command, _)| command))
+        .map(|line| line.split_once(" |").map_or(line, |(command, _)| command));
+    code_spans(&prose)
+        .chain(commands)
+        .filter(|line| names_a_real_command(line))
+        .count()
+}
+
+#[test]
+fn the_readme_for_agents_names_only_commands_and_flags_the_table_has() {
+    let named = spans_name_real_commands_and_flags(for_coding_agents());
     assert!(named >= 3, "the section names the three read-only commands");
 }
 
@@ -622,6 +656,45 @@ fn the_readme_for_agents_lists_the_exit_codes_of_the_table() {
     let want: Vec<&str> = EXIT_STATUS.iter().map(|(code, _)| *code).collect();
     assert_eq!(codes, want, "the exit codes in README.md");
     assert!(sentence.contains("a failed `doctor` check"), "{sentence}");
+}
+
+const SKILL: &str = include_str!("../../../../skills/sshpick/SKILL.md");
+
+#[test]
+fn the_skill_names_only_commands_and_flags_the_table_has() {
+    let named = spans_name_real_commands_and_flags(SKILL);
+    assert!(named >= 3, "the skill names the three read-only commands");
+}
+
+#[test]
+fn the_skill_has_frontmatter_and_names_every_command() {
+    assert!(SKILL.starts_with("---\nname: sshpick\n"));
+    assert!(SKILL.contains("\ndescription: "));
+    for spec in COMMANDS.iter().filter(|spec| spec.name != "help") {
+        let named = std::iter::once(spec.name)
+            .chain(spec.aliases.iter().copied())
+            .any(|word| {
+                SKILL.contains(&format!("sshpick {word}"))
+                    || spec.default && SKILL.contains(&format!("`{word}`"))
+            });
+        assert!(named, "the skill does not name {}", spec.name);
+    }
+}
+
+#[test]
+fn the_skill_lists_every_reason_and_exit_code() {
+    let documented: Vec<&str> = table_rows(SKILL, "| `reason`")
+        .iter()
+        .map(|row| row[0])
+        .collect();
+    let coded: Vec<String> = Reason::ALL.iter().map(json_name).collect();
+    assert_eq!(documented, coded, "the reason table in the skill");
+    let table = table_rows(SKILL, "| Code");
+    let codes: Vec<&str> = table.iter().map(|row| row[0]).collect();
+    let want: Vec<&str> = EXIT_STATUS.iter().map(|(code, _)| *code).collect();
+    assert_eq!(codes, want, "the exit table in the skill");
+    let error = table.iter().find(|row| row[0] == "2");
+    assert!(error.is_some_and(|row| row[1].contains("a failed `doctor` check")));
 }
 
 #[test]
