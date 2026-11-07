@@ -74,9 +74,16 @@ fn an_unknown_option_exits_two_and_names_what_is_accepted() {
 }
 
 #[test]
-fn help_and_version_exit_zero_when_stdout_closes_early() {
-    for args in [&["--help"][..], &["-V"][..], &["--list"][..]] {
-        let out = with_stdout_closed("ui", args).unwrap();
+fn read_only_commands_exit_zero_when_stdout_closes_early() {
+    for (home, args) in [
+        ("ui", &["--help"][..]),
+        ("ui", &["-V"][..]),
+        ("ui", &["--list"][..]),
+        ("inspect", &["ls", "--json"][..]),
+        ("inspect", &["inspect", "stg-consul1", "--json"][..]),
+        ("inspect", &["doctor", "--json"][..]),
+    ] {
+        let out = with_stdout_closed(home, args).unwrap();
         assert_eq!(out.status.code(), Some(0), "{args:?}");
         assert_eq!(String::from_utf8_lossy(&out.stderr), "", "{args:?}");
     }
@@ -154,6 +161,22 @@ fn a_failure_under_json_is_one_line_on_stderr(
     assert_eq!(document["status"], status);
     assert!(document["message"].is_string());
     assert_eq!(document.get("fix").is_some(), has_fix, "{text}");
+    Ok(())
+}
+
+#[test]
+fn a_config_error_under_json_is_one_line_on_stderr() -> Result<(), serde_json::Error> {
+    let out = sshpick("home")
+        .env("HOME", "/nonexistent-home")
+        .args(["ls", "--json"])
+        .assert()
+        .code(2)
+        .stdout("");
+    let text = stderr(&out);
+    assert_eq!(text.lines().count(), 1, "{text}");
+    let document: serde_json::Value = serde_json::from_str(&text)?;
+    assert_eq!(document["reason"], "config_error");
+    assert_eq!(document["status"], "error");
     Ok(())
 }
 
