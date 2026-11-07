@@ -21,11 +21,13 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
   `sshpick pick doctor` is the host.
 - `broken/.ssh/config`: one host, `stg-broken`, for which the fake `ssh -G` fails, so `doctor` has a
   failing `resolve` check.
+- `slow/.ssh/config`: one host, `stg-slow`, for which the fake `ssh -G` never answers, so `inspect`
+  times out and `doctor` warns on `resolve`.
 - `controls/.ssh/`: an ESC and a BEL in the label line, the WHAT comment and a `Host` token, so
   `--list` must print them as spaces and drop the token.
 - `bin/ssh`: stands in for `ssh` on `PATH`. `ssh -V` prints a version on stderr, as OpenSSH does.
-  `ssh -G -- host` answers like ssh (and fails for `stg-broken`); anything else prints how it was
-  called. When its stdin is a terminal it first prints `COOKED` or `RAW` on stderr, from
-  `stty -a`, for `picker_test.rs`.
+  `ssh -G -- host` answers like ssh (fails for `stg-broken`, hangs for `stg-slow`); anything
+  else prints how it was called. When its stdin is a terminal it first prints `COOKED` or `RAW`
+  on stderr, from `stty -a`, for `picker_test.rs`.
 - `bin-read-only/ssh`: answers `-V` and `-G` like `bin/ssh` and exits 99 for anything else, so
   `read_only_test.rs` fails if a read-only command asks ssh to do more than read.

@@ -52,6 +52,11 @@ impl Error {
             {
                 Some("install OpenSSH, or put `ssh` on your PATH.".to_owned())
             }
+            Error::Resolve(error) if error.is_transient() => Some(
+                "retry once; if it stays slow, time `ssh -G -- <host>` yourself: a `Match exec` or \
+                 `ProxyCommand` in the config is probably waiting on something."
+                    .to_owned(),
+            ),
             Error::Resolve(_) | Error::Write(_) => None,
         }
     }

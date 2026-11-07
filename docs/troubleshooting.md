@@ -86,10 +86,17 @@ One bad option anywhere in the config makes `ssh -G` fail for every host, so one
 to see it. Run `sshpick inspect <host>` for ssh's whole message, fix the line it names, and run
 `sshpick doctor` again.
 
-A time that is long, or `ssh -G gave no answer within 2 s`, means ssh itself is slow to read the
-config: `ssh -G` runs any `Match exec` command in it, so a command that waits on the network slows
-every host. Time `ssh -G -- <host>` yourself to confirm. A host whose answer timed out is asked
-again the next time it is selected.
+A long time, or no answer at all, means ssh itself is slow to read the config:
+
+```text
+[warn] resolve: ssh -G gave no answer for prod-web1 within 2 s; the picker shows a route once ssh -G answers; time `ssh -G -- prod-web1` to find the slow `Match exec` or `ProxyCommand`
+```
+
+`ssh -G` runs any `Match exec` command in the config, and a `ProxyCommand` or `Match exec` that
+waits on the network slows every host. Time `ssh -G -- <host>` yourself to confirm. sshpick stops
+waiting after 2 s and kills what ssh started. `sshpick inspect <host>` then exits 2 with
+`reason: timeout` under `--json`. The picker still connects, and a host whose answer timed out is
+asked again the next time it is selected.
 
 ## Colours are wrong or missing
 

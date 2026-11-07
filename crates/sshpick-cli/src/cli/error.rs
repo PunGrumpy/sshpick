@@ -64,6 +64,7 @@ pub(crate) enum Reason {
     NoHosts,
     ConfigError,
     SshFailed,
+    Timeout,
     WriteFailed,
 }
 
@@ -77,22 +78,25 @@ pub(crate) enum Status {
 impl Reason {
     /// Every reason, in the order the docs table lists them.
     #[cfg(test)]
-    pub(crate) const ALL: [Reason; 7] = [
+    pub(crate) const ALL: [Reason; 8] = [
         Reason::Usage,
         Reason::NoMatch,
         Reason::SeveralMatches,
         Reason::NoHosts,
         Reason::ConfigError,
         Reason::SshFailed,
+        Reason::Timeout,
         Reason::WriteFailed,
     ];
 
     pub(crate) fn status(self) -> Status {
         match self {
             Reason::Usage | Reason::NoMatch | Reason::SeveralMatches => Status::ActionRequired,
-            Reason::NoHosts | Reason::ConfigError | Reason::SshFailed | Reason::WriteFailed => {
-                Status::Error
-            }
+            Reason::NoHosts
+            | Reason::ConfigError
+            | Reason::SshFailed
+            | Reason::Timeout
+            | Reason::WriteFailed => Status::Error,
         }
     }
 }
@@ -136,6 +140,9 @@ impl Error {
             | Error::Inspect(inspect::Error::Several { .. }) => Reason::SeveralMatches,
             Error::NoHosts { .. } => Reason::NoHosts,
             Error::Load(_) | Error::NoHome => Reason::ConfigError,
+            Error::Inspect(inspect::Error::Resolve(error)) if error.is_transient() => {
+                Reason::Timeout
+            }
             Error::Inspect(inspect::Error::Resolve(_))
             | Error::Pick(pick::Error::Exec(_) | pick::Error::Previews(_)) => Reason::SshFailed,
             Error::Stdout(_)

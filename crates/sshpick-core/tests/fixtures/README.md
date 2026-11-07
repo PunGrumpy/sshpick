@@ -7,4 +7,7 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
 - `deep/.ssh/`: `config` includes `chain/d01.conf`, which includes `d02.conf`, and so on to
   `d17.conf`. ssh reads `d01` to `d16` and is fatal at `d17`; sshpick lists `h01` to `h16` and warns.
 - `bin/`: fake `ssh` programs for `ssh::resolve` and `Previews` tests. `ssh-hang-pid` writes its
-  pid to the file named by the host, then hangs.
+  pid to the file named by the host, then hangs. `ssh-orphan-pid` answers at once but leaves a
+  `sleep` holding stdout; `ssh-hang-child-pid` never answers and waits on a `sleep`. Both write
+  that `sleep`'s pid to the file named by the host. `ssh-setsid-pid` answers at once but leaves a
+  `sleep` in a new session holding stdout, out of reach of a group kill, and writes its pid there.

@@ -276,7 +276,8 @@ fn io_error() -> io::Error {
 #[test_case(no_hosts(), "no_hosts", "error"; "no hosts")]
 #[test_case(Error::NoHome, "config_error", "error"; "no home")]
 #[test_case(Error::Load(sshpick_core::load(std::path::Path::new("/nonexistent-home")).unwrap_err()), "config_error", "error"; "load")]
-#[test_case(Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Timeout)), "ssh_failed", "error"; "ssh -G failed")]
+#[test_case(Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Ssh { code: Some(255), stderr: String::new() })), "ssh_failed", "error"; "ssh -G failed")]
+#[test_case(Error::Inspect(inspect::Error::Resolve(sshpick_core::ResolveError::Timeout)), "timeout", "error"; "ssh -G timed out")]
 #[test_case(Error::Pick(pick::Error::Exec(io_error())), "ssh_failed", "error"; "exec failed")]
 #[test_case(Error::Pick(pick::Error::Previews(io_error())), "ssh_failed", "error"; "previews")]
 #[test_case(Error::Stdout(io_error()), "write_failed", "error"; "stdout")]
@@ -395,6 +396,7 @@ fn every_reason_is_in_all() {
             | Reason::NoHosts
             | Reason::ConfigError
             | Reason::SshFailed
+            | Reason::Timeout
             | Reason::WriteFailed => {}
         }
     }
