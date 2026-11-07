@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use nix::sys::signal::{Signal, killpg};
+use nix::sys::signal::{self, Signal};
 use nix::unistd::Pid;
 
 use crate::config::{Host, printable};
@@ -274,10 +274,10 @@ fn collect(reader: mpsc::Receiver<Vec<u8>>, deadline: Instant, child: &Child) ->
 }
 
 /// Kill ssh and everything it started (a `Match exec` child, a backgrounded helper). The group
-/// id is the child's pid because of `process_group(0)`.
+/// id is the child's pid because `run` makes it the leader of a new group.
 fn kill_group(child: &Child) {
     if let Ok(pid) = i32::try_from(child.id()) {
-        let _ = killpg(Pid::from_raw(pid), Signal::SIGKILL);
+        let _ = signal::killpg(Pid::from_raw(pid), Signal::SIGKILL);
     }
 }
 
