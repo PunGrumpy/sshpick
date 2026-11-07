@@ -141,6 +141,7 @@ fn a_read_only_command_leaves_stderr_empty(args: &[&str]) {
 #[test_case("inspect", &["inspect", "zzz", "--json"], 1, "no_match", "action_required", true; "no match")]
 #[test_case("inspect", &["inspect", "consul", "--json"], 2, "several_matches", "action_required", true; "several matches")]
 #[test_case("inspect", &["inspect", "stg-broken", "--json"], 2, "ssh_failed", "error", false; "ssh -G failed")]
+#[test_case("slow", &["inspect", "stg-slow", "--json"], 2, "timeout", "error", true; "ssh -G timed out")]
 #[test_case("empty", &["ls", "--json"], 2, "no_hosts", "error", true; "no hosts")]
 #[test_case("home", &["pick", "--json"], 2, "usage", "action_required", true; "pick has no json")]
 #[test_case("home", &["help", "nosuch", "--json"], 2, "usage", "action_required", true; "help for an unknown command")]

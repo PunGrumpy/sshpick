@@ -72,6 +72,18 @@ fn a_failing_ssh_g_for_the_first_host_fails_resolve() {
 }
 
 #[test]
+fn an_ssh_g_that_gives_no_answer_warns_with_a_fix_and_exits_zero() {
+    let json = report_as_json("slow", 0);
+    let checks = json["checks"].as_array().unwrap();
+    let resolve = checks
+        .iter()
+        .find(|check| check["name"] == "resolve")
+        .unwrap();
+    assert_eq!(resolve["status"], "warn", "{resolve}");
+    assert!(resolve["fix"].is_string(), "{resolve}");
+}
+
+#[test]
 fn a_missing_ssh_fails_the_ssh_check_and_leaves_resolve_out() {
     let out = sshpick("ui")
         .arg("doctor")

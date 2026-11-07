@@ -4,6 +4,9 @@ if [ "$1" = "-V" ]; then
   exit 0
 fi
 if [ "$1" = "-G" ]; then
+  if [ "$3" = "stg-slow" ]; then
+    exec sleep 30
+  fi
   if [ "$3" = "stg-broken" ]; then
     echo "Pseudo-terminal will not be allocated because stdin is not a terminal." >&2
     echo "/home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus" >&2
