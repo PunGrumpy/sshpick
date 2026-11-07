@@ -13,11 +13,17 @@ each host really goes. It runs on macOS and Linux.
 
 ## Getting Started
 
-To install sshpick and its short name `sp`, run this command:
+Download the archive for your platform from the
+[latest release](https://github.com/PunGrumpy/sshpick/releases/latest), check it against the
+`.sha256` file beside it, and put `sshpick` and its short name `sp` on your `PATH`. Or build it with
+cargo (Rust 1.99 or newer):
 
 ```bash
-cargo install --locked --git https://github.com/PunGrumpy/sshpick sshpick
+cargo install --locked --git https://github.com/PunGrumpy/sshpick --tag v0.2.0 sshpick
 ```
+
+`sshpick --version` prints the version you have. To upgrade, download the new archive, or run the
+install command again with the new tag and `--force`.
 
 Then pick a host:
 
