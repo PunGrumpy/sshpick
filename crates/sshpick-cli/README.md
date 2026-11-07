@@ -29,10 +29,11 @@ sshpick-cli
 
 ## Notes
 
-Add a command or flag to `cli/spec.rs` first: parsing, `--help`, the root command list and
-`sshpick help <command>` all read it. The first positional word selects a command when it names
-one (`pick`, `list`, `ls`, `inspect`, `doctor`, `help`); anything else is `pick`'s query, and `--`
-ends options.
+Add a command or flag to `cli/spec.rs` first: `--help`, the root command list, `sshpick help
+<command>`, typo suggestions and the tests that compare the docs tables with the code all read it.
+Parsing still needs an arm in `cli/args.rs`. The first positional word selects a command when it
+names one (`pick`, `list`, `ls`, `inspect`, `doctor`, `help`); anything else is `pick`'s query, and
+`--` ends options.
 
 Cancel (130), a quiet no-match (1) and a failed `doctor` check (2) come back as `Ok(code)`, the way
 turbo returns `Ok(exit_code)`: the result is printed and then the code speaks, with nothing on
