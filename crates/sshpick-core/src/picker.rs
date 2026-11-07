@@ -34,9 +34,13 @@ pub enum Outcome {
     NoMatch,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum Resolution<'a> {
-    One(&'a Host),
+    /// Exactly one entry has a name or alias equal to the whole query, or the query is empty and
+    /// the config has one host. Safe to act on without asking.
+    One(&'a Entry),
+    /// Exactly one entry matches, but only fuzzily: no name equals the query.
+    Loose(&'a Entry),
     NoMatch,
     Many(usize),
 }
@@ -99,13 +103,24 @@ impl Picker {
         }
     }
 
-    /// What the query settles before any terminal is touched: fzf's `--select-1` when exactly one
-    /// entry matches, applied to any query, the empty one included (a one-host config).
+    /// What the query settles before any terminal is touched. A query equal to exactly one host's
+    /// name or alias is that host, whatever else matches (`ssh web` goes to `web`, not `web-2`).
+    /// Otherwise fzf's `--select-1`: one match is `Loose`, except under the empty query, where a
+    /// one-host config leaves nothing to guess.
     pub fn resolve(&self) -> Resolution<'_> {
-        match (&self.matches, self.matches.len()) {
-            (Matches::Some { current, .. }, 1) => Resolution::One(&self.ranker.entry(current).host),
-            (Matches::Some { .. }, count) => Resolution::Many(count),
-            (Matches::None, _) => Resolution::NoMatch,
+        let listing = self.listing();
+        let mut named = listing
+            .iter()
+            .copied()
+            .filter(|entry| entry.names().any(|name| name == self.query));
+        if let (Some(entry), None) = (named.next(), named.next()) {
+            return Resolution::One(entry);
+        }
+        match listing[..] {
+            [] => Resolution::NoMatch,
+            [entry] if self.query.is_empty() => Resolution::One(entry),
+            [entry] => Resolution::Loose(entry),
+            _ => Resolution::Many(listing.len()),
         }
     }
 
@@ -333,20 +348,27 @@ fn delete_word(query: &mut String) {
 
 #[cfg(test)]
 mod tests {
+    use test_case::test_case;
+
     use super::*;
 
     fn run(text: &str, matched: bool) -> Run<'_> {
         Run { text, matched }
     }
 
+    /// One entry per `"host alias... # comment"`; the aliases and the comment are optional.
     fn entries(hosts: &[&str]) -> Vec<Entry> {
         hosts
             .iter()
-            .map(|host| Entry {
-                env: "E".to_owned(),
-                host: Host::literal(host).unwrap(),
-                what: String::new(),
-                aliases: Vec::new(),
+            .map(|line| {
+                let (names, what) = line.split_once(" # ").unwrap_or((line, ""));
+                let mut names = names.split(' ');
+                Entry {
+                    env: "E".to_owned(),
+                    host: Host::literal(names.next().unwrap()).unwrap(),
+                    what: what.to_owned(),
+                    aliases: names.map(str::to_owned).collect(),
+                }
             })
             .collect()
     }
@@ -527,20 +549,23 @@ mod tests {
         assert_eq!(selected(&picker), "b");
     }
 
-    #[test]
-    fn resolve_settles_a_query_without_the_picker() {
-        let resolved =
-            |hosts: &[&str], query: &str| match Picker::new(entries(hosts), query).resolve() {
-                Resolution::One(host) => format!("one {host}"),
-                Resolution::NoMatch => "none".to_owned(),
-                Resolution::Many(count) => format!("many {count}"),
-            };
-        assert_eq!(resolved(&["a"], ""), "one a", "a one-host config");
-        assert_eq!(resolved(&["a", "b"], ""), "many 2");
-        assert_eq!(resolved(&["a", "b"], "b"), "one b");
-        assert_eq!(resolved(&["a", "b"], "zz"), "none");
-        assert_eq!(resolved(&[], ""), "none");
-        assert_eq!(resolved(&["web1", "web2", "db"], "web"), "many 2");
+    #[test_case(&["a"], "" => "one a"; "a one-host config")]
+    #[test_case(&["a", "b"], "" => "many 2"; "empty query and two hosts")]
+    #[test_case(&["a", "b"], "b" => "one b"; "exact name")]
+    #[test_case(&["a", "b"], "zz" => "none"; "no match")]
+    #[test_case(&[], "" => "none"; "no hosts")]
+    #[test_case(&["web", "web-2", "db"], "web" => "one web"; "exact beats a prefix match")]
+    #[test_case(&["web1", "web2", "db"], "web" => "many 2"; "two loose matches")]
+    #[test_case(&["stg-consul1 consul1.stg", "other"], "consul1.stg" => "one stg-consul1"; "alias")]
+    #[test_case(&["db-prod # Postgres primary", "web"], "db-stg" => "loose db-prod"; "only through the comment")]
+    #[test_case(&["web", "web"], "web" => "many 2"; "two entries share the name")]
+    fn resolve_settles_a_query_without_the_picker(hosts: &[&str], query: &str) -> String {
+        match Picker::new(entries(hosts), query).resolve() {
+            Resolution::One(entry) => format!("one {}", entry.host),
+            Resolution::Loose(entry) => format!("loose {}", entry.host),
+            Resolution::NoMatch => "none".to_owned(),
+            Resolution::Many(count) => format!("many {count}"),
+        }
     }
 
     #[test]
@@ -550,7 +575,7 @@ mod tests {
         picker.handle(Key::Down);
         assert!(matches!(picker.resolve(), Resolution::Many(3)));
         type_text(&mut picker, "c");
-        assert!(matches!(picker.resolve(), Resolution::One(host) if host.as_str() == "c"));
+        assert!(matches!(picker.resolve(), Resolution::One(entry) if entry.host.as_str() == "c"));
     }
 
     #[test]
