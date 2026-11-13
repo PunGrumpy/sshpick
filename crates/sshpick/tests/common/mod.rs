@@ -25,7 +25,10 @@ pub fn isolated(program: &str, home: &str) -> process::Command {
         std::env::var("PATH").unwrap_or_default()
     );
     let mut command = process::Command::new(program);
-    command.env("HOME", fixtures().join(home)).env("PATH", path);
+    command
+        .env("HOME", fixtures().join(home))
+        .env("PATH", path)
+        .env("XDG_STATE_HOME", unused_state());
     for name in ["NO_COLOR", "CLICOLOR_FORCE", "COLUMNS", "TERM"] {
         command.env_remove(name);
     }
@@ -35,6 +38,12 @@ pub fn isolated(program: &str, home: &str) -> process::Command {
         }
     }
     command
+}
+
+/// Where a run keeps its history unless the test says otherwise. Nothing is ever created there:
+/// without a terminal sshpick records nothing, and a test that needs a terminal brings its own.
+fn unused_state() -> PathBuf {
+    std::env::temp_dir().join(format!("sshpick-no-state-{}", process::id()))
 }
 
 /// What the command wrote to stderr, with the fixture directory replaced so a snapshot does not

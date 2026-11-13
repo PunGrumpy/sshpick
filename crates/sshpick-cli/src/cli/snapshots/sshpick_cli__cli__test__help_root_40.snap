@@ -41,6 +41,11 @@ sshpick [version]
   TERM            dumb: no color or
                   bold, and the picker
                   will not open
+  XDG_STATE_HOME  An absolute path;
+                  recent hosts are kept
+                  in sshpick/history
+                  under it (default
+                  ~/.local/state)
 
   Exit Status:
   0    Success; after a pick, ssh's own
