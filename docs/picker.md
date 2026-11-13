@@ -52,6 +52,46 @@ closes.
 A picker that is killed (SIGINT, SIGTERM, SIGHUP or SIGQUIT) gives the shell its screen back and
 puts the terminal back first, then ends by that signal, so the shell sees 130, 143, 129 or 131.
 
+## Recent hosts
+
+The picker remembers the hosts you connect to. With an empty filter they come first, the latest
+first, and the rest follow in the order of the config. In a terminal of 80 by 12, after connecting
+to `newstg-consul1` two hours ago and to `lab-b` three days ago:
+
+```text
+~/work $ sp
+> type to filter                                                             5/5
+  ENV         HOST           LAST WHAT
+▌ NEW STAGING newstg-consul1   2h consul server 1 — mgmt
+  LAB         lab-b            3d build box
+  LAB         lab-a               LAB — personal VMs
+  NEW STAGING newstg-consul2
+  NEW STAGING newstg-bastion      bastion
+
+
+
+  → ubuntu@10.11.212.191:22 via newstg-bastion
+  ↑↓ move   enter ssh   esc quit   ? keys
+```
+
+With a query the best match is still first. Last use only orders hosts that match equally well, so
+`consul` across five ENV files opens on the consul host you used last. LAST says how long ago that
+was: `now`, `5m`, `2h`, `3d`, `6w` or `1y`.
+
+| You want                                     | Keys                                  |
+|----------------------------------------------|---------------------------------------|
+| the host you used last                       | Enter                                 |
+| the second or third host you used            | Down, Enter. Down, Down, Enter        |
+| the consul host you used last, among many    | `sp consul`, then Enter               |
+
+History changes the order and nothing else. Which hosts match, how many, and whether a query
+connects at once are the same with or without it.
+
+A host is remembered when you connect at a terminal: with Enter, with an exact name, or with a
+query that matches one host. `--non-interactive`, a pipe and `TERM=dumb` remember nothing, and
+`ls`, `inspect` and `doctor` never look. [Configuration](configuration.md#recent-hosts) says where
+the history is kept and how to forget it.
+
 ## Appearance
 
 The picker takes the alternate screen: the whole window, with the shell's screen and scrollback
@@ -103,13 +143,14 @@ a terminal of 100 by 12:
   ↑↓ move   enter ssh   esc quit   F1 keys
 ```
 
-The selected row is reversed video with a `▌` marker. Matched characters are bold. ENV, WHAT,
-the header, the count, the arrow and the words `via` and `runs`, the hint row, and the panel's
+The selected row is reversed video with a `▌` marker. Matched characters are bold. ENV, LAST,
+WHAT, the header, the count, the arrow and the words `via` and `runs`, the hint row, and the panel's
 rule and keys are dim. Nothing has a colour, so `NO_COLOR` has nothing to remove here.
 
 When nothing matches, the first list row shows a dim `no matching hosts`. An empty prompt shows
 a dim `type to filter`. A WHAT wider than its column ends in `…`, and one too narrow for more
-than that is left out. HOST and ENV are never cut.
+than that is left out. HOST and ENV are never cut. LAST is drawn once some host has history, right
+aligned between HOST and WHAT. It is left out before WHAT is.
 
 A shorter terminal gets fewer rows of the same screen, never another layout: the header goes
 first, then the route row, then hosts, and the hint row with `enter` and `esc` outlasts every host

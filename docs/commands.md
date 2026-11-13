@@ -40,6 +40,9 @@ case-sensitive).
 | `1$`     | suffix                   |
 | `!ui`    | rows without `ui`        |
 
+Hosts that match equally well are listed with the one you connected to last first. `ls` does not
+do this.
+
 A query equal to one host's name or alias selects that host, even when it also matches other rows.
 Any other query that leaves one row connects on a terminal, and exits 1 under `--non-interactive`.
 

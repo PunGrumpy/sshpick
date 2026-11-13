@@ -1,7 +1,7 @@
 # sshpick documentation
 
-- [Configuration](configuration.md): where the ENV, HOST and WHAT columns come from, and the two
-  comment conventions that fill them.
+- [Configuration](configuration.md): where the ENV, HOST, WHAT and LAST columns come from, the two
+  comment conventions that fill them, and where recent hosts are kept.
 - [Commands](commands.md): `pick`, `ls`, `inspect`, `doctor`, `help`, the global options and the
   search syntax.
 - [Picker](picker.md): the keys and what each part of the screen means.

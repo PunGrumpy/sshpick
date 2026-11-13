@@ -210,6 +210,14 @@ mod tests {
             Some(wide.iter().map(String::as_str).collect()),
             "the panel"
         );
+
+        let (screen, mut picker) = setup_with("ui", "", &recently_used());
+        let recent = render(&mut terminal(80, 12), &screen, &mut picker, &ready());
+        assert_eq!(
+            sample(&text, "~/work $ sp"),
+            Some(recent.iter().map(String::as_str).collect()),
+            "recent hosts"
+        );
     }
 
     #[test]

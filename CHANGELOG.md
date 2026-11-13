@@ -6,6 +6,12 @@ the top versioned section as the release notes.
 
 ## [Unreleased]
 
+### Added
+
+- The picker remembers the hosts you connect to at a terminal. It lists them first with an empty
+  filter, breaks ties between equal matches by last use, and shows when in a dim LAST column.
+  `XDG_STATE_HOME` moves the history from `~/.local/state/sshpick`.
+
 ## [0.2.0] - 2026-11-08
 
 The first tagged release. Everything before it was installed from `main`.
