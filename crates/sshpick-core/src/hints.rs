@@ -104,11 +104,13 @@ mod tests {
                 .map(|_| Row {
                     env: Vec::new(),
                     host: Vec::new(),
+                    last: "",
                     what: Vec::new(),
                     selected: false,
                 })
                 .collect(),
             help,
+            recents: false,
         }
     }
 

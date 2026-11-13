@@ -53,6 +53,7 @@ mod tests {
 
     use super::*;
     use crate::config::{Entry, Host};
+    use crate::history::Recents;
     use crate::picker::{Key, Picker};
 
     fn picker(query: &str) -> Picker {
@@ -65,7 +66,7 @@ mod tests {
                 aliases: Vec::new(),
             })
             .collect();
-        let mut picker = Picker::new(entries, query);
+        let mut picker = Picker::new(entries, query, &Recents::none());
         picker.handle(Key::Down);
         picker
     }

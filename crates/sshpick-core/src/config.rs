@@ -354,7 +354,7 @@ pub fn printable(text: &str) -> String {
         .collect()
 }
 
-fn shown(path: &Path) -> String {
+pub(crate) fn shown(path: &Path) -> String {
     printable(&path.to_string_lossy())
 }
 

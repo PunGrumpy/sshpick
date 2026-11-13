@@ -4,7 +4,7 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Cell;
 use ratatui::style::Modifier;
-use sshpick_core::{Entry, Picker, Preview, Slot};
+use sshpick_core::{Entry, Picker, Preview, Recents, Slot};
 
 use super::plan::{Plan, Space};
 use super::screen::Screen;
@@ -18,7 +18,10 @@ pub(super) fn entries(home: &str) -> Vec<Entry> {
 
 pub(super) fn setup(home: &str, query: &str) -> (Screen, Picker) {
     let entries = entries(home);
-    (Screen::new(&entries), Picker::new(entries, query))
+    (
+        Screen::new(&entries),
+        Picker::new(entries, query, &Recents::none()),
+    )
 }
 
 /// The picker in a terminal of a given size. A new plan starts a new backend, so that ratatui

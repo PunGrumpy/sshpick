@@ -2,6 +2,7 @@ use std::mem;
 use std::ops::Range;
 
 use crate::config::{Entry, Host};
+use crate::history::Recents;
 use crate::rank::{Match, Ranker};
 
 pub struct Picker {
@@ -56,6 +57,9 @@ pub struct View<'a> {
     /// `--layout=reverse`). Exactly one is `selected` unless nothing matched.
     pub rows: Vec<Row<'a>>,
     pub help: bool,
+    /// Some host, matched or not, has a last use, so LAST has something to show. Fixed for the
+    /// session: the column never appears or disappears as the query changes.
+    pub recents: bool,
 }
 
 impl View<'_> {
@@ -76,6 +80,8 @@ pub struct Run<'a> {
 pub struct Row<'a> {
     pub env: Vec<Run<'a>>,
     pub host: Vec<Run<'a>>,
+    /// `2h`, or `""` for a host never connected to. Not searchable, so never matched.
+    pub last: &'a str,
     pub what: Vec<Run<'a>>,
     pub selected: bool,
 }
@@ -91,8 +97,8 @@ enum Matches {
 }
 
 impl Picker {
-    pub fn new(entries: Vec<Entry>, query: &str) -> Picker {
-        let mut ranker = Ranker::new(entries);
+    pub fn new(entries: Vec<Entry>, query: &str, recents: &Recents) -> Picker {
+        let mut ranker = Ranker::new(entries, recents);
         let matches = Matches::best_first(ranker.rank(query));
         Picker {
             ranker,
@@ -132,7 +138,7 @@ impl Picker {
     }
 
     /// Every match, best first, in the order [`Picker::view`] draws them top to bottom. The cursor
-    /// and scroll do not move it; an empty query keeps file order.
+    /// and scroll do not move it; with `Recents::none()` an empty query keeps file order.
     pub fn listing(&self) -> Vec<&Entry> {
         self.matches
             .ranked()
@@ -195,6 +201,7 @@ impl Picker {
                 Row {
                     env: runs(&entry.env, &found.hits.env),
                     host: runs(entry.host.as_str(), &found.hits.host),
+                    last: self.ranker.ago(found),
                     what: runs(&entry.what, &found.hits.what),
                     selected,
                 }
@@ -207,6 +214,7 @@ impl Picker {
             above: self.scroll,
             rows,
             help: self.help,
+            recents: self.ranker.remembers(),
         }
     }
 
@@ -348,6 +356,8 @@ fn delete_word(query: &mut String) {
 
 #[cfg(test)]
 mod tests {
+    use std::time::{Duration, UNIX_EPOCH};
+
     use test_case::test_case;
 
     use super::*;
@@ -374,7 +384,7 @@ mod tests {
     }
 
     fn picker(hosts: &[&str]) -> Picker {
-        Picker::new(entries(hosts), "")
+        Picker::new(entries(hosts), "", &Recents::none())
     }
 
     fn type_text(picker: &mut Picker, text: &str) {
@@ -560,7 +570,7 @@ mod tests {
     #[test_case(&["db-prod # Postgres primary", "web"], "db-stg" => "loose db-prod"; "only through the comment")]
     #[test_case(&["web", "web"], "web" => "many 2"; "two entries share the name")]
     fn resolve_settles_a_query_without_the_picker(hosts: &[&str], query: &str) -> String {
-        match Picker::new(entries(hosts), query).resolve() {
+        match Picker::new(entries(hosts), query, &Recents::none()).resolve() {
             Resolution::One(entry) => format!("one {}", entry.host),
             Resolution::Loose(entry) => format!("loose {}", entry.host),
             Resolution::NoMatch => "none".to_owned(),
@@ -605,12 +615,85 @@ mod tests {
         assert!(picker.listing().is_empty());
     }
 
+    fn recents(names: &[(&str, u64)]) -> Recents {
+        let now = UNIX_EPOCH + Duration::from_secs(1_794_556_800);
+        Recents::of(
+            names
+                .iter()
+                .map(|&(name, ago)| (name, now - Duration::from_secs(ago))),
+            now,
+        )
+    }
+
+    #[test]
+    fn the_cursor_starts_on_the_host_used_last_and_the_rows_say_when() {
+        let used = recents(&[("c", 7200), ("b", 60)]);
+        let mut picker = Picker::new(entries(&["a", "b", "c"]), "", &used);
+        assert_eq!(selected(&picker), "b");
+        picker.follow(10);
+        let view = picker.view(10);
+        assert!(view.recents);
+        let rows: Vec<_> = view.rows.iter().map(|row| row.last).collect();
+        assert_eq!(rows, ["1m", "2h", ""]);
+        assert_eq!(drawn(&mut picker, 10).0, ["b", "c", "a"]);
+    }
+
+    #[test]
+    fn the_view_has_no_age_when_no_host_has_one() {
+        let mut picker = picker(&["a", "b"]);
+        picker.follow(10);
+        let view = picker.view(10);
+        assert!(!view.recents);
+        assert!(view.rows.iter().all(|row| row.last.is_empty()));
+        let other = Picker::new(entries(&["a", "b"]), "", &recents(&[("gone", 5)]));
+        assert!(!other.view(10).recents, "a name no host has is no history");
+    }
+
+    #[test]
+    fn the_age_column_is_there_for_the_whole_session_whatever_the_query() {
+        let used = recents(&[("b", 60)]);
+        let mut picker = Picker::new(entries(&["a", "b"]), "", &used);
+        type_text(&mut picker, "a");
+        let view = picker.view(10);
+        assert!(view.recents, "no matched row has an age, the column stays");
+        assert!(view.rows.iter().all(|row| row.last.is_empty()));
+    }
+
+    #[test_case(""; "empty")]
+    #[test_case("web"; "a prefix")]
+    #[test_case("web-2"; "an exact name")]
+    #[test_case("db"; "one loose match")]
+    #[test_case("zz"; "nothing")]
+    fn history_changes_the_order_and_never_what_resolve_says(query: &str) {
+        let hosts = ["web", "web-2", "web-3", "db"];
+        let used = recents(&[("web-3", 5), ("db", 9)]);
+        let with = Picker::new(entries(&hosts), query, &used);
+        let without = Picker::new(entries(&hosts), query, &Recents::none());
+        let shape = |picker: &Picker| match picker.resolve() {
+            Resolution::One(entry) => format!("one {}", entry.host),
+            Resolution::Loose(entry) => format!("loose {}", entry.host),
+            Resolution::NoMatch => "none".to_owned(),
+            Resolution::Many(count) => format!("many {count}"),
+        };
+        assert_eq!(shape(&with), shape(&without));
+        let sorted = |picker: &Picker| {
+            let mut names: Vec<String> = picker
+                .listing()
+                .iter()
+                .map(|e| e.host.to_string())
+                .collect();
+            names.sort();
+            names
+        };
+        assert_eq!(sorted(&with), sorted(&without));
+    }
+
     #[test]
     fn listing_is_the_view_order_read_top_down() {
         let names: Vec<String> = (0..12).map(|n| format!("h{n:02}")).collect();
         let names: Vec<&str> = names.iter().map(String::as_str).collect();
         for query in ["", "h1", "'h0", "!h0"] {
-            let mut picker = Picker::new(entries(&names), query);
+            let mut picker = Picker::new(entries(&names), query, &Recents::none());
             for _ in 0..3 {
                 picker.handle(Key::Down);
             }
@@ -737,7 +820,7 @@ mod tests {
             what: "build box".to_owned(),
             aliases: Vec::new(),
         };
-        let picker = Picker::new(vec![entry], "^lab box");
+        let picker = Picker::new(vec![entry], "^lab box", &Recents::none());
         let view = picker.view(3);
         assert_eq!((view.matched, view.total, view.query), (1, 1, "^lab box"));
         let row = &view.rows[0];

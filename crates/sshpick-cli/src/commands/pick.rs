@@ -1,6 +1,6 @@
 use std::io;
 
-use sshpick_core::{Host, Outcome, Picker, Previews, Refusal, Resolution};
+use sshpick_core::{Host, Outcome, Picker, Previews, Recents, Refusal, Resolution};
 use sshpick_ui::Screen;
 
 use super::{CommandBase, did_you_mean, interaction, shell_words};
@@ -65,7 +65,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     let loaded = base.load()?;
     base.warn_all(&loaded.warnings);
     let screen = Screen::new(&loaded.entries);
-    let mut picker = Picker::new(loaded.entries, query);
+    let mut picker = Picker::new(loaded.entries, query, &Recents::none());
     let refusal = sshpick_core::refusal(&interaction(base.non_interactive));
     match (picker.resolve(), refusal) {
         (Resolution::One(entry), _) => return exec(base, &entry.host),
