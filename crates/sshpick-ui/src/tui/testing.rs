@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::time::{Duration, UNIX_EPOCH};
 
 use ratatui::Terminal;
 use ratatui::backend::TestBackend;
@@ -17,10 +18,23 @@ pub(super) fn entries(home: &str) -> Vec<Entry> {
 }
 
 pub(super) fn setup(home: &str, query: &str) -> (Screen, Picker) {
+    setup_with(home, query, &Recents::none())
+}
+
+pub(super) fn setup_with(home: &str, query: &str, recents: &Recents) -> (Screen, Picker) {
     let entries = entries(home);
-    (
-        Screen::new(&entries),
-        Picker::new(entries, query, &Recents::none()),
+    (Screen::new(&entries), Picker::new(entries, query, recents))
+}
+
+/// Two hours ago `newstg-consul1`, three days ago `lab-b`, as of a fixed instant.
+pub(super) fn recently_used() -> Recents {
+    let now = UNIX_EPOCH + Duration::from_secs(1_794_556_800);
+    Recents::of(
+        [
+            ("newstg-consul1", now - Duration::from_secs(2 * 3600)),
+            ("lab-b", now - Duration::from_secs(3 * 86_400)),
+        ],
+        now,
     )
 }
 

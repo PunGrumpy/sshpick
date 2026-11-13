@@ -12,6 +12,10 @@ const MARKER: &str = "▌ ";
 const GUTTER: &str = "  ";
 const COLUMN_SPACING: u16 = 1;
 
+const LAST: &str = "LAST";
+/// `now`, `59m`, `23h`, `13d`, `52w` and `99y` all fit in the title's width.
+const LAST_WIDTH: u16 = 4;
+
 const PLACEHOLDER: &str = "type to filter";
 const NO_MATCH: &str = "no matching hosts";
 /// Narrower than this, WHAT would be little more than its `…`, so it is left out.
@@ -41,20 +45,20 @@ impl HostTable {
             }
             return;
         }
-        let what_width = match self.what_width(area.width) {
-            narrow if narrow < MIN_WHAT => 0,
-            width => width,
-        };
+        let shown = self.fit(area.width, view);
         let table_rows = view.rows.iter().map(|row| {
-            let what = fit(&row.what, what_width);
+            let what = fit(&row.what, shown.what);
             let columns = [
                 (self.env > 0).then(|| cell(&row.env, DIM)),
                 Some(cell(&row.host, Style::new())),
+                shown
+                    .last
+                    .then(|| Line::styled(row.last, DIM).right_aligned()),
                 Some(cell(&what, DIM)),
             ];
             TableRow::new(columns.into_iter().flatten())
         });
-        let table = Table::new(table_rows, self.widths())
+        let table = Table::new(table_rows, self.widths(shown.last))
             .column_spacing(COLUMN_SPACING)
             .highlight_symbol(MARKER)
             .highlight_spacing(HighlightSpacing::Always)
@@ -63,34 +67,69 @@ impl HostTable {
         frame.render_stateful_widget(table, area, &mut TableState::new().with_selected(selected));
     }
 
-    pub(super) fn header(&self, frame: &mut Frame, area: Rect) {
-        let titles = TITLES.into_iter().skip(usize::from(self.env == 0));
-        let table = Table::new(Vec::<TableRow>::new(), self.widths())
-            .header(TableRow::new(titles).style(DIM))
+    pub(super) fn header(&self, frame: &mut Frame, area: Rect, view: &View<'_>) {
+        let shown = self.fit(area.width, view);
+        let titles = [
+            (self.env > 0).then_some(TITLES[0]),
+            Some(TITLES[1]),
+            shown.last.then_some(LAST),
+            Some(TITLES[2]),
+        ];
+        let table = Table::new(Vec::<TableRow>::new(), self.widths(shown.last))
+            .header(TableRow::new(titles.into_iter().flatten()).style(DIM))
             .column_spacing(COLUMN_SPACING)
             .highlight_symbol(GUTTER)
             .highlight_spacing(HighlightSpacing::Always);
         frame.render_widget(table, area);
     }
 
-    fn widths(&self) -> Vec<Constraint> {
-        let env = (self.env > 0).then_some(Constraint::Length(self.env));
-        env.into_iter()
-            .chain([Constraint::Length(self.host), Constraint::Fill(1)])
-            .collect()
+    fn widths(&self, last: bool) -> Vec<Constraint> {
+        [
+            (self.env > 0).then_some(Constraint::Length(self.env)),
+            Some(Constraint::Length(self.host)),
+            last.then_some(Constraint::Length(LAST_WIDTH)),
+            Some(Constraint::Fill(1)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect()
+    }
+
+    /// ENV, HOST, LAST, WHAT. LAST is drawn when some host has a last use and WHAT keeps
+    /// `MIN_WHAT` columns beside it. Otherwise LAST gives its columns back, and only then can
+    /// WHAT go.
+    fn fit(&self, total: u16, view: &View<'_>) -> Fit {
+        let beside = self.what_width(total, view.recents);
+        if view.recents && beside >= MIN_WHAT {
+            return Fit {
+                last: true,
+                what: beside,
+            };
+        }
+        let alone = self.what_width(total, false);
+        Fit {
+            last: false,
+            what: if alone < MIN_WHAT { 0 } else { alone },
+        }
     }
 
     // The Table resolves its columns the same way; the cut must land on the column's edge.
-    fn what_width(&self, total: u16) -> usize {
+    fn what_width(&self, total: u16, last: bool) -> usize {
         let [_, columns] =
             Layout::horizontal([Constraint::Length(width(MARKER)), Constraint::Fill(0)])
                 .areas(Rect::new(0, 0, total, 1));
-        Layout::horizontal(self.widths())
+        Layout::horizontal(self.widths(last))
             .spacing(COLUMN_SPACING)
             .split(columns)
             .last()
             .map_or(0, |what| usize::from(what.width))
     }
+}
+
+struct Fit {
+    last: bool,
+    /// 0 when WHAT is left out.
+    what: usize,
 }
 
 pub(super) fn prompt_row(frame: &mut Frame, area: Rect, view: &View<'_>, selection: Option<&str>) {

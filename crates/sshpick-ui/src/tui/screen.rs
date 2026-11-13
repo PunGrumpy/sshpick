@@ -60,7 +60,7 @@ impl Screen {
             .map(|host| host.as_str());
         prompt_row(frame, prompt, &view, selection);
         self.table.list(frame, list, &view);
-        self.table.header(frame, header);
+        self.table.header(frame, header, &view);
         route::row(frame, route_area, slot);
         if plan.panel {
             let selected = picker.selected().zip(slot);
@@ -81,7 +81,8 @@ mod tests {
     use test_case::test_case;
 
     use crate::tui::testing::{
-        bold, cell, dim, frame, ready, render, reversed, setup, styles, terminal,
+        bold, cell, dim, frame, ready, recently_used, render, reversed, setup, setup_with, styles,
+        terminal,
     };
 
     const KEYS: &str = "  ↑↓ move   enter ssh   esc quit   ? keys";
@@ -101,6 +102,80 @@ mod tests {
         assert_snapshot!("consul_80x24", frame(&lines));
         assert_snapshot!("consul_80x24_styles", styles(&consul));
         consul.backend_mut().assert_cursor_position((2 + 6, 0));
+    }
+
+    #[test]
+    fn recent_hosts_come_first_under_a_dim_right_aligned_last_column() {
+        let (screen, mut picker) = setup_with("ui", "", &recently_used());
+        let mut terminal = terminal(80, 12);
+        let lines = render(&mut terminal, &screen, &mut picker, &ready());
+        assert_snapshot!("recent_80x12", frame(&lines));
+        let at = |x, y| cell(&terminal, x, y);
+        assert_eq!(
+            (at(29, 1).symbol(), at(32, 1).symbol()),
+            ("L", "T"),
+            "the title"
+        );
+        assert!((29..33).all(|x| dim(&at(x, 1))), "the title is dim");
+        assert_eq!((at(31, 2).symbol(), at(32, 2).symbol()), ("2", "h"));
+        assert!(
+            (29..33).all(|x| reversed(&at(x, 2)) && !dim(&at(x, 2)) && !bold(&at(x, 2))),
+            "the selected row is reversed, with its LAST"
+        );
+        assert_eq!((at(31, 3).symbol(), at(32, 3).symbol()), ("3", "d"));
+        assert!(
+            (31..33).all(|x| dim(&at(x, 3)) && !reversed(&at(x, 3)) && !bold(&at(x, 3))),
+            "LAST is context"
+        );
+        assert!(
+            (29..31).all(|x| at(x, 3).symbol() == " "),
+            "right aligned, so the cells before it are blank"
+        );
+        assert_eq!(at(31, 4).symbol(), " ", "a host never used has nothing");
+        terminal.backend_mut().assert_cursor_position((2, 0));
+    }
+
+    #[test]
+    fn a_query_keeps_last_and_says_why_a_tie_went_the_way_it_did() {
+        let (screen, mut picker) = setup_with("ui", "consul", &recently_used());
+        let mut terminal = terminal(100, 12);
+        let lines = render(&mut terminal, &screen, &mut picker, &ready());
+        assert_snapshot!("recent_consul_100x12", frame(&lines));
+        assert!(
+            (29..33).all(|x| !bold(&cell(&terminal, x, 2))),
+            "LAST is never bold"
+        );
+    }
+
+    #[test]
+    fn last_never_appears_or_goes_while_the_query_changes() {
+        let (screen, mut picker) = setup_with("ui", "", &recently_used());
+        let mut terminal = terminal(80, 12);
+        for query in ["", "lab-a", "zzzz", "consul"] {
+            picker.handle(Key::Ctrl('u'));
+            for c in query.chars() {
+                picker.handle(Key::Char(c));
+            }
+            let lines = render(&mut terminal, &screen, &mut picker, &ready());
+            assert!(lines[1].contains("LAST"), "{query:?}: {lines:#?}");
+        }
+    }
+
+    #[test_case(80, "  ENV         HOST           LAST WHAT"; "wide enough for everything")]
+    #[test_case(38, "  ENV         HOST           LAST WHAT"; "WHAT keeps its room beside LAST")]
+    #[test_case(37, "  ENV         HOST           LAST WHA"; "WHAT is at its least beside LAST")]
+    #[test_case(36, "  ENV         HOST           WHAT"; "LAST goes before WHAT does")]
+    #[test_case(33, "  ENV         HOST           WHAT"; "WHAT is alone")]
+    #[test_case(32, "  ENV         HOST           WHA"; "WHAT is at its least")]
+    #[test_case(29, "  ENV         HOST"; "WHAT goes after LAST, and ENV and HOST are never cut")]
+    fn last_is_left_out_before_what_is(width: u16, header: &str) {
+        let (screen, mut picker) = setup_with("ui", "", &recently_used());
+        let lines = render(&mut terminal(width, 12), &screen, &mut picker, &ready());
+        assert_eq!(lines[1], header, "{width}");
+        assert!(
+            lines[2].starts_with("▌ NEW STAGING newstg-consul1"),
+            "{width}"
+        );
     }
 
     fn sample<'a>(text: &'a str, command: &str) -> Option<Vec<&'a str>> {

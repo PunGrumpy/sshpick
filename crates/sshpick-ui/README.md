@@ -28,7 +28,8 @@ sshpick-ui
         ├── screen.rs - lays out the screen: prompt, header, list, route row or panel, help, hint row
         ├── signals.rs - a thread that restores the terminal on SIGINT, SIGTERM, SIGHUP or SIGQUIT,
         │   then ends the process by that signal
-        ├── table.rs - the prompt row, the header, the host rows and the hint row
+        ├── table.rs - the prompt row, the header, the host rows and the hint row; LAST, when some host
+        │   has history, is dropped before WHAT is
         ├── route.rs - where the selected host goes, `resolving…` or why ssh -G failed: one row cut
         │   with `…`, or a panel of one row per key with the failure wrapped
         ├── help.rs - the key help as rows just above the hint row, from the blank rows first:
