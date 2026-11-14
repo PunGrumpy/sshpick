@@ -3,6 +3,7 @@ use std::ffi::OsString;
 use std::fmt;
 use std::fs;
 use std::io;
+use std::mem;
 use std::path::{Path, PathBuf};
 
 use crate::label;
@@ -169,11 +170,28 @@ impl<'a> Walk<'a> {
     fn lines(&mut self, path: &Path, text: &str, env: &str, depth: usize) {
         self.chain.push(path.to_path_buf());
         let mut what = "";
+        // The first line of a comment block that follows a blank line heads the hosts after it
+        // that have no comment of their own. It stops at a blank line, or at a host whose own
+        // comment is not part of that block, so a comment meant for one host stays with it.
+        let mut heading = "";
+        let mut after_blank = false;
+        let mut in_heading_block = false;
         // The row this file's current `Host` block added, if it added one.
         let mut row = None;
         for line in text.lines() {
+            if line.trim().is_empty() {
+                (what, heading, after_blank) = ("", "", true);
+                continue;
+            }
+            let starts_block = mem::take(&mut after_blank);
             match classify(line) {
                 Line::Comment(comment) => {
+                    if starts_block {
+                        heading = comment;
+                    }
+                    if what.is_empty() {
+                        in_heading_block = starts_block;
+                    }
                     what = comment;
                     continue;
                 }
@@ -184,7 +202,14 @@ impl<'a> Walk<'a> {
                         }
                     }
                 }
-                Line::Host(tokens) => row = self.host(&tokens, what, env),
+                Line::Host(tokens) => {
+                    if what.is_empty() {
+                        what = heading;
+                    } else if !in_heading_block {
+                        heading = "";
+                    }
+                    row = self.host(&tokens, what, env);
+                }
                 Line::Match => row = None,
                 Line::HostName(value) => {
                     if let Some(entry) = row.and_then(|row| self.out.entries.get_mut(row)) {
@@ -662,6 +687,63 @@ mod tests {
                 row("c", None, None),
             ]
         );
+    }
+
+    fn whats(text: &str) -> Vec<(String, String)> {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        walk.lines(Path::new("/h/.ssh/config.d/50-x.conf"), text, "X", 0);
+        walk.out
+            .entries
+            .iter()
+            .map(|e| (e.host.to_string(), e.what.clone()))
+            .collect()
+    }
+
+    fn pairs(rows: &[(&str, &str)]) -> Vec<(String, String)> {
+        rows.iter()
+            .map(|(host, what)| (host.to_string(), what.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn a_heading_after_a_blank_line_is_the_what_of_the_uncommented_hosts_under_it() {
+        let text = "# X: the label\n\
+                    # how to reach X\n\
+                    \n\
+                    # OpenStack control plane (kolla)\n\
+                    # Most OpenStack APIs\n\
+                    Host x-api1\n\
+                    \x20 HostName 10.0.0.1\n\
+                    Host x-api2\n\
+                    # Cell control\n\
+                    Host x-cell1\n\
+                    Host x-haproxy1\n\
+                    \x20 HostName 10.0.0.3\n\
+                    \n\
+                    # Ceph\n\
+                    Host x-ceph1\n\
+                    Host x-ceph2\n\
+                    \n\
+                    Host x-loose\n";
+        assert_eq!(
+            whats(text),
+            pairs(&[
+                ("x-api1", "Most OpenStack APIs"),
+                ("x-api2", "OpenStack control plane (kolla)"),
+                ("x-cell1", "Cell control"),
+                ("x-haproxy1", ""),
+                ("x-ceph1", "Ceph"),
+                ("x-ceph2", "Ceph"),
+                ("x-loose", ""),
+            ])
+        );
+    }
+
+    #[test]
+    fn the_label_and_comments_before_the_first_blank_line_head_nothing() {
+        let text = "# X: the label\nHost x-a\nHost x-b\n";
+        assert_eq!(whats(text), pairs(&[("x-a", "X: the label"), ("x-b", "")]));
     }
 
     #[test]

@@ -6,7 +6,7 @@
 |--------|---------------------|
 | ENV    | line 1 of each included file: `# OLD STAGING — anything` or `# OLD STAGING: anything` shows `OLD STAGING`; no label: the file name (`30-prod.conf` shows `prod`); hosts in `~/.ssh/config` itself: blank (the column hides when all are) |
 | HOST   | the first name on the `Host` line, the one you would type; `*`/`?` patterns and `!negations` are skipped; the other names are searchable but not shown |
-| WHAT   | the `#` comment on the line directly above `Host` |
+| WHAT   | the `#` comment on the line directly above `Host`, else the heading of the section the host is in |
 | LAST   | how long ago you connected to the host: `now`, `5m`, `2h`, `3d`, `6w` or `1y`; blank for a host you have not used; the column shows once some host has history |
 
 The route row runs `ssh -G -- <host>` and shows `user`, `hostname` and `port`, then `proxyjump`
@@ -64,6 +64,24 @@ Host stg-consul1 consul1.stg
 - A comment directly above a `Host` line is its WHAT. A blank line or any other line in
   between clears it. Here `stg-bastion` gets `jump host for the staging network`. A `Host`
   on line 2 would get the label line as its WHAT too.
+- A comment block that follows a blank line is a section heading. Its first line is the WHAT of
+  each host after it that has no comment of its own. It stops at the next blank line, and at a
+  host whose own comment is not part of that block, so a comment meant for one host stays with
+  it:
+
+  ```text
+  # OpenStack control plane
+  Host prod-api1
+    HostName 192.0.2.41
+  Host prod-api2
+    HostName 192.0.2.42
+  # load balancer
+  Host prod-haproxy1
+  Host prod-haproxy2
+  ```
+
+  `prod-api1` and `prod-api2` get `OpenStack control plane`, `prod-haproxy1` gets
+  `load balancer`, and `prod-haproxy2` gets nothing.
 - `stg-consul1` is the row. `consul1.stg` is searchable, so typing it finds the row.
 - `Host` follows ssh syntax: any case, tabs, `Host=x`, indentation. A name listed twice
   makes one row.

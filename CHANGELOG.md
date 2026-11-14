@@ -8,6 +8,10 @@ the top versioned section as the release notes.
 
 ### Added
 
+- A host with no comment of its own takes the heading of its section as its WHAT: the first line
+  of a comment block after a blank line, up to the next blank line or the next host with its own
+  comment.
+
 - The picker remembers the hosts you connect to at a terminal. It lists them first with an empty
   filter, breaks ties between equal matches by last use, and shows when in a dim LAST column.
   `XDG_STATE_HOME` moves the history from `~/.local/state/sshpick`.
