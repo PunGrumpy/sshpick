@@ -337,6 +337,7 @@ mod tests {
             aliases: Vec::new(),
             hostname: None,
             user: None,
+            hop: None,
         }
     }
 

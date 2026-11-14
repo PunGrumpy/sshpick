@@ -48,8 +48,10 @@ that is not a letter or digit, such as `-` or `.`) or follow the letter before i
 `prod-db-primary` and not `prod-bastion`.
 
 The `HostName` and `User` written in a host's `Host` block are searchable too, so an address, part
-of one, or a user finds the host. `ubuntu@10.13.1.9` from shell history is two words, `ubuntu`
-and `10.13.1.9`. A word looks in `HostName` and `User` only when no ENV, HOST, WHAT or alias of any
+of one, or a user finds the host. So is the target of a `RemoteCommand` that hops on, such as
+`10.0.0.5` in `sudo ssh -t root@10.0.0.5`. `ubuntu@10.13.1.9` from shell history means
+`10.13.1.9`: the user is how you log in, not which host, and is usually inherited from `Host *`.
+A word looks in these values only when no ENV, HOST, WHAT or alias of any
 host matches it, so the `1` in `consul 1` means `consul1`, not every address with a 1 in it. These
 fields are never highlighted. [Configuration](configuration.md#what-it-searches) says which values
 count.

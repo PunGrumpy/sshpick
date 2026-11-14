@@ -380,6 +380,7 @@ mod tests {
                     aliases: names.map(str::to_owned).collect(),
                     hostname: None,
                     user: None,
+                    hop: None,
                 }
             })
             .collect()
@@ -823,6 +824,7 @@ mod tests {
             aliases: Vec::new(),
             hostname: None,
             user: None,
+            hop: None,
         };
         let picker = Picker::new(vec![entry], "^lab box", &Recents::none());
         let view = picker.view(3);

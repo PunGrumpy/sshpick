@@ -50,8 +50,8 @@ The list is top-down with the best match first and the selection on it, like fzf
 Each word of the filter matches inside one column: `prod db` lists `prod-db-primary`, not
 `prod-bastion` in the `PRODUCTION` file. `^` and `$` anchor the start and end of a column, so
 `^prod-db` matches HOST and `^PROD` matches ENV. A word that no column of any host contains also
-looks in the `HostName` and `User` written under each `Host`, so `10.13.1.9`, `ubuntu` and
-`ubuntu@10.13.1.9` find the host. Those, like aliases, are never bold. [Search](commands.md#search)
+looks in the `HostName` and `User` written under each `Host` and in the target of a hopping
+`RemoteCommand`, so `10.13.1.9`, `ubuntu` and `ubuntu@10.13.1.9` find the host. Those, like aliases, are never bold. [Search](commands.md#search)
 has the full rules.
 
 Config warnings are not drawn in the picker. `sshpick` prints each one as a `! …` line on stderr

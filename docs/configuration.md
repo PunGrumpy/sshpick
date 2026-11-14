@@ -31,8 +31,13 @@ Host stg-db
   User postgres
 ```
 
-Here `192.0.2.30`, `192.0.2` and `postgres` find `stg-db`, and so does `postgres@192.0.2.30`.
-`ops` finds nothing: `stg-db` only inherits it. [Search](commands.md#search) has the rules.
+Here `192.0.2.30`, `192.0.2` and `postgres` find `stg-db`, and so do `postgres@192.0.2.30` and
+`ops@192.0.2.30`, because the part before `@` is dropped. `ops` alone finds nothing: `stg-db`
+only inherits it.
+
+A host reached through a bastion with `RemoteCommand sudo ssh -t root@192.0.2.40` is found by
+`192.0.2.40`: the part after `@` in the first `user@target` word of its `RemoteCommand` is
+searched as well. [Search](commands.md#search) has the rules.
 
 ## Config conventions
 

@@ -41,7 +41,8 @@ The first four change nothing and never prompt. Run them freely.
 
 A query's words must all match, each inside one of the ENV label, the host name, the WHAT comment
 and the other names on the `Host` line. A word no host has in those also looks in the `HostName`
-and `User` written in the `Host` block, so an address or `user@address` finds a host.
+and `User` written in the `Host` block and in the `user@target` of a `RemoteCommand`, so an address
+or `user@address` finds a host. The user part of `user@address` is ignored.
 
 A query equal to one host's name or alias selects that host, even when other hosts match too.
 Under `--non-interactive`, any other query that leaves one match exits 1, and `Fix:` names the host

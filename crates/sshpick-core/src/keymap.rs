@@ -66,6 +66,7 @@ mod tests {
                 aliases: Vec::new(),
                 hostname: None,
                 user: None,
+                hop: None,
             })
             .collect();
         let mut picker = Picker::new(entries, query, &Recents::none());

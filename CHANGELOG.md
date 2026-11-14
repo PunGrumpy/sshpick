@@ -12,7 +12,7 @@ the top versioned section as the release notes.
   filter, breaks ties between equal matches by last use, and shows when in a dim LAST column.
   `XDG_STATE_HOME` moves the history from `~/.local/state/sshpick`.
 - An address, part of one, a user or `user@address` from shell history finds a host, from the
-  `HostName` and `User` written in its `Host` block.
+  `HostName` and `User` written in its `Host` block, or the `user@target` of its `RemoteCommand`.
 
 ### Changed
 

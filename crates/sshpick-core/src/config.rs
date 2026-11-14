@@ -33,6 +33,9 @@ pub struct Entry {
     pub(crate) hostname: Option<String>,
     /// The first `User` written inside this row's own `Host` block, the same way.
     pub(crate) user: Option<String>,
+    /// Where a `RemoteCommand` in this row's own block hops next: the part after `@` of its
+    /// first `user@target` word, as in `sudo ssh -t root@10.0.0.5` on a bastion.
+    pub(crate) hop: Option<String>,
 }
 
 #[derive(Debug)]
@@ -193,6 +196,13 @@ impl<'a> Walk<'a> {
                         entry.user.get_or_insert(value);
                     }
                 }
+                Line::RemoteCommand(hop) => {
+                    if let Some(entry) = row.and_then(|row| self.out.entries.get_mut(row))
+                        && entry.hop.is_none()
+                    {
+                        entry.hop = hop;
+                    }
+                }
                 Line::Other => {}
             }
             what = "";
@@ -302,6 +312,7 @@ impl<'a> Walk<'a> {
             aliases,
             hostname: None,
             user: None,
+            hop: None,
         });
         Some(self.out.entries.len() - 1)
     }
@@ -315,6 +326,7 @@ enum Line<'a> {
     Match,
     HostName(String),
     User(String),
+    RemoteCommand(Option<String>),
     Other,
 }
 
@@ -340,6 +352,11 @@ fn classify(line: &str) -> Line<'_> {
             .into_iter()
             .next()
             .map_or(Line::Other, Line::HostName)
+    } else if keyword.eq_ignore_ascii_case("remotecommand") {
+        Line::RemoteCommand(rest.split_whitespace().find_map(|word| {
+            let (_, target) = word.rsplit_once('@')?;
+            (!target.is_empty()).then(|| target.to_owned())
+        }))
     } else if keyword.eq_ignore_ascii_case("user") {
         arguments(rest)
             .into_iter()
@@ -645,6 +662,20 @@ mod tests {
                 row("c", None, None),
             ]
         );
+    }
+
+    #[test]
+    fn a_remote_command_hop_target_is_kept() {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        let text = "Host a\n\
+                    \x20 RemoteCommand sudo ssh -t root@10.0.0.5\n\
+                    \x20 RemoteCommand ssh other@10.0.0.6\n\
+                    Host b\n\
+                    \x20 RemoteCommand tmux attach\n";
+        walk.lines(Path::new("/h/.ssh/config"), text, "", 0);
+        let hops: Vec<_> = walk.out.entries.iter().map(|e| e.hop.clone()).collect();
+        assert_eq!(hops, [Some("10.0.0.5".to_owned()), None]);
     }
 
     #[test]

@@ -103,7 +103,7 @@ impl Item {
             .aliases
             .iter()
             .map(|alias| (Field::Alias, alias.as_str()));
-        let written = (entry.hostname.iter().chain(&entry.user))
+        let written = (entry.hostname.iter().chain(&entry.user).chain(&entry.hop))
             .map(|value| (Field::Written, value.as_str()));
         [
             (Field::Env, entry.env.as_str()),
@@ -118,14 +118,15 @@ impl Item {
 }
 
 impl Word {
-    /// Every word of the query, operators parsed. `user@host` is two words, as in an ssh
-    /// command line from shell history.
+    /// Every word of the query, operators parsed. `user@host`, as pasted from an ssh command
+    /// line, is its host part: the user is how you log in, not which machine, and is usually set
+    /// by `Host *` where search cannot see it.
     fn parse(query: &str) -> Vec<Word> {
         let mut words = Vec::new();
         for token in tokens(query) {
             match token.rsplit_once('@') {
                 Some((user, host)) if !user.is_empty() && !host.is_empty() => {
-                    words.extend([user, host].into_iter().filter_map(Word::new));
+                    words.extend(Word::new(host));
                 }
                 _ => words.extend(Word::new(token)),
             }
@@ -418,6 +419,7 @@ mod tests {
             aliases: aliases.iter().map(|alias| alias.to_string()).collect(),
             hostname: None,
             user: None,
+            hop: None,
         }
     }
 
@@ -457,6 +459,10 @@ mod tests {
             written("NEW STAGING", "newstg-consul1", "", "", ""),
             written("NEW STAGING", "newstg-db-primary", "", "", ""),
             written("NEW STAGING", "newstg-web1", "web frontend", "", ""),
+            Entry {
+                hop: Some("10.12.7.5".to_owned()),
+                ..entry("NEW STAGING", "newstg-api1", "", &[])
+            },
             written("OLD STAGING", "oldstg-consul1", "", "", ""),
             written("OLD STAGING", "oldstg-k8s-worker1", "", "", ""),
             written("LAB", "lab-db-primary", "", "", ""),
@@ -483,16 +489,19 @@ mod tests {
     #[test_case("ubuntu" => "newstg-bastion prod-bastion prod-db-primary"; "the user written under the host")]
     #[test_case("ubuntu@10.13.1.9" => "prod-db-primary"; "user at address from shell history")]
     #[test_case("deploy@dev-bastion" => "dev-bastion"; "user at host")]
+    #[test_case("nobody@10.13.1.9" => "prod-db-primary"; "a user no host writes does not hide the host")]
+    #[test_case("10.12.7.5" => "newstg-api1"; "the target a bastion command hops to")]
+    #[test_case("root@10.12.7.5" => "newstg-api1"; "user at a hop target")]
     #[test_case("postgres" => "prod-db-replica"; "a whole user")]
     #[test_case("1.10" => "prod-db-replica"; "the end of an address")]
     #[test_case("db !stg" => "lab-db-primary prod-db-primary prod-db-replica"; "a negated word excludes")]
     #[test_case("db !10.13" => "lab-db-primary newstg-db-primary"; "a negated address excludes")]
     #[test_case("'consul1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "a quoted word")]
-    #[test_case("stg" => "newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "stg")]
+    #[test_case("stg" => "newstg-api1 newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "stg")]
     #[test_case("consul 1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "a 1 in a name keeps the 1 in an address out")]
     #[test_case("worker1" => "lab-k8s-worker1 oldstg-k8s-worker1 prod-k8s-worker1"; "worker1")]
     #[test_case("k8s worker" => "lab-k8s-worker1 oldstg-k8s-worker1 prod-k8s-worker1"; "k8s and worker")]
-    #[test_case("staging" => "newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "a word of ENV")]
+    #[test_case("staging" => "newstg-api1 newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "a word of ENV")]
     #[test_case("เซิร์ฟ" => "lab-k8s-worker1"; "thai")]
     fn a_word_matches_inside_one_field(query: &str) -> String {
         let mut ranker = with_no_history(fleet());

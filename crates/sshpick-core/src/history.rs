@@ -272,6 +272,7 @@ mod tests {
             aliases: aliases.iter().map(|alias| alias.to_string()).collect(),
             hostname: None,
             user: None,
+            hop: None,
         }
     }
 
