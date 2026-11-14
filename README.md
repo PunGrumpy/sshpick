@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="assets/sshpick-icon.svg" width="128" height="128" alt="">
+</p>
+
+<p align="center">
   <h1 align="center">sshpick</h1>
 </p>
 
