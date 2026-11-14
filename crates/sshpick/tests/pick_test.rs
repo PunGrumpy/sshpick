@@ -89,7 +89,7 @@ fn an_exact_name_connects_even_when_it_prefixes_another_host() {
 #[test]
 fn non_interactive_refuses_a_loose_match_and_names_it() {
     let out = sshpick("names")
-        .args(["--non-interactive", "db-stg"])
+        .args(["--non-interactive", "postgres"])
         .assert()
         .code(1)
         .stdout("");
@@ -99,7 +99,7 @@ fn non_interactive_refuses_a_loose_match_and_names_it() {
 #[test]
 fn a_loose_match_still_connects_when_only_the_terminal_is_missing() {
     sshpick("names")
-        .arg("db-stg")
+        .arg("postgres")
         .assert()
         .code(0)
         .stdout("ssh -- db-prod\n");

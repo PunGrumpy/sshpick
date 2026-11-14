@@ -1,7 +1,7 @@
 use std::cmp::Reverse;
 use std::ops::Range;
 
-use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
+use nucleo_matcher::pattern::{Atom, AtomKind, CaseMatching, Normalization};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 
 use crate::config::Entry;
@@ -18,18 +18,55 @@ pub(crate) struct Ranker {
 #[derive(Debug)]
 struct Item {
     entry: Entry,
-    haystack: String,
-    columns: Columns,
     shown_len: usize,
     /// Joined once, when the ranker is built. Ranking and drawing never look a name up again.
     last: Option<Last>,
 }
 
+/// Where a word matched. `Alias` and `Written` are searched but never drawn.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Field {
+    Env,
+    Host,
+    What,
+    Alias,
+    /// `HostName` or `User`.
+    Written,
+}
+
+/// The fields one word looks in, chosen once per query for all hosts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Scope {
+    /// ENV, HOST, WHAT and aliases.
+    Names,
+    /// `HostName` and `User`, only for a word no name field of any host matches. Every address
+    /// holds digits and dots, so `consul 1` would otherwise find every consul node whose address
+    /// has a 1, and `stg` every host whose user is `postgres`.
+    Written,
+}
+
+/// One word of the query, matched inside one field at a time.
 #[derive(Debug)]
-struct Columns {
-    env: Range<usize>,
-    host: Range<usize>,
-    what: Range<usize>,
+struct Word {
+    /// Always positive: `negative` says what a match means.
+    atom: Atom,
+    negative: bool,
+    rule: Rule,
+    scope: Scope,
+}
+
+#[derive(Debug)]
+enum Rule {
+    /// nucleo's own match.
+    Nucleo,
+    /// A plain word that no field of any host contains: fuzzy, but each matched character starts
+    /// a word or directly follows the previous one, so `pdb` finds `prod-db-1` and not
+    /// `prod-bastion`.
+    WordStarts,
+    /// A `^`, `$` or `^…$` word with a capital. nucleo-matcher 0.3.1 compares the whole field
+    /// instead of the anchored slice when the field and the word are ASCII and case matters, so
+    /// such a word matches case-folded and the matched slice is compared here.
+    Cased { folded: Atom, needle: Box<[u8]> },
 }
 
 #[derive(Debug)]
@@ -48,26 +85,10 @@ pub(crate) struct Hits {
 impl Item {
     fn new(entry: Entry, recents: &Recents) -> Item {
         let last = recents.last(&entry);
-        let host = entry.host.as_str();
-        let env = 0..entry.env.len();
-        let host_range = env.end + 1..env.end + 1 + host.len();
-        let what = host_range.end + 1..host_range.end + 1 + entry.what.len();
-        let haystack = format!(
-            "{}\t{host}\t{}\t{}",
-            entry.env,
-            entry.what,
-            entry.aliases.join(" ")
-        );
-        let shown_len = haystack[..what.end].trim().chars().count();
+        let shown = format!("{}\t{}\t{}", entry.env, entry.host, entry.what);
         Item {
+            shown_len: shown.trim().chars().count(),
             entry,
-            haystack,
-            columns: Columns {
-                env,
-                host: host_range,
-                what,
-            },
-            shown_len,
             last,
         }
     }
@@ -76,36 +97,163 @@ impl Item {
         Reverse(self.last.as_ref().map(|last| last.at))
     }
 
-    fn hits(&self, indices: &mut Vec<u32>) -> Hits {
-        indices.sort_unstable();
-        indices.dedup();
-        let mut wanted = indices.iter().copied().peekable();
-        let mut hits = Hits::default();
-        for (position, (start, c)) in self.haystack.char_indices().enumerate() {
-            let Some(next) = wanted.peek() else { break };
-            if *next as usize != position {
-                continue;
-            }
-            wanted.next();
-            let end = start + c.len_utf8();
-            let columns = &self.columns;
-            for (column, hit) in [
-                (&columns.env, &mut hits.env),
-                (&columns.host, &mut hits.host),
-                (&columns.what, &mut hits.what),
-            ] {
-                if !column.contains(&start) {
-                    continue;
+    fn fields(&self, scope: Scope) -> impl Iterator<Item = (Field, &str)> {
+        let entry = &self.entry;
+        let aliases = entry
+            .aliases
+            .iter()
+            .map(|alias| (Field::Alias, alias.as_str()));
+        let written = (entry.hostname.iter().chain(&entry.user))
+            .map(|value| (Field::Written, value.as_str()));
+        [
+            (Field::Env, entry.env.as_str()),
+            (Field::Host, entry.host.as_str()),
+            (Field::What, entry.what.as_str()),
+        ]
+        .into_iter()
+        .chain(aliases)
+        .chain(written)
+        .filter(move |&(field, _)| (field == Field::Written) == (scope == Scope::Written))
+    }
+}
+
+impl Word {
+    /// Every word of the query, operators parsed. `user@host` is two words, as in an ssh
+    /// command line from shell history.
+    fn parse(query: &str) -> Vec<Word> {
+        let mut words = Vec::new();
+        for token in tokens(query) {
+            match token.rsplit_once('@') {
+                Some((user, host)) if !user.is_empty() && !host.is_empty() => {
+                    words.extend([user, host].into_iter().filter_map(Word::new));
                 }
-                let range = start - column.start..end - column.start;
-                match hit.last_mut() {
-                    Some(last) if last.end == range.start => last.end = range.end,
-                    _ => hit.push(range),
-                }
+                _ => words.extend(Word::new(token)),
             }
         }
-        hits
+        words
     }
+
+    fn new(token: &str) -> Option<Word> {
+        let mut atom = Atom::parse(token, CaseMatching::Smart, Normalization::Smart);
+        if atom.needle_text().is_empty() {
+            return None;
+        }
+        let negative = atom.negative;
+        atom.negative = false;
+        let rule = match (atom.kind, atom.needle_text()) {
+            (AtomKind::Prefix | AtomKind::Postfix | AtomKind::Exact, Utf32Str::Ascii(needle))
+                if needle.iter().any(u8::is_ascii_uppercase) =>
+            {
+                let text = String::from_utf8_lossy(needle);
+                Rule::Cased {
+                    folded: Atom::new(
+                        &text,
+                        CaseMatching::Ignore,
+                        Normalization::Smart,
+                        atom.kind,
+                        false,
+                    ),
+                    needle: needle.into(),
+                }
+            }
+            _ => Rule::Nucleo,
+        };
+        Some(Word {
+            atom,
+            negative,
+            rule,
+            scope: Scope::Names,
+        })
+    }
+
+    /// A plain word is one with no operator: it matches as a substring, or by word starts.
+    fn is_plain(&self) -> bool {
+        self.atom.kind == AtomKind::Fuzzy && !self.negative
+    }
+
+    /// The same needle, matched as a substring.
+    fn substring(&self) -> Word {
+        let text: String = self.atom.needle_text().chars().collect();
+        Word {
+            atom: Atom::new(
+                &text,
+                CaseMatching::Smart,
+                Normalization::Smart,
+                AtomKind::Substring,
+                false,
+            ),
+            negative: false,
+            rule: Rule::Nucleo,
+            scope: Scope::Names,
+        }
+    }
+
+    /// The score of this word inside `text`, with the matched character indices, sorted, in
+    /// `indices`.
+    fn find(
+        &self,
+        text: &str,
+        matcher: &mut Matcher,
+        chars: &mut Vec<char>,
+        indices: &mut Vec<u32>,
+    ) -> Option<u16> {
+        indices.clear();
+        let haystack = Utf32Str::new(text, chars);
+        let score = match (&self.rule, haystack) {
+            (Rule::Cased { folded, needle }, Utf32Str::Ascii(bytes)) => {
+                let score = folded.indices(haystack, matcher, indices)?;
+                let matched = indices.iter().map(|&i| bytes.get(i as usize).copied());
+                matched
+                    .eq(needle.iter().copied().map(Some))
+                    .then_some(score)
+            }
+            _ => self.atom.indices(haystack, matcher, indices),
+        }?;
+        indices.sort_unstable();
+        if matches!(self.rule, Rule::WordStarts) {
+            let mut previous = None;
+            let starts = indices.iter().all(|&index| {
+                let follows = previous.is_some_and(|previous| previous + 1 == index);
+                previous = Some(index);
+                follows || index == 0 || !haystack.get(index - 1).is_alphanumeric()
+            });
+            return starts.then_some(score);
+        }
+        Some(score)
+    }
+}
+
+/// The query split at spaces, as nucleo splits it: `\ ` is a space inside a word.
+fn tokens(query: &str) -> impl Iterator<Item = &str> {
+    let mut escaped = false;
+    query
+        .split(move |c| {
+            let split = c == ' ' && !escaped;
+            escaped = c == '\\';
+            split
+        })
+        .filter(|token| !token.is_empty())
+}
+
+/// Sorted character indices into `text` as byte ranges, neighbours joined.
+fn ranges(text: &str, indices: &mut Vec<u32>) -> Vec<Range<usize>> {
+    indices.sort_unstable();
+    indices.dedup();
+    let mut wanted = indices.iter().copied().peekable();
+    let mut ranges: Vec<Range<usize>> = Vec::new();
+    for (position, (start, c)) in text.char_indices().enumerate() {
+        let Some(next) = wanted.peek() else { break };
+        if *next as usize != position {
+            continue;
+        }
+        wanted.next();
+        let end = start + c.len_utf8();
+        match ranges.last_mut() {
+            Some(last) if last.end == start => last.end = end,
+            _ => ranges.push(start..end),
+        }
+    }
+    ranges
 }
 
 impl Ranker {
@@ -127,8 +275,8 @@ impl Ranker {
     /// `Reverse(None)` sorts after every `Reverse(Some(_))`. With no history both keys are the
     /// keys this function had before, so the order is unchanged.
     pub(crate) fn rank(&mut self, query: &str) -> Vec<Match> {
-        let pattern = Pattern::parse(query, CaseMatching::Smart, Normalization::Smart);
-        if pattern.atoms.is_empty() {
+        let words = self.words(query);
+        if words.is_empty() {
             let mut order: Vec<usize> = (0..self.items.len()).collect();
             order.sort_by_key(|&item| self.items[item].last_at());
             return order
@@ -140,14 +288,11 @@ impl Ranker {
                 .collect();
         }
         let mut found = Vec::new();
-        for (index, item) in self.items.iter().enumerate() {
-            self.indices.clear();
-            let haystack = Utf32Str::new(&item.haystack, &mut self.chars);
-            let Some(score) = pattern.indices(haystack, &mut self.matcher, &mut self.indices)
-            else {
+        for index in 0..self.items.len() {
+            let Some((score, hits)) = self.score(index, &words) else {
                 continue;
             };
-            let hits = item.hits(&mut self.indices);
+            let item = &self.items[index];
             found.push((Reverse(score), item.last_at(), item.shown_len, index, hits));
         }
         found.sort_by_key(|&(score, last, shown_len, index, _)| (score, last, shown_len, index));
@@ -155,6 +300,78 @@ impl Ranker {
             .into_iter()
             .map(|(_, _, _, item, hits)| Match { item, hits })
             .collect()
+    }
+
+    /// Each word looks in the name fields when some host's name fields match it, else in
+    /// `HostName` and `User` when some host's match it. A plain word matches as a substring there;
+    /// only when no field of any host contains it does it fall back to word starts in the names.
+    fn words(&mut self, query: &str) -> Vec<Word> {
+        let mut words = Word::parse(query);
+        for word in &mut words {
+            let substring = word.is_plain().then(|| word.substring());
+            let probe = substring.as_ref().unwrap_or(word);
+            let scope = [Scope::Names, Scope::Written].into_iter().find(|&scope| {
+                self.items.iter().any(|item| {
+                    item.fields(scope).any(|(_, text)| {
+                        let (matcher, chars, indices) =
+                            (&mut self.matcher, &mut self.chars, &mut self.indices);
+                        probe.find(text, matcher, chars, indices).is_some()
+                    })
+                })
+            });
+            match (scope, substring) {
+                (Some(scope), Some(substring)) => *word = Word { scope, ..substring },
+                (Some(scope), None) => word.scope = scope,
+                (None, Some(_)) => word.rule = Rule::WordStarts,
+                (None, None) => {}
+            }
+        }
+        words
+    }
+
+    /// Every positive word matches inside one field of its scope, and no negative word matches
+    /// any. The score is the sum of each word's best field; on a tie the field drawn first keeps
+    /// the hits.
+    fn score(&mut self, index: usize, words: &[Word]) -> Option<(u32, Hits)> {
+        let item = &self.items[index];
+        let mut total = 0;
+        let mut env = Vec::new();
+        let mut host = Vec::new();
+        let mut what = Vec::new();
+        for word in words {
+            let mut best: Option<(u16, Field, Vec<u32>)> = None;
+            for (field, text) in item.fields(word.scope) {
+                let (matcher, chars, indices) =
+                    (&mut self.matcher, &mut self.chars, &mut self.indices);
+                let Some(score) = word.find(text, matcher, chars, indices) else {
+                    continue;
+                };
+                if word.negative {
+                    return None;
+                }
+                if best.as_ref().is_none_or(|(best, _, _)| score > *best) {
+                    best = Some((score, field, self.indices.clone()));
+                }
+            }
+            if word.negative {
+                continue;
+            }
+            let (score, field, indices) = best?;
+            total += u32::from(score);
+            match field {
+                Field::Env => env.extend(indices),
+                Field::Host => host.extend(indices),
+                Field::What => what.extend(indices),
+                Field::Alias | Field::Written => {}
+            }
+        }
+        let entry = &item.entry;
+        let hits = Hits {
+            env: ranges(&entry.env, &mut env),
+            host: ranges(entry.host.as_str(), &mut host),
+            what: ranges(&entry.what, &mut what),
+        };
+        Some((total, hits))
     }
 
     pub(crate) fn entry(&self, found: &Match) -> &Entry {
@@ -228,6 +445,7 @@ mod tests {
             ),
             written("PRODUCTION", "prod-k8s-worker1", "", "10.13.1.21", ""),
             written("PRODUCTION", "prod-consul1", "", "10.13.1.31", ""),
+            written("PRODUCTION", "prod-consul2", "", "10.13.1.32", ""),
             written("PRODUCTION", "prod-gitlab-runner", "", "10.13.1.41", ""),
             written("PRODUCTION", "api-prod", "public API", "", ""),
             written("NEW STAGING", "newstg-bastion", "", "10.12.0.1", "ubuntu"),
@@ -252,18 +470,21 @@ mod tests {
     #[test_case("pdb" => "prod-db-primary prod-db-replica"; "no host contains it so the letters start words")]
     #[test_case("pk8s" => "prod-k8s-worker1"; "word starts then a run")]
     #[test_case("^prod-db" => "prod-db-primary prod-db-replica"; "a caret anchors the start of the host")]
-    #[test_case("^PROD" => "api-prod prod-bastion prod-consul1 prod-db-primary prod-db-replica prod-gitlab-runner prod-k8s-worker1"; "a capital caret word is case sensitive and anchors ENV")]
+    #[test_case("^PROD" => "api-prod prod-bastion prod-consul1 prod-consul2 prod-db-primary prod-db-replica prod-gitlab-runner prod-k8s-worker1"; "a capital caret word is case sensitive and anchors ENV")]
     #[test_case("prod$" => "api-prod"; "a dollar anchors the end of the host")]
     #[test_case("API$" => "api-prod"; "a capital dollar word anchors the end of WHAT")]
     #[test_case("10.13.1.9" => "prod-db-primary"; "the address written under the host")]
-    #[test_case("10.13" => "prod-bastion prod-consul1 prod-db-primary prod-db-replica prod-gitlab-runner prod-k8s-worker1"; "part of an address")]
+    #[test_case("10.13" => "prod-bastion prod-consul1 prod-consul2 prod-db-primary prod-db-replica prod-gitlab-runner prod-k8s-worker1"; "part of an address")]
     #[test_case("ubuntu" => "newstg-bastion prod-bastion prod-db-primary"; "the user written under the host")]
     #[test_case("ubuntu@10.13.1.9" => "prod-db-primary"; "user at address from shell history")]
     #[test_case("deploy@dev-bastion" => "dev-bastion"; "user at host")]
+    #[test_case("postgres" => "prod-db-replica"; "a whole user")]
+    #[test_case("1.10" => "prod-db-replica"; "the end of an address")]
     #[test_case("db !stg" => "lab-db-primary prod-db-primary prod-db-replica"; "a negated word excludes")]
+    #[test_case("db !10.13" => "lab-db-primary newstg-db-primary"; "a negated address excludes")]
     #[test_case("'consul1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "a quoted word")]
     #[test_case("stg" => "newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "stg")]
-    #[test_case("consul 1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "consul and 1")]
+    #[test_case("consul 1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "a 1 in a name keeps the 1 in an address out")]
     #[test_case("worker1" => "lab-k8s-worker1 oldstg-k8s-worker1 prod-k8s-worker1"; "worker1")]
     #[test_case("k8s worker" => "lab-k8s-worker1 oldstg-k8s-worker1 prod-k8s-worker1"; "k8s and worker")]
     #[test_case("staging" => "newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "a word of ENV")]
@@ -275,33 +496,27 @@ mod tests {
         found.join(" ")
     }
 
-    fn hits_of(
-        query: &str,
-        host: &str,
-    ) -> (
-        Vec<(usize, usize)>,
-        Vec<(usize, usize)>,
-        Vec<(usize, usize)>,
-    ) {
+    /// ENV, HOST and WHAT hits of `host` under `query`.
+    fn hits_of(query: &str, host: &str) -> [Vec<(usize, usize)>; 3] {
         let mut ranker = with_no_history(fleet());
         let found = ranker.rank(query);
         let Some(m) = found.iter().find(|m| ranker.entry(m).host.as_str() == host) else {
             panic!("{query:?} does not match {host}");
         };
-        (spans(&m.hits.env), spans(&m.hits.host), spans(&m.hits.what))
+        [&m.hits.env, &m.hits.host, &m.hits.what].map(|hits| spans(hits))
     }
 
     #[test]
     fn hits_land_in_the_field_the_word_matched() {
-        assert_eq!(hits_of("^PROD", "api-prod"), (vec![(0, 4)], vec![], vec![]));
-        assert_eq!(hits_of("API$", "api-prod"), (vec![], vec![], vec![(7, 10)]));
+        assert_eq!(hits_of("^PROD", "api-prod"), [vec![(0, 4)], vec![], vec![]]);
+        assert_eq!(hits_of("API$", "api-prod"), [vec![], vec![], vec![(7, 10)]]);
         assert_eq!(
             hits_of("pdb", "prod-db-primary"),
-            (vec![], vec![(0, 1), (5, 7)], vec![])
+            [vec![], vec![(0, 1), (5, 7)], vec![]]
         );
         assert_eq!(
             hits_of("ubuntu@10.13.1.9", "prod-db-primary"),
-            (vec![], vec![], vec![])
+            [vec![], vec![], vec![]]
         );
     }
 
@@ -507,15 +722,15 @@ mod tests {
     #[test]
     fn a_better_score_beats_a_recent_host() {
         let entries = vec![
-            entry("PRODUCTION", "prod-bastion", "jump host", &[]),
+            entry("PRODUCTION", "prod-dev-bastion", "", &[]),
             entry("PRODUCTION", "prod-db-primary", "", &[]),
         ];
-        let recents = used(&[("prod-bastion", 60)]);
+        let recents = used(&[("prod-dev-bastion", 60)]);
         let mut ranker = Ranker::new(entries, &recents);
         assert_eq!(
-            hosts(&mut ranker, "prod db"),
-            ["prod-db-primary", "prod-bastion"],
-            "bastion matches only as noise, and it is the one used a minute ago"
+            hosts(&mut ranker, "pdb"),
+            ["prod-db-primary", "prod-dev-bastion"],
+            "d and b in a row beat three word starts, though the bastion was used a minute ago"
         );
     }
 

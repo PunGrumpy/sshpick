@@ -569,7 +569,7 @@ mod tests {
     #[test_case(&["web", "web-2", "db"], "web" => "one web"; "exact beats a prefix match")]
     #[test_case(&["web1", "web2", "db"], "web" => "many 2"; "two loose matches")]
     #[test_case(&["stg-consul1 consul1.stg", "other"], "consul1.stg" => "one stg-consul1"; "alias")]
-    #[test_case(&["db-prod # Postgres primary", "web"], "db-stg" => "loose db-prod"; "only through the comment")]
+    #[test_case(&["db-prod # Postgres primary", "web"], "postgres" => "loose db-prod"; "only through the comment")]
     #[test_case(&["web", "web"], "web" => "many 2"; "two entries share the name")]
     fn resolve_settles_a_query_without_the_picker(hosts: &[&str], query: &str) -> String {
         match Picker::new(entries(hosts), query, &Recents::none()).resolve() {
