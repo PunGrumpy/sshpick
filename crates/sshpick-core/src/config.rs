@@ -166,6 +166,8 @@ impl<'a> Walk<'a> {
     fn lines(&mut self, path: &Path, text: &str, env: &str, depth: usize) {
         self.chain.push(path.to_path_buf());
         let mut what = "";
+        // The row this file's current `Host` block added, if it added one.
+        let mut row = None;
         for line in text.lines() {
             match classify(line) {
                 Line::Comment(comment) => {
@@ -179,7 +181,18 @@ impl<'a> Walk<'a> {
                         }
                     }
                 }
-                Line::Host(tokens) => self.host(&tokens, what, env),
+                Line::Host(tokens) => row = self.host(&tokens, what, env),
+                Line::Match => row = None,
+                Line::HostName(value) => {
+                    if let Some(entry) = row.and_then(|row| self.out.entries.get_mut(row)) {
+                        entry.hostname.get_or_insert(value);
+                    }
+                }
+                Line::User(value) => {
+                    if let Some(entry) = row.and_then(|row| self.out.entries.get_mut(row)) {
+                        entry.user.get_or_insert(value);
+                    }
+                }
                 Line::Other => {}
             }
             what = "";
@@ -268,15 +281,13 @@ impl<'a> Walk<'a> {
         None
     }
 
-    fn host(&mut self, tokens: &[String], what: &str, env: &str) {
+    /// The index of the row this `Host` line adds, or `None` when every literal on it was seen.
+    fn host(&mut self, tokens: &[String], what: &str, env: &str) -> Option<usize> {
         let literals: Vec<Host> = tokens.iter().filter_map(|t| Host::literal(t)).collect();
-        let Some(host) = literals
+        let host = literals
             .iter()
             .find(|literal| !self.seen.contains(literal.as_str()))
-            .cloned()
-        else {
-            return;
-        };
+            .cloned()?;
         let mut aliases: Vec<String> = Vec::new();
         for literal in &literals {
             self.seen.insert(literal.0.clone());
@@ -292,6 +303,7 @@ impl<'a> Walk<'a> {
             hostname: None,
             user: None,
         });
+        Some(self.out.entries.len() - 1)
     }
 }
 
@@ -300,6 +312,9 @@ enum Line<'a> {
     Comment(&'a str),
     Include(Vec<String>),
     Host(Vec<String>),
+    Match,
+    HostName(String),
+    User(String),
     Other,
 }
 
@@ -318,6 +333,18 @@ fn classify(line: &str) -> Line<'_> {
         Line::Host(arguments(rest))
     } else if keyword.eq_ignore_ascii_case("include") {
         Line::Include(arguments(rest))
+    } else if keyword.eq_ignore_ascii_case("match") {
+        Line::Match
+    } else if keyword.eq_ignore_ascii_case("hostname") {
+        arguments(rest)
+            .into_iter()
+            .next()
+            .map_or(Line::Other, Line::HostName)
+    } else if keyword.eq_ignore_ascii_case("user") {
+        arguments(rest)
+            .into_iter()
+            .next()
+            .map_or(Line::Other, Line::User)
     } else {
         Line::Other
     }
@@ -391,7 +418,8 @@ mod tests {
             Line::Comment("indented note")
         );
         assert_eq!(classify("##  x"), Line::Comment("#  x"));
-        assert_eq!(classify("Match host x"), Line::Other);
+        assert_eq!(classify("Match host x"), Line::Match);
+        assert_eq!(classify("HostName"), Line::Other);
         assert_eq!(classify(""), Line::Other);
     }
 
