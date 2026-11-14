@@ -12,8 +12,8 @@ decides what to say.
 
 ```
 sshpick-core
-    ├── config.rs - load(): ~/.ssh/config and every Include in ssh's read order, as Entry rows plus
-    │   Warnings and the number of files an Include read; Host, a literal alias, is the only thing that ever reaches ssh; printable():
+    ├── config.rs - load(): ~/.ssh/config and every Include in ssh's read order, as Entry rows (with
+    │   the HostName and User written in each Host block, for search) plus Warnings and the number of files an Include read; Host, a literal alias, is the only thing that ever reaches ssh; printable():
     │   control characters as spaces, for text that is shown
     ├── doctor.rs - report(): the facts `sshpick doctor` gathered (config, ssh -V, one ssh -G, the
     │   terminal) judged into checks with a status, a detail and a fix; pure, so every check has a
@@ -22,9 +22,9 @@ sshpick-core
     │   $XDG_STATE_HOME or ~/.local/state, kept only for a person at a terminal; Recents: the
     │   latest use per host as of one instant, and how long ago, in at most three cells
     ├── label.rs - env_label(): the ENV column, from line 1 of an included file or its file name
-    ├── rank.rs - Ranker: nucleo's fuzzy match over ENV, HOST, WHAT and aliases, with the matched
-    │   ranges per column; equal scores are told apart by last use, and an empty query lists used
-    │   hosts first
+    ├── rank.rs - Ranker: each query word matched inside one field (ENV, HOST, WHAT, an alias,
+    │   else HostName and User), as a substring or by word starts, with the matched ranges per
+    │   column; equal scores are told apart by last use, and an empty query lists used hosts first
     ├── picker.rs - Picker: query, matches, cursor and scroll; resolve() settles a query before any
     │   terminal, handle(Key) returns an Outcome, follow(height) scrolls to the cursor and view()
     │   is the rows of one frame, with the scroll offset and whether the help is open

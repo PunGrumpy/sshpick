@@ -11,6 +11,19 @@ the top versioned section as the release notes.
 - The picker remembers the hosts you connect to at a terminal. It lists them first with an empty
   filter, breaks ties between equal matches by last use, and shows when in a dim LAST column.
   `XDG_STATE_HOME` moves the history from `~/.local/state/sshpick`.
+- An address, part of one, a user or `user@address` from shell history finds a host, from the
+  `HostName` and `User` written in its `Host` block.
+
+### Changed
+
+- Each search word matches inside one column. `git`, `ru` or `db` no longer find hosts by letters
+  spread across ENV, HOST and WHAT, so look-alike hosts in other environments drop out. A word no
+  host contains still matches when each letter starts a word: `pdb` finds `prod-db-primary`.
+
+### Fixed
+
+- `^` and `$` anchor the start and end of each column, so `^prod-db` and `prod$` find hosts, and a
+  capital `^PROD` or `API$` is no longer always empty.
 
 ## [0.2.0] - 2026-11-08
 
