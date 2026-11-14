@@ -664,6 +664,61 @@ mod tests {
         );
     }
 
+    fn whats(text: &str) -> Vec<(String, String)> {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        walk.lines(Path::new("/h/.ssh/config.d/50-x.conf"), text, "X", 0);
+        walk.out
+            .entries
+            .iter()
+            .map(|e| (e.host.to_string(), e.what.clone()))
+            .collect()
+    }
+
+    fn pairs(rows: &[(&str, &str)]) -> Vec<(String, String)> {
+        rows.iter()
+            .map(|(host, what)| (host.to_string(), what.to_string()))
+            .collect()
+    }
+
+    #[test]
+    fn a_heading_after_a_blank_line_is_the_what_of_hosts_with_no_comment_of_their_own() {
+        let text = "# X: the label\n\
+                    # how to reach X\n\
+                    \n\
+                    # OpenStack control plane (kolla)\n\
+                    # Most OpenStack APIs\n\
+                    Host x-api1\n\
+                    \x20 HostName 10.0.0.1\n\
+                    # Cell control\n\
+                    Host x-cell1\n\
+                    Host x-haproxy1\n\
+                    \x20 HostName 10.0.0.3\n\
+                    \n\
+                    # Ceph\n\
+                    Host x-ceph1\n\
+                    Host x-ceph2\n\
+                    \n\
+                    Host x-loose\n";
+        assert_eq!(
+            whats(text),
+            pairs(&[
+                ("x-api1", "Most OpenStack APIs"),
+                ("x-cell1", "Cell control"),
+                ("x-haproxy1", "OpenStack control plane (kolla)"),
+                ("x-ceph1", "Ceph"),
+                ("x-ceph2", "Ceph"),
+                ("x-loose", ""),
+            ])
+        );
+    }
+
+    #[test]
+    fn the_label_and_comments_before_the_first_blank_line_head_nothing() {
+        let text = "# X: the label\nHost x-a\nHost x-b\n";
+        assert_eq!(whats(text), pairs(&[("x-a", "X: the label"), ("x-b", "")]));
+    }
+
     #[test]
     fn a_remote_command_hop_target_is_kept() {
         let var = |_: &str| None;
