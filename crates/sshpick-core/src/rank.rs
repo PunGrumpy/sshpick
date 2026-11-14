@@ -183,6 +183,8 @@ impl Ranker {
 mod tests {
     use std::time::{Duration, UNIX_EPOCH};
 
+    use test_case::test_case;
+
     use super::*;
     use crate::config::Host;
 
@@ -192,7 +194,115 @@ mod tests {
             host: Host::literal(host).unwrap(),
             what: what.to_owned(),
             aliases: aliases.iter().map(|alias| alias.to_string()).collect(),
+            hostname: None,
+            user: None,
         }
+    }
+
+    fn written(env: &str, host: &str, what: &str, hostname: &str, user: &str) -> Entry {
+        let text = |value: &str| (!value.is_empty()).then(|| value.to_owned());
+        Entry {
+            hostname: text(hostname),
+            user: text(user),
+            ..entry(env, host, what, &[])
+        }
+    }
+
+    /// Look-alike hosts in five environments, as on a server with one file per environment.
+    fn fleet() -> Vec<Entry> {
+        vec![
+            written(
+                "PRODUCTION",
+                "prod-bastion",
+                "jump host",
+                "10.13.0.1",
+                "ubuntu",
+            ),
+            written("PRODUCTION", "prod-db-primary", "", "10.13.1.9", "ubuntu"),
+            written(
+                "PRODUCTION",
+                "prod-db-replica",
+                "",
+                "10.13.1.10",
+                "postgres",
+            ),
+            written("PRODUCTION", "prod-k8s-worker1", "", "10.13.1.21", ""),
+            written("PRODUCTION", "prod-consul1", "", "10.13.1.31", ""),
+            written("PRODUCTION", "prod-gitlab-runner", "", "10.13.1.41", ""),
+            written("PRODUCTION", "api-prod", "public API", "", ""),
+            written("NEW STAGING", "newstg-bastion", "", "10.12.0.1", "ubuntu"),
+            written("NEW STAGING", "newstg-consul1", "", "", ""),
+            written("NEW STAGING", "newstg-db-primary", "", "", ""),
+            written("NEW STAGING", "newstg-web1", "web frontend", "", ""),
+            written("OLD STAGING", "oldstg-consul1", "", "", ""),
+            written("OLD STAGING", "oldstg-k8s-worker1", "", "", ""),
+            written("LAB", "lab-db-primary", "", "", ""),
+            written("LAB", "lab-k8s-worker1", "ทดสอบ เซิร์ฟเวอร์", "", ""),
+            written("DEV", "dev-bastion", "", "", "deploy"),
+            written("DEV", "dev-gitlab-runner", "", "", ""),
+        ]
+    }
+
+    #[test_case("git" => "dev-gitlab-runner prod-gitlab-runner"; "letters are not picked from several columns")]
+    #[test_case("ru" => "dev-gitlab-runner prod-gitlab-runner"; "the ENV column does not lend letters")]
+    #[test_case("web" => "newstg-web1"; "a word some host contains matches only as a substring")]
+    #[test_case("db" => "lab-db-primary newstg-db-primary prod-db-primary prod-db-replica"; "no sparse letters inside one column")]
+    #[test_case("prod db" => "prod-db-primary prod-db-replica"; "two words")]
+    #[test_case("lab db" => "lab-db-primary"; "lab in gitlab does not need db")]
+    #[test_case("pdb" => "prod-db-primary prod-db-replica"; "no host contains it so the letters start words")]
+    #[test_case("pk8s" => "prod-k8s-worker1"; "word starts then a run")]
+    #[test_case("^prod-db" => "prod-db-primary prod-db-replica"; "a caret anchors the start of the host")]
+    #[test_case("^PROD" => "api-prod prod-bastion prod-consul1 prod-db-primary prod-db-replica prod-gitlab-runner prod-k8s-worker1"; "a capital caret word is case sensitive and anchors ENV")]
+    #[test_case("prod$" => "api-prod"; "a dollar anchors the end of the host")]
+    #[test_case("API$" => "api-prod"; "a capital dollar word anchors the end of WHAT")]
+    #[test_case("10.13.1.9" => "prod-db-primary"; "the address written under the host")]
+    #[test_case("10.13" => "prod-bastion prod-consul1 prod-db-primary prod-db-replica prod-gitlab-runner prod-k8s-worker1"; "part of an address")]
+    #[test_case("ubuntu" => "newstg-bastion prod-bastion prod-db-primary"; "the user written under the host")]
+    #[test_case("ubuntu@10.13.1.9" => "prod-db-primary"; "user at address from shell history")]
+    #[test_case("deploy@dev-bastion" => "dev-bastion"; "user at host")]
+    #[test_case("db !stg" => "lab-db-primary prod-db-primary prod-db-replica"; "a negated word excludes")]
+    #[test_case("'consul1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "a quoted word")]
+    #[test_case("stg" => "newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "stg")]
+    #[test_case("consul 1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "consul and 1")]
+    #[test_case("worker1" => "lab-k8s-worker1 oldstg-k8s-worker1 prod-k8s-worker1"; "worker1")]
+    #[test_case("k8s worker" => "lab-k8s-worker1 oldstg-k8s-worker1 prod-k8s-worker1"; "k8s and worker")]
+    #[test_case("staging" => "newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "a word of ENV")]
+    #[test_case("เซิร์ฟ" => "lab-k8s-worker1"; "thai")]
+    fn a_word_matches_inside_one_field(query: &str) -> String {
+        let mut ranker = with_no_history(fleet());
+        let mut found = hosts(&mut ranker, query);
+        found.sort();
+        found.join(" ")
+    }
+
+    fn hits_of(
+        query: &str,
+        host: &str,
+    ) -> (
+        Vec<(usize, usize)>,
+        Vec<(usize, usize)>,
+        Vec<(usize, usize)>,
+    ) {
+        let mut ranker = with_no_history(fleet());
+        let found = ranker.rank(query);
+        let Some(m) = found.iter().find(|m| ranker.entry(m).host.as_str() == host) else {
+            panic!("{query:?} does not match {host}");
+        };
+        (spans(&m.hits.env), spans(&m.hits.host), spans(&m.hits.what))
+    }
+
+    #[test]
+    fn hits_land_in_the_field_the_word_matched() {
+        assert_eq!(hits_of("^PROD", "api-prod"), (vec![(0, 4)], vec![], vec![]));
+        assert_eq!(hits_of("API$", "api-prod"), (vec![], vec![], vec![(7, 10)]));
+        assert_eq!(
+            hits_of("pdb", "prod-db-primary"),
+            (vec![], vec![(0, 1), (5, 7)], vec![])
+        );
+        assert_eq!(
+            hits_of("ubuntu@10.13.1.9", "prod-db-primary"),
+            (vec![], vec![], vec![])
+        );
     }
 
     fn with_no_history(entries: Vec<Entry>) -> Ranker {

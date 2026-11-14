@@ -378,6 +378,8 @@ mod tests {
                     host: Host::literal(names.next().unwrap()).unwrap(),
                     what: what.to_owned(),
                     aliases: names.map(str::to_owned).collect(),
+                    hostname: None,
+                    user: None,
                 }
             })
             .collect()
@@ -819,6 +821,8 @@ mod tests {
             host: Host::literal("lab-a").unwrap(),
             what: "build box".to_owned(),
             aliases: Vec::new(),
+            hostname: None,
+            user: None,
         };
         let picker = Picker::new(vec![entry], "^lab box", &Recents::none());
         let view = picker.view(3);

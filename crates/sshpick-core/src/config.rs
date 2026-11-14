@@ -28,6 +28,11 @@ pub struct Entry {
     /// WHAT column: the `#` comment on the line directly above the `Host` line, else `""`.
     pub what: String,
     pub(crate) aliases: Vec<String>,
+    /// The first `HostName` written inside this row's own `Host` block, as written. A value that
+    /// only `Host *`, another pattern or a `Match` block gives is not here: it is not searched.
+    pub(crate) hostname: Option<String>,
+    /// The first `User` written inside this row's own `Host` block, the same way.
+    pub(crate) user: Option<String>,
 }
 
 #[derive(Debug)]
@@ -284,6 +289,8 @@ impl<'a> Walk<'a> {
             host,
             what: printable(what),
             aliases,
+            hostname: None,
+            user: None,
         });
     }
 }
@@ -566,6 +573,71 @@ mod tests {
             .map(|e| e.names().collect())
             .collect();
         assert_eq!(names, [vec!["web", "web.corp", "web2"], vec!["solo"]]);
+    }
+
+    fn written(text: &str) -> Vec<(String, Option<String>, Option<String>)> {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        walk.lines(Path::new("/h/.ssh/config"), text, "", 0);
+        walk.out
+            .entries
+            .iter()
+            .map(|e| (e.host.to_string(), e.hostname.clone(), e.user.clone()))
+            .collect()
+    }
+
+    fn row(
+        host: &str,
+        hostname: Option<&str>,
+        user: Option<&str>,
+    ) -> (String, Option<String>, Option<String>) {
+        (
+            host.to_owned(),
+            hostname.map(str::to_owned),
+            user.map(str::to_owned),
+        )
+    }
+
+    #[test]
+    fn hostname_and_user_in_the_host_block_are_kept_and_the_first_one_wins() {
+        let text = "Host a a2\n\
+                    \x20 HostName 10.0.0.1\n\
+                    \x20 User ubuntu\n\
+                    \x20 HostName 10.0.0.2\n\
+                    \x20 user root\n\
+                    Host b\n\
+                    \x20 hostname=\"b.example\"\n\
+                    \x20 USER = deploy\n\
+                    Host c\n";
+        assert_eq!(
+            written(text),
+            [
+                row("a", Some("10.0.0.1"), Some("ubuntu")),
+                row("b", Some("b.example"), Some("deploy")),
+                row("c", None, None),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_block_that_adds_no_row_keeps_its_hostname_and_user_to_itself() {
+        let text = "Host a\n\
+                    \x20 User ubuntu\n\
+                    Host *\n\
+                    \x20 HostName fallback\n\
+                    \x20 User root\n\
+                    Host web-*\n\
+                    \x20 HostName 10.9.9.9\n\
+                    Host a\n\
+                    \x20 HostName 10.0.0.3\n\
+                    Host b\n\
+                    Match host b\n\
+                    \x20 HostName m.example\n\
+                    \x20 User matched\n";
+        assert_eq!(
+            written(text),
+            [row("a", None, Some("ubuntu")), row("b", None, None)]
+        );
     }
 
     #[test]
