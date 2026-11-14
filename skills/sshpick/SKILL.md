@@ -81,8 +81,10 @@ remote command after it. `BatchMode=yes` makes `ssh` fail instead of prompting f
 `--json` works on `ls`, `inspect` and `doctor`. Each prints one JSON object, indented by two
 spaces, on stdout and nothing else. stderr stays empty when the command succeeds.
 
-`pick`, the command that connects, has no `--json`. Adding `--json` to it is a usage error that
-exits 2. Its failures are `Error:` and `Fix:` lines on stderr, with the exit codes below.
+`pick`, the command that connects, takes `--json` only with `--print`:
+`sshpick --print --json --non-interactive -- <host>` prints the host's
+`{host, env, what, names}` and connects nothing.
+`--json` without `--print` is a usage error that exits 2. Its failures are `Error:` and `Fix:` lines on stderr, with the exit codes below.
 
 - `ls`: `query`, `total`, `hosts` and `warnings`. Each entry of `hosts` has `host`, `env`, `what`
   and `names`. `total` counts every host in the config, not the matches. `env` and `what` are `""`

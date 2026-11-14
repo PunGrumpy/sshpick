@@ -13,3 +13,4 @@ mod testing;
 
 pub use app::run;
 pub use screen::Screen;
+pub use terminal::surface_is_terminal;

@@ -35,9 +35,10 @@ sshpick-ui
         ├── help.rs - the key help as rows just above the hint row, from the blank rows first:
         │   rows from BINDINGS, cut with a `+N more · sshpick pick --help` pointer
         ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans
-        ├── terminal.rs - Tty: raw mode, the alternate screen and synchronized frames, the only
-        │   writer to the terminal while the picker is open, and the one idempotent restore that
-        │   `leave`, `Drop`, the panic hook and the signal thread all end in
+        ├── terminal.rs - Tty: raw mode, the alternate screen and synchronized frames on the
+        │   Surface (stdout, or /dev/tty under --print), the only writer to the terminal while the
+        │   picker is open, and the one idempotent restore, on that same device, that `leave`,
+        │   `Drop`, the panic hook and the signal thread all end in
         └── testing.rs - test helpers: a TestBackend screen for a terminal size, render(), frame()
 ```
 

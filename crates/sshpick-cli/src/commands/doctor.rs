@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::time::Instant;
 
 use serde::Serialize;
-use sshpick_core::{Check, Config, Facts, Probe, Report, Status, Terminal, printable};
+use sshpick_core::{Check, Config, Facts, Finish, Probe, Report, Status, Terminal, printable};
 use sshpick_ui::{ColorConfig, Output};
 
 use super::{interaction, note_if_also_a_host, write_json};
@@ -86,7 +86,7 @@ fn gather(output: &Output, non_interactive: bool) -> Facts {
     let probe = probe(&config, &ssh);
     let colors = output.stdout_colors();
     let terminal = Terminal {
-        interaction: interaction(non_interactive),
+        interaction: interaction(non_interactive, Finish::Connect.surface()),
         size: output.size(),
         term: std::env::var_os("TERM").map(|term| term.to_string_lossy().into_owned()),
         color: colors.color(),

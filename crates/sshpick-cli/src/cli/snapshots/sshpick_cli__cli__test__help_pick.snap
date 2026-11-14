@@ -3,11 +3,15 @@ source: crates/sshpick-cli/src/cli/test.rs
 expression: "page(topic, 80)"
 ---
 
-  ▌ sshpick pick [query]...
+  ▌ sshpick pick [query]... [options]
 
   Pick a host from ~/.ssh/config and ssh to it. Exactly one match connects at
   once, without opening the picker. At a terminal the hosts you connected to
   last come first.
+
+  Options:
+       --json   With --print, output the host as JSON
+       --print  Print the picked host instead of connecting
 
   Keys:
   Enter                        ssh to the selected host

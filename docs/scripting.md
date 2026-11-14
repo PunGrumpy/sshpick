@@ -41,6 +41,25 @@ on stdout. Keys are fixed and an empty result still prints the object (and `ls` 
       "warnings": []
     }
 
+`sshpick --print --json` prints the one host a pick lands on as the same object as one element of
+`hosts`, with no `query`, `total` or `warnings` around it, so `rex`, `jq` or a shell script reads
+the ENV and WHAT of the host the person picked. The picker, when it opens, draws on `/dev/tty`, so
+stdout holds only the object. Errors and exit codes are `pick`'s: no match and a loose match under
+`--non-interactive` exit 1 with `no_match`, several matches exit 2 with `several_matches` and its
+`candidates`, and Esc exits 130 with nothing on stdout. Config warnings are left out; `ls --json`
+reports them.
+
+    $ sshpick --print --json --non-interactive -- consul1.stg
+    {
+      "host": "stg-consul1",
+      "env": "STAGING",
+      "what": "consul server 1",
+      "names": [
+        "stg-consul1",
+        "consul1.stg"
+      ]
+    }
+
 `env` and `what` are always there, as `""` when empty. A warning is `{"kind", "path", "message"}`
 with `kind` one of `unreadable`, `too_deep`, `cycle` or `bad_include`; `path` is left out when
 the warning has none. `inspect --json` is `{host, env, what, names, resolved, command, warnings}`,
@@ -201,7 +220,7 @@ scripts; `detail` and `fix` are for people and may be reworded.
 
 | Status      | Meaning                                                                     |
 |-------------|-----------------------------------------------------------------------------|
-| 0           | `ls`, `inspect`, `doctor`, `--help` or `--version` succeeded                |
+| 0           | `ls`, `inspect`, `doctor`, `pick --print`, `--help` or `--version` succeeded |
 | `ssh`'s own | after a pick (sshpick becomes `ssh`)                                        |
 | 1           | Enter with no match, or no match without the picker (`ls`, `inspect`)       |
 | 2           | config error, no hosts found, unknown option or command, a failed `ssh -G`, |

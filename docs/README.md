@@ -7,6 +7,8 @@
 - [Picker](picker.md): the keys and what each part of the screen means.
 - [Scripting](scripting.md): tab-separated and JSON output, the `doctor` report, errors, colour and
   exit codes.
+- [Rex](rex.md): a key in the Rex terminal that opens the picker in a floating layer and the host
+  in a labelled tab.
 - [Troubleshooting](troubleshooting.md): by symptom, with the `sshpick doctor` line that shows it and
   the fix.
 - [Agent skill](../skills/sshpick/SKILL.md): the guide a coding agent loads to use sshpick without

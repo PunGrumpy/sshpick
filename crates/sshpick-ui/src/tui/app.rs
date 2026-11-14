@@ -2,7 +2,7 @@ use std::io;
 use std::time::Duration;
 
 use crossterm::event::{self, Event};
-use sshpick_core::{Outcome, Picker, Previews};
+use sshpick_core::{Outcome, Picker, Previews, Surface};
 
 use super::input;
 use super::plan::Space;
@@ -12,10 +12,16 @@ use super::terminal::Tty;
 const BUSY_POLL: Duration = Duration::from_millis(15);
 const IDLE_POLL: Duration = Duration::from_secs(3600);
 
-/// Leave the alternate screen before returning: `exec` comes after this.
-pub fn run(screen: &Screen, picker: &mut Picker, previews: &mut Previews) -> io::Result<Outcome> {
+/// Draws on `surface` and leaves its alternate screen before returning: `exec` or the printed
+/// host comes after this.
+pub fn run(
+    screen: &Screen,
+    picker: &mut Picker,
+    previews: &mut Previews,
+    surface: Surface,
+) -> io::Result<Outcome> {
     let mut space = Space::detect();
-    let mut tty = Tty::enter(screen.plan(space, picker))?;
+    let mut tty = Tty::enter(screen.plan(space, picker), surface)?;
     let outcome = events(&mut tty, &mut space, screen, picker, previews);
     tty.leave()?;
     outcome

@@ -66,9 +66,11 @@ fn dispatch(args: Args, output: &Output) -> Result<u8, Error> {
                 typed: args.typed.as_deref().unwrap_or(spec::DOCTOR.name),
             },
         ),
-        Command::Pick { query } => {
-            pick::run(&CommandBase::new(output, non_interactive, json)?, &query)
-        }
+        Command::Pick { query, landing } => pick::run(
+            &CommandBase::new(output, non_interactive, json)?,
+            &query,
+            landing,
+        ),
     }
 }
 

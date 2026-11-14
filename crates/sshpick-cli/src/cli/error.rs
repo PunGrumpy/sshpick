@@ -149,7 +149,7 @@ impl Error {
             | Error::List(list::Error::Write(_))
             | Error::Inspect(inspect::Error::Write(_))
             | Error::Doctor(doctor::Error::Write(_))
-            | Error::Pick(pick::Error::Terminal(_)) => Reason::WriteFailed,
+            | Error::Pick(pick::Error::Terminal(_) | pick::Error::Write(_)) => Reason::WriteFailed,
         }
     }
 
@@ -192,6 +192,11 @@ impl Error {
             Error::Usage(UsageError::Unexpected { command, word }) => {
                 Some(accepted_options(word, Some(command)))
             }
+            Error::Usage(UsageError::JsonWithoutPrint) => Some(
+                "print the picked host as JSON with `sshpick --print --json`, or list hosts with \
+                 `sshpick ls --json`."
+                    .to_owned(),
+            ),
             Error::Usage(UsageError::MissingQuery(command)) => Some(format!(
                 "name a host, as in `sshpick {command} stg-consul1`, or list them with `sshpick ls`."
             )),

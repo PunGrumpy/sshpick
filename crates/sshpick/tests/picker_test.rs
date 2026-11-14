@@ -744,3 +744,87 @@ fn a_history_that_cannot_be_saved_is_one_warning_and_ssh_still_starts() {
     assert!(frame.has("ssh -- lab-a"), "{frame}");
     assert_eq!(session.history(), None);
 }
+
+/// A file per test under cargo's scratch directory, for stdout that is not the terminal.
+fn stdout_file(name: &str) -> std::path::PathBuf {
+    let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join(format!("picker-{name}-{}.out", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    path
+}
+
+fn printing(file: &std::path::Path) -> Session {
+    let mut options = Options::new("ui");
+    options.shell = SHELL;
+    options.args = &["--print"];
+    options.stdout_file = Some(file.to_owned());
+    let session = Session::start(options);
+    session.wait_for("the first frame", drawn);
+    session
+}
+
+#[test]
+fn print_draws_on_the_terminal_while_stdout_gets_only_the_host() {
+    let file = stdout_file("print");
+    let mut session = printing(&file);
+    session.send("lab-a");
+    session.wait_for("one match", |frame| frame.rows[0].ends_with("1/5"));
+    session.send("\r");
+    assert_eq!(session.exit(), Exit::Code(0));
+    assert_restored(&session);
+    assert!(
+        !String::from_utf8_lossy(&session.output()).contains("ssh --"),
+        "ssh never ran and no `>` line was printed"
+    );
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "lab-a\n");
+    assert_eq!(
+        recorded_hosts(&session),
+        ["lab-a"],
+        "a printed pick is a recent host"
+    );
+    std::fs::remove_file(&file).unwrap();
+}
+
+#[test]
+fn print_cancelled_exits_130_with_stdout_empty() {
+    let file = stdout_file("cancel");
+    let mut session = printing(&file);
+    session.send("\x1b");
+    assert_eq!(session.exit(), Exit::Code(130));
+    assert_restored(&session);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "");
+    std::fs::remove_file(&file).unwrap();
+}
+
+#[test]
+fn print_killed_restores_the_terminal_it_drew_on() {
+    let file = stdout_file("killed");
+    let mut session = printing(&file);
+    session.signal(Signal::SIGTERM);
+    assert_eq!(session.exit(), Exit::Signal(Signal::SIGTERM));
+    assert_restored(&session);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "");
+    std::fs::remove_file(&file).unwrap();
+}
+
+#[test]
+fn print_on_a_terminal_prints_the_host_after_the_shell_lines() {
+    let mut options = Options::new("ui");
+    options.shell = SHELL;
+    options.args = &["--print"];
+    let mut session = Session::start(options);
+    session.wait_for("the first frame", drawn);
+    session.send("build");
+    session.wait_for("one match", |frame| frame.rows[0].ends_with("1/5"));
+    session.send("\r");
+    assert_eq!(session.exit(), Exit::Code(0));
+    let frame = session.frame();
+    assert!(!frame.alternate, "{frame}");
+    assert_eq!(
+        frame.rows[..4],
+        ["$ git status", "clean", "$ sshpick", "lab-b"],
+        "{frame}"
+    );
+    assert!(frame.rows[4..].iter().all(String::is_empty), "{frame}");
+    assert!(session.cooked());
+}

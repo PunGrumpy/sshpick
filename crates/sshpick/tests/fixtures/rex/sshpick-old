@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stands in for an sshpick older than --print: a text usage error, whatever it is asked.
+echo 'Error: unknown option "--print"' >&2
+echo 'Fix: sshpick accepts --help, --no-color, --non-interactive, --version.' >&2
+exit 2

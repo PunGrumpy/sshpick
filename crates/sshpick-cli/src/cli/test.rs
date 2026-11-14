@@ -11,6 +11,7 @@ use super::error::{Error, Exit, Reason};
 use super::help::{self, MAX_WIDTH};
 use super::spec::{self, COMMANDS, EXIT_STATUS, GLOBAL};
 use crate::commands::list::ListFormat;
+use crate::commands::pick::Landing;
 use crate::commands::{doctor, inspect, list, pick};
 
 const PLAIN: ColorConfig = ColorConfig::none();
@@ -24,8 +25,13 @@ fn command(args: &[&str]) -> Result<Command, UsageError> {
 }
 
 fn pick_for(query: &str) -> Result<Command, UsageError> {
+    pick_then(query, Landing::Connect)
+}
+
+fn pick_then(query: &str, landing: Landing) -> Result<Command, UsageError> {
     Ok(Command::Pick {
         query: query.to_owned(),
+        landing,
     })
 }
 
@@ -146,8 +152,20 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["-lh"] => unknown_option("-lh"); "clustered short options are unknown")]
 #[test_case(&["-l", "-x"] => unknown_option("-x"); "an unknown option after -l")]
 #[test_case(&["--bogus", "-x"] => unknown_option("--bogus"); "the first unknown option is named")]
-#[test_case(&["--json"] => unknown_option("--json"); "json needs a command that accepts it")]
-#[test_case(&["pick", "--json"] => unknown_option_of(Some("pick"), "--json"); "pick has no json")]
+#[test_case(&["--json"] => Err(UsageError::JsonWithoutPrint); "json alone is pick's, and needs --print")]
+#[test_case(&["pick", "--json"] => Err(UsageError::JsonWithoutPrint); "pick json without print")]
+#[test_case(&["--print"] => pick_then("", Landing::Print); "print without the pick word")]
+#[test_case(&["pick", "--print", "db"] => pick_then("db", Landing::Print); "print after pick")]
+#[test_case(&["db", "--print"] => pick_then("db", Landing::Print); "print after a query word")]
+#[test_case(&["--print", "--json"] => pick_then("", Landing::PrintJson); "print as json")]
+#[test_case(&["--json", "--non-interactive", "--print", "--", "x"] => pick_then("x", Landing::PrintJson); "the order does not matter")]
+#[test_case(&["--print", "--", "--json"] => pick_then("--json", Landing::Print); "after -- json is query text")]
+#[test_case(&["ls", "--print"] => unknown_option_of(Some("list"), "--print"); "print on ls")]
+#[test_case(&["inspect", "x", "--print"] => unknown_option_of(Some("inspect"), "--print"); "print on inspect")]
+#[test_case(&["doctor", "--print"] => unknown_option_of(Some("doctor"), "--print"); "print on doctor")]
+#[test_case(&["-l", "--print"] => unknown_option("--print"); "-l lists, and list does not print")]
+#[test_case(&["-l", "--json"] => unknown_option("--json"); "-l without list keeps json unknown")]
+#[test_case(&["pick", "-l", "--print"] => unknown_option_of(Some("list"), "--print"); "pick -l lists, and list does not print")]
 #[test_case(&["help", "--json"] => unknown_option_of(Some("help"), "--json"); "help has no json")]
 #[test_case(&["pick", "--bogus"] => unknown_option_of(Some("pick"), "--bogus"); "the command is remembered")]
 #[test_case(&["--version"] => Ok(Command::Version); "long version")]
@@ -247,6 +265,8 @@ fn the_table_has_no_two_commands_with_the_same_name() {
 #[test_case(Error::Pick(pick::Error::Previews(io::Error::other("x"))), 2; "previews")]
 #[test_case(Error::Pick(pick::Error::Terminal(io::Error::other("x"))), 2; "terminal")]
 #[test_case(Error::Pick(pick::Error::Exec(io::Error::other("x"))), 127; "exec failed")]
+#[test_case(Error::Pick(pick::Error::Write(io::Error::other("x"))), 2; "print write")]
+#[test_case(Error::Usage(UsageError::JsonWithoutPrint), 2; "json without print")]
 fn errors_map_to_the_documented_exit_codes(error: Error, code: u8) {
     assert_eq!(error.exit_code(), code);
 }
@@ -285,6 +305,8 @@ fn io_error() -> io::Error {
 #[test_case(Error::Inspect(inspect::Error::Write(io_error())), "write_failed", "error"; "inspect write")]
 #[test_case(Error::Doctor(doctor::Error::Write(io_error())), "write_failed", "error"; "doctor write")]
 #[test_case(Error::Pick(pick::Error::Terminal(io_error())), "write_failed", "error"; "terminal")]
+#[test_case(Error::Pick(pick::Error::Write(io_error())), "write_failed", "error"; "print write")]
+#[test_case(Error::Usage(UsageError::JsonWithoutPrint), "usage", "action_required"; "json without print")]
 fn an_error_has_a_stable_reason_and_a_status_that_follows_from_it(
     error: Error,
     reason: &str,
@@ -591,12 +613,16 @@ fn names_a_real_command(line: &str) -> bool {
         return false;
     };
     let word = rest.first().filter(|word| !word.starts_with(['-', '<']));
-    let spec = word.and_then(|word| {
-        let spec = spec::command(word);
-        assert!(spec.is_some(), "`{line}`: sshpick has no command {word}");
-        spec
-    });
-    for flag in rest.iter().filter(|word| word.starts_with("--")) {
+    let spec = match word {
+        Some(word) => {
+            let spec = spec::command(word);
+            assert!(spec.is_some(), "`{line}`: sshpick has no command {word}");
+            spec
+        }
+        None => spec::command("pick"),
+    };
+    let options = rest.iter().take_while(|word| **word != "--");
+    for flag in options.filter(|word| word.starts_with("--")) {
         let own = spec.is_some_and(|spec| spec.options.iter().any(|o| o.matches(flag)));
         assert!(
             own || spec::option(flag).is_some(),
@@ -994,6 +1020,18 @@ fn every_error_is_an_error_line_then_an_optional_fix_and_learn_more() {
         (
             "sshpick inspect",
             Error::Usage(UsageError::MissingQuery("inspect")),
+        ),
+        ("sshpick --json", Error::Usage(UsageError::JsonWithoutPrint)),
+        (
+            "sshpick ls --print",
+            Error::Usage(UsageError::Option {
+                option: "--print".to_owned(),
+                command: Some("list"),
+            }),
+        ),
+        (
+            "sshpick --print  # stdout is full",
+            Error::Pick(pick::Error::Write(io::Error::from_raw_os_error(28))),
         ),
         (
             "sshpick doctor extra",

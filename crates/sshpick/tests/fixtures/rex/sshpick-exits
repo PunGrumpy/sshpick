@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stands in for sshpick: prints nothing and exits with $FAKE_EXIT, as a cancelled or failed pick.
+echo "sshpick-exits $*" >&2
+exit "${FAKE_EXIT:-0}"

@@ -280,7 +280,7 @@ mod tests {
         Interaction {
             non_interactive: false,
             stdin_is_terminal: true,
-            stdout_is_terminal: true,
+            surface_is_terminal: true,
             dumb: false,
         }
     }
@@ -349,7 +349,7 @@ mod tests {
             let interaction = Interaction {
                 non_interactive: bits & 1 != 0,
                 stdin_is_terminal: bits & 2 != 0,
-                stdout_is_terminal: bits & 4 != 0,
+                surface_is_terminal: bits & 4 != 0,
                 dumb: bits & 8 != 0,
             };
             let history = History::open_with(&scratch.0, &interaction, &var);

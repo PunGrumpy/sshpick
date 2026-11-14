@@ -285,7 +285,7 @@ fn terminal(terminal: &Terminal) -> Check {
     let mut seen = Vec::new();
     match size {
         Some((cols, rows)) => seen.push(format!("{cols}x{rows}")),
-        None if interaction.stdout_is_terminal => {
+        None if interaction.surface_is_terminal => {
             seen.push("size unknown, taken as 80x24".to_owned());
         }
         None => {}
@@ -361,7 +361,7 @@ mod tests {
             interaction: Interaction {
                 non_interactive: false,
                 stdin_is_terminal: true,
-                stdout_is_terminal: true,
+                surface_is_terminal: true,
                 dumb: false,
             },
             size: Some((80, 24)),
@@ -658,7 +658,7 @@ mod tests {
     fn terminal_says_what_the_picker_would_find(
         non_interactive: bool,
         stdin_is_terminal: bool,
-        stdout_is_terminal: bool,
+        surface_is_terminal: bool,
         dumb: bool,
         size: Option<(u16, u16)>,
         term: Option<&str>,
@@ -673,7 +673,7 @@ mod tests {
             interaction: Interaction {
                 non_interactive,
                 stdin_is_terminal,
-                stdout_is_terminal,
+                surface_is_terminal,
                 dumb,
             },
             size,
@@ -693,7 +693,7 @@ mod tests {
             let interaction = Interaction {
                 non_interactive: bits & 1 != 0,
                 stdin_is_terminal: bits & 2 != 0,
-                stdout_is_terminal: bits & 4 != 0,
+                surface_is_terminal: bits & 4 != 0,
                 dumb: bits & 8 != 0,
             };
             let mut facts = facts();

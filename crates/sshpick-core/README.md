@@ -30,8 +30,9 @@ sshpick-core
     │   is the rows of one frame, with the scroll offset and whether the help is open
     ├── hints.rs - hint(): the one hint row, the widest rung of keys that fits, accept and cancel
     │   always kept, and the window range when it fits beside them
-    ├── interaction.rs - refusal(): whether the picker may open, from --non-interactive, whether
-    │   stdin and stdout are terminals, and TERM=dumb, in that order
+    ├── interaction.rs - Finish (connect or print) and the Surface each draws on (stdout or
+    │   /dev/tty); refusal(): whether the picker may open, from --non-interactive, whether stdin
+    │   and the surface are terminals, and TERM=dumb, in that order
     ├── keymap.rs - BINDINGS: every key Picker::handle acts on, which the help, `sshpick pick
     │   --help` and the docs/picker.md table read; tests tie it to the picker
     ├── preview.rs - Previews: one worker thread that runs ssh -G, and a Slot per host

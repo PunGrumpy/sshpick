@@ -2,6 +2,7 @@ use std::ffi::OsString;
 
 use super::spec::{self, CommandSpec};
 use crate::commands::list::ListFormat;
+use crate::commands::pick::Landing;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct Args {
@@ -19,7 +20,7 @@ pub(crate) struct GlobalArgs {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
-    Pick { query: String },
+    Pick { query: String, landing: Landing },
     List { query: String, format: ListFormat },
     Inspect { query: String, json: bool },
     Doctor { json: bool },
@@ -40,6 +41,9 @@ pub(crate) enum UsageError {
     MissingQuery(&'static str),
     #[error("unexpected argument \"{word}\" for sshpick {command}")]
     Unexpected { command: &'static str, word: String },
+    /// `pick` prints JSON only when it prints: without `--print` it connects.
+    #[error("sshpick pick takes --json only with --print")]
+    JsonWithoutPrint,
 }
 
 #[derive(Default)]
@@ -90,13 +94,18 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
     let typed = named.map(|_| words.remove(0));
     words.extend(tail);
 
+    // With no command word the command is `pick`, and its options need no `pick` in front, as
+    // `sshpick consul` needs none. `-l` turns that into `list`, which takes neither.
+    let owner = named.or((!flags.list).then_some(&spec::PICK));
     let accepts =
-        |long: &str| named.is_some_and(|spec| spec.options.iter().any(|o| o.long == long));
+        |long: &str| owner.is_some_and(|spec| spec.options.iter().any(|o| o.long == long));
     let asked_json = scoped.iter().any(|(_, long)| *long == "json");
     let mut json = false;
+    let mut print = false;
     for (arg, long) in scoped {
         if accepts(long) {
             json |= long == "json";
+            print |= long == "print";
         } else {
             unknown.get_or_insert(arg);
         }
@@ -119,7 +128,7 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
             command: named.map(|spec| spec.name),
         })
     } else {
-        route(named, words, flags.list, json)
+        route(named, words, flags.list, json, print)
     };
     Args {
         global,
@@ -133,6 +142,7 @@ fn route(
     words: Vec<String>,
     list: bool,
     json: bool,
+    print: bool,
 ) -> Result<Command, UsageError> {
     if let Some(spec) = named.filter(|spec| !spec.arguments.iter().any(|a| a.multiple))
         && let Some(word) = words.get(spec.arguments.len())
@@ -163,14 +173,25 @@ fn route(
         }
         return Ok(Command::Inspect { query, json });
     }
-    Ok(if name == spec::LIST.name || list {
+    if name == spec::LIST.name || list {
+        if print {
+            return Err(UsageError::Option {
+                option: "--print".to_owned(),
+                command: Some(spec::LIST.name),
+            });
+        }
         let format = match (json, list) {
             (true, _) => ListFormat::Json,
             (false, true) => ListFormat::Tsv,
             (false, false) => ListFormat::Auto,
         };
-        Command::List { query, format }
-    } else {
-        Command::Pick { query }
-    })
+        return Ok(Command::List { query, format });
+    }
+    let landing = match (print, json) {
+        (false, false) => Landing::Connect,
+        (false, true) => return Err(UsageError::JsonWithoutPrint),
+        (true, false) => Landing::Print,
+        (true, true) => Landing::PrintJson,
+    };
+    Ok(Command::Pick { query, landing })
 }

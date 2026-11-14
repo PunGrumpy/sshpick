@@ -2,7 +2,7 @@ use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 
 use serde::Serialize;
-use sshpick_core::{Entry, Interaction, Loaded, Warning};
+use sshpick_core::{Entry, Interaction, Loaded, Surface, Warning};
 use sshpick_ui::Output;
 
 use crate::cli::{Error, spec, suggest};
@@ -86,11 +86,12 @@ pub(crate) fn note_if_also_a_host(output: &Output, word: &str, entries: &[Entry]
     }
 }
 
-pub(crate) fn interaction(non_interactive: bool) -> Interaction {
+/// What the picker would find if it opened on `surface`.
+pub(crate) fn interaction(non_interactive: bool, surface: Surface) -> Interaction {
     Interaction {
         non_interactive,
         stdin_is_terminal: io::stdin().is_terminal(),
-        stdout_is_terminal: io::stdout().is_terminal(),
+        surface_is_terminal: sshpick_ui::surface_is_terminal(surface),
         dumb: std::env::var_os("TERM").is_some_and(|term| term == "dumb"),
     }
 }

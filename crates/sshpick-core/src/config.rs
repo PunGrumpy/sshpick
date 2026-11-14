@@ -19,7 +19,7 @@ const MAX_DEPTH: usize = 16;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Host(String);
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
     /// ENV column: the label of the included file the host is in (see `label::env_label`), or
     /// `""` for hosts written directly in `~/.ssh/config`.

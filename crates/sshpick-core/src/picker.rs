@@ -30,7 +30,8 @@ pub enum Key {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Outcome {
-    Pick(Host),
+    /// The whole entry, so a caller can print its ENV and WHAT as well as connect.
+    Pick(Entry),
     Cancel,
     NoMatch,
 }
@@ -158,9 +159,11 @@ impl Picker {
     pub fn handle(&mut self, key: Key) -> Option<Outcome> {
         match key {
             Key::Enter => {
-                return Some(match self.selected() {
-                    Some(host) => Outcome::Pick(host.clone()),
-                    None => Outcome::NoMatch,
+                return Some(match &self.matches {
+                    Matches::Some { current, .. } => {
+                        Outcome::Pick(self.ranker.entry(current).clone())
+                    }
+                    Matches::None => Outcome::NoMatch,
                 });
             }
             Key::Esc if self.help => self.help = false,
@@ -401,6 +404,13 @@ mod tests {
         picker.view(height).range()
     }
 
+    fn picked(outcome: Option<Outcome>) -> Option<String> {
+        match outcome {
+            Some(Outcome::Pick(entry)) => Some(entry.host.to_string()),
+            _ => None,
+        }
+    }
+
     fn selected(picker: &Picker) -> &str {
         picker.selected().map_or("", Host::as_str)
     }
@@ -437,10 +447,7 @@ mod tests {
     #[test]
     fn enter_picks_the_selection_and_no_match_is_no_match() {
         let mut picker = picker(&["a", "b"]);
-        assert_eq!(
-            picker.handle(Key::Enter),
-            Some(Outcome::Pick(Host::literal("a").unwrap()))
-        );
+        assert_eq!(picked(picker.handle(Key::Enter)).as_deref(), Some("a"));
         type_text(&mut picker, "zzzz");
         assert_eq!(picker.selected(), None);
         assert_eq!(picker.handle(Key::Enter), Some(Outcome::NoMatch));
@@ -776,8 +783,8 @@ mod tests {
         picker.handle(Key::Down);
         assert_eq!(selected(&picker), "a-2", "so do the arrows");
         assert_eq!(
-            picker.handle(Key::Enter),
-            Some(Outcome::Pick(Host::literal("a-2").unwrap())),
+            picked(picker.handle(Key::Enter)).as_deref(),
+            Some("a-2"),
             "and Enter still picks"
         );
     }

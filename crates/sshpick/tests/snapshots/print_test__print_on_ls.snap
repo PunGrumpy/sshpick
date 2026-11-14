@@ -1,0 +1,6 @@
+---
+source: crates/sshpick/tests/print_test.rs
+expression: stderr(&out)
+---
+Error: unknown option "--print"
+Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version.
