@@ -7,12 +7,14 @@
 //! on the screen means the whole change is.
 
 use std::fmt;
+use std::fs;
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use nix::errno::Errno;
 use nix::sys::signal::{Signal, kill};
@@ -34,6 +36,11 @@ pub struct Options {
     pub shell: &'static [&'static str],
     /// Keys typed before sshpick took the terminal. They wait in the pty's input queue.
     pub typed: &'static str,
+    /// Hosts connected to before sshpick starts, and how many seconds ago. They are written to
+    /// the history in the session's state directory.
+    pub history: &'static [(&'static str, u64)],
+    /// A file where the state directory should be, so that sshpick cannot save anything there.
+    pub unwritable: bool,
 }
 
 impl Options {
@@ -46,6 +53,8 @@ impl Options {
             args: &[],
             shell: &[],
             typed: "",
+            history: &[],
+            unwritable: false,
         }
     }
 }
@@ -115,6 +124,7 @@ pub struct Session {
     exited: Receiver<nix::Result<WaitStatus>>,
     pid: Pid,
     reaped: bool,
+    state: PathBuf,
 }
 
 impl Session {
@@ -127,7 +137,11 @@ impl Session {
             args,
             shell,
             typed,
+            history,
+            unwritable,
         } = options;
+        let state = fresh_state();
+        seed(&state, history, unwritable);
         let pair = ok(
             native_pty_system().openpty(PtySize {
                 rows,
@@ -191,6 +205,7 @@ impl Session {
             ),
         );
         command.env("TERM", term);
+        command.env("XDG_STATE_HOME", &state);
         let child = ok(pair.slave.spawn_command(command), "start sshpick");
         drop(pair.slave);
 
@@ -221,7 +236,19 @@ impl Session {
             exited,
             pid,
             reaped: false,
+            state,
         }
+    }
+
+    /// The directory sshpick was told to keep its state in. It does not exist until something
+    /// puts a file there.
+    pub fn state(&self) -> &Path {
+        &self.state
+    }
+
+    /// The history as sshpick left it, or `None` when there is no file.
+    pub fn history(&self) -> Option<String> {
+        fs::read_to_string(self.state.join("sshpick").join("history")).ok()
     }
 
     pub fn send(&mut self, keys: &str) {
@@ -338,7 +365,41 @@ impl Drop for Session {
         if !self.reaped {
             let _ = kill(self.pid, Signal::SIGKILL);
         }
+        let _ = fs::remove_dir_all(&self.state);
     }
+}
+
+/// A state directory of its own, so that no test reads the history of another or of the person
+/// running the tests.
+fn fresh_state() -> PathBuf {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    std::env::temp_dir().join(format!(
+        "sshpick-pty-state-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ))
+}
+
+fn seed(state: &Path, history: &[(&str, u64)], unwritable: bool) {
+    let dir = state.join("sshpick");
+    if unwritable {
+        ok(fs::create_dir_all(state), "create the state directory");
+        ok(fs::write(&dir, "in the way"), "block the history directory");
+    }
+    if history.is_empty() {
+        return;
+    }
+    let now = ok(
+        SystemTime::now().duration_since(UNIX_EPOCH),
+        "read the clock",
+    )
+    .as_secs();
+    let lines: String = history
+        .iter()
+        .map(|(host, ago)| format!("{}\t{host}\n", now - ago))
+        .collect();
+    ok(fs::create_dir_all(&dir), "create the history directory");
+    ok(fs::write(dir.join("history"), lines), "seed the history");
 }
 
 fn fixtures() -> PathBuf {

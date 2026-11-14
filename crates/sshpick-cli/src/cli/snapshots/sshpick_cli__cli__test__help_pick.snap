@@ -6,7 +6,8 @@ expression: "page(topic, 80)"
   ▌ sshpick pick [query]...
 
   Pick a host from ~/.ssh/config and ssh to it. Exactly one match connects at
-  once, without opening the picker.
+  once, without opening the picker. At a terminal the hosts you connected to
+  last come first.
 
   Keys:
   Enter                        ssh to the selected host

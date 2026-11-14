@@ -51,6 +51,9 @@ Error: no host is named "consul1"; "stg-consul1" matches loosely
 Fix: connect with `sshpick --non-interactive stg-consul1`, or list candidates with `sshpick ls consul1`.
 ```
 
+A connection made with `--non-interactive` is not remembered, and the order of `ls` never depends
+on history.
+
 Take names from `sshpick ls --json`, as `.hosts[].host` or one of `.hosts[].names`. Never take them
 from memory.
 

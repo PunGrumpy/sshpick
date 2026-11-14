@@ -2,7 +2,7 @@ use std::io;
 use std::time::Instant;
 
 use serde::Serialize;
-use sshpick_core::{Entry, Picker, Preview, Resolution, Warning};
+use sshpick_core::{Entry, Picker, Preview, Recents, Resolution, Warning};
 use sshpick_ui::ColorConfig;
 
 use super::{
@@ -114,7 +114,7 @@ pub(crate) fn run(
     if !json {
         note_if_also_a_host(base.output, typed, &loaded.entries);
     }
-    let picker = Picker::new(loaded.entries, query);
+    let picker = Picker::new(loaded.entries, query, &Recents::none());
     let entry = match picker.resolve() {
         Resolution::One(entry) | Resolution::Loose(entry) => entry,
         Resolution::Many(count) => {

@@ -1,6 +1,7 @@
 use std::io;
+use std::time::SystemTime;
 
-use sshpick_core::{Host, Outcome, Picker, Previews, Refusal, Resolution};
+use sshpick_core::{History, Host, Outcome, Picker, Previews, Refusal, Resolution};
 use sshpick_ui::Screen;
 
 use super::{CommandBase, did_you_mean, interaction, shell_words};
@@ -64,11 +65,14 @@ fn several(count: &usize, query: &str, refusal: &Refusal) -> String {
 pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     let loaded = base.load()?;
     base.warn_all(&loaded.warnings);
+    let interaction = interaction(base.non_interactive);
+    let history = History::open(&base.home, &interaction);
     let screen = Screen::new(&loaded.entries);
-    let mut picker = Picker::new(loaded.entries, query);
-    let refusal = sshpick_core::refusal(&interaction(base.non_interactive));
+    let recents = history.recents(SystemTime::now());
+    let mut picker = Picker::new(loaded.entries, query, &recents);
+    let refusal = sshpick_core::refusal(&interaction);
     match (picker.resolve(), refusal) {
-        (Resolution::One(entry), _) => return exec(base, &entry.host),
+        (Resolution::One(entry), _) => return exec(base, &history, &entry.host),
         (Resolution::Loose(entry), Some(Refusal::NonInteractive)) => {
             return Err(Error::Loose {
                 query: query.to_owned(),
@@ -76,7 +80,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
             }
             .into());
         }
-        (Resolution::Loose(entry), _) => return exec(base, &entry.host),
+        (Resolution::Loose(entry), _) => return exec(base, &history, &entry.host),
         (Resolution::NoMatch, Some(_)) => {
             return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
@@ -105,7 +109,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     }
 
     match sshpick_ui::run(&screen, &mut picker, &mut previews) {
-        Ok(Outcome::Pick(host)) => exec(base, &host),
+        Ok(Outcome::Pick(host)) => exec(base, &history, &host),
         Ok(Outcome::Cancel) => Ok(Exit::Cancelled.code()),
         Ok(Outcome::NoMatch) => Err(cli::Error::NoMatch {
             query: picker.query().to_owned(),
@@ -117,8 +121,11 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
 }
 
 /// A fuzzy query or a single match hides which host it chose, so the command is said first.
-fn exec(base: &CommandBase, host: &Host) -> Result<u8, cli::Error> {
+fn exec(base: &CommandBase, history: &History, host: &Host) -> Result<u8, cli::Error> {
     let command = sshpick_core::command(host).join(" ");
     base.output.log(&sshpick_core::printable(&command));
+    if let Err(error) = history.record(host, SystemTime::now()) {
+        base.output.warn(&error);
+    }
     Err(Error::Exec(sshpick_core::exec(host)).into())
 }

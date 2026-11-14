@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 
 use serde::Serialize;
-use sshpick_core::{Entry, Picker};
+use sshpick_core::{Entry, Picker, Recents};
 
 use super::{CommandBase, HostView, WarningView, note_if_also_a_host, write_json};
 use crate::cli;
@@ -47,7 +47,7 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
         note_if_also_a_host(base.output, word, &loaded.entries);
     }
     let total = loaded.entries.len();
-    let picker = Picker::new(loaded.entries, query);
+    let picker = Picker::new(loaded.entries, query, &Recents::none());
     let rows = picker.listing();
     let output = base.output;
     if human {

@@ -608,3 +608,139 @@ fn doctor_on_a_terminal_sees_its_size_and_colour_and_notes_a_host_named_doctor()
     );
     assert!(!bytes.contains("\x1b[33m"), "no warning, so no yellow");
 }
+
+const RECENT: &[(&str, u64)] = &[
+    ("newstg-consul2", 2 * 3600 + 30),
+    ("lab-b", 3 * 86_400 + 30),
+];
+
+fn recorded(session: &Session) -> Vec<(u64, String)> {
+    let history = session.history().unwrap_or_default();
+    history
+        .lines()
+        .filter_map(|line| {
+            let (time, host) = line.split_once('\t')?;
+            Some((time.parse().ok()?, host.to_owned()))
+        })
+        .collect()
+}
+
+fn recorded_hosts(session: &Session) -> Vec<String> {
+    recorded(session)
+        .into_iter()
+        .map(|(_, host)| host)
+        .collect()
+}
+
+#[test]
+fn enter_records_the_host_it_ran_ssh_for() {
+    let mut session = started();
+    assert_eq!(session.history(), None, "nothing before a connection");
+    session.send("'lab-b");
+    session.wait_for("one match", |frame| frame.rows[0].ends_with("1/5"));
+    session.send("\r");
+    assert_eq!(session.exit(), Exit::Code(0));
+    assert_eq!(
+        recorded_hosts(&session),
+        ["lab-b"],
+        "{:?}",
+        session.history()
+    );
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs());
+    assert!(now.abs_diff(recorded(&session)[0].0) < 60);
+}
+
+#[test_case(&["lab-a"], "lab-a"; "an exact name")]
+#[test_case(&["bastion"], "newstg-bastion"; "the one host a query matches")]
+fn a_connection_without_the_picker_is_recorded_at_a_terminal_too(
+    args: &'static [&str],
+    host: &str,
+) {
+    let mut options = Options::new("ui");
+    options.args = args;
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(0));
+    assert_eq!(recorded_hosts(&session), [host], "{:?}", session.history());
+}
+
+#[test_case(&[]; "with no history")]
+#[test_case(RECENT; "with a history to leave alone")]
+fn non_interactive_at_a_terminal_reads_and_records_nothing(history: &'static [(&str, u64)]) {
+    let mut options = Options::new("ui");
+    options.args = &["--non-interactive", "lab-a"];
+    options.history = history;
+    let mut session = Session::start(options);
+    let seeded = session.history();
+    assert_eq!(session.exit(), Exit::Code(0));
+    assert!(session.frame().has("ssh -- lab-a"));
+    assert_eq!(session.history(), seeded);
+    assert_eq!(session.state().exists(), !history.is_empty());
+}
+
+#[test]
+fn the_host_used_last_is_the_first_row_and_one_enter_reconnects_to_it() {
+    let mut options = Options::new("ui");
+    options.history = RECENT;
+    let mut session = Session::start(options);
+    let frame = session.wait_for("the first frame", drawn);
+    assert_eq!(
+        frame.rows[1], "  ENV         HOST           LAST WHAT",
+        "{frame}"
+    );
+    assert!(
+        frame.rows[2].starts_with("▌ NEW STAGING newstg-consul2   2h"),
+        "{frame}"
+    );
+    assert!(
+        frame.rows[3].starts_with("  LAB         lab-b            3d"),
+        "{frame}"
+    );
+    assert!(frame.rows[4].starts_with("  LAB         lab-a "), "{frame}");
+
+    session.send("\r");
+    assert_eq!(session.exit(), Exit::Code(0));
+    assert!(session.frame().has("ssh -- newstg-consul2"));
+    assert_eq!(
+        recorded_hosts(&session),
+        ["newstg-consul2", "lab-b", "newstg-consul2"]
+    );
+}
+
+#[test]
+fn ls_at_a_terminal_ignores_the_history() {
+    let mut options = Options::new("ui");
+    options.args = &["ls"];
+    options.history = RECENT;
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(0));
+    let frame = session.frame();
+    assert!(!frame.has("LAST") && !frame.has("2h"), "{frame}");
+    let hosts: Vec<_> = frame
+        .rows
+        .iter()
+        .skip(1)
+        .filter_map(|row| row.split_whitespace().nth(1))
+        .collect();
+    assert_eq!(hosts[..2], ["HOST", "lab-a"], "{frame}");
+}
+
+#[test]
+fn a_history_that_cannot_be_saved_is_one_warning_and_ssh_still_starts() {
+    let mut options = Options::new("ui");
+    options.args = &["lab-a"];
+    options.unwritable = true;
+    options.cols = 200;
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(0));
+    let frame = session.frame();
+    let warnings = frame
+        .rows
+        .iter()
+        .filter(|row| row.starts_with("! cannot save recent hosts to "))
+        .count();
+    assert_eq!(warnings, 1, "{frame}");
+    assert!(frame.has("ssh -- lab-a"), "{frame}");
+    assert_eq!(session.history(), None);
+}

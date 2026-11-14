@@ -10,8 +10,9 @@ and a line on stderr such as `> 4 of 12 hosts match "consul"`. ENV is left out w
 one, and WHAT is cut with `…` to the width of the terminal.
 
 When stdout is not a terminal `ls` prints the matching hosts as `ENV`, `HOST` and `WHAT`, separated
-by tabs, with no header and no styling. The order is the picker's list read top to bottom, best
-match first; with no query it is the order of the config. There are always three columns, so
+by tabs, with no header and no styling. The order is best match first, as the text alone decides
+it, and with no query it is the order of the config. It never depends on which hosts you
+connected to. Only the picker reads that. There are always three columns, so
 `cut -f2` gives the host names even when ENV is empty. Tabs and other control characters inside a
 comment become spaces. Warnings go to stderr, except under `--json`, where they are in the document.
 The exit status is 1 when nothing matches.
@@ -111,6 +112,9 @@ order:
 | none of these                                    | colour when the stream is a terminal         |
 
 `COLUMNS` sets the width of help when stdout is not a terminal (80 if unset).
+
+`XDG_STATE_HOME` moves the file where the picker remembers the hosts you connect to, when it is an
+absolute path. `ls`, `inspect`, `doctor`, a pipe and `--non-interactive` never read or write it.
 
 ## Doctor
 

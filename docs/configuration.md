@@ -7,6 +7,7 @@
 | ENV    | line 1 of each included file: `# OLD STAGING — anything` shows `OLD STAGING`; no label: the file name (`30-prod.conf` shows `prod`); hosts in `~/.ssh/config` itself: blank (the column hides when all are) |
 | HOST   | the first name on the `Host` line, the one you would type; `*`/`?` patterns and `!negations` are skipped; the other names are searchable but not shown |
 | WHAT   | the `#` comment on the line directly above `Host` |
+| LAST   | how long ago you connected to the host: `now`, `5m`, `2h`, `3d`, `6w` or `1y`; blank for a host you have not used; the column shows once some host has history |
 
 The route row runs `ssh -G -- <host>` and shows `user`, `hostname` and `port`, then `proxyjump`
 after `via` and `remotecommand` after `runs`, so `Match`, `ProxyJump` and `%` tokens show what ssh
@@ -44,3 +45,31 @@ Host stg-consul1 consul1.stg
 - Control characters (a tab, an escape sequence) in comments, file names and `ssh -G` output show as
   spaces, and a `Host` name that contains one is skipped, so nothing in a config can drive your
   terminal.
+
+## Recent hosts
+
+The picker keeps one line per connection in `~/.local/state/sshpick/history`. A line is the time in
+seconds since 1970, a tab and the host name. When `XDG_STATE_HOME` is an absolute path, the file is
+`$XDG_STATE_HOME/sshpick/history` instead. A relative or empty value is ignored.
+
+The file is for sshpick, not an interface, and its format may change. A line that does not parse is
+skipped. Past 64 KiB the file is renamed to `history.old` and a new one starts, so the two hold the
+last few thousand connections. A host you have not used since then goes back to the order of the
+config. A host that is renamed or removed leaves lines that match nothing, and they rotate out. A
+host keeps its history while its old name stays on the `Host` line.
+
+A connection is remembered when you make it at a terminal, with Enter in the picker, with an exact
+name, or with a query that matches one host. It is not remembered under `--non-interactive`, in a
+pipe or with `TERM=dumb`. `ls`, `inspect` and `doctor` neither read nor write the file.
+
+If sshpick cannot write the file, it prints `! cannot save recent hosts to <path>: <why>` and runs
+ssh anyway.
+
+```bash
+cat ~/.local/state/sshpick/history                 # one line per connection
+rm ~/.local/state/sshpick/history*                 # forget everything
+ln -sf /dev/null ~/.local/state/sshpick/history    # keep nothing from now on
+```
+
+The last line needs the directory to exist, so run `mkdir -p ~/.local/state/sshpick` first on a
+machine that has not recorded anything yet.

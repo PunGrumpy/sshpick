@@ -49,7 +49,8 @@ pub(crate) const PICK: CommandSpec = CommandSpec {
     default: true,
     summary: "Pick a host and ssh to it",
     description: "Pick a host from ~/.ssh/config and ssh to it. Exactly one match connects at \
-                  once, without opening the picker.",
+                  once, without opening the picker. At a terminal the hosts you connected to \
+                  last come first.",
     arguments: &[Argument {
         name: "query",
         required: false,
@@ -244,6 +245,10 @@ pub(crate) const ENVIRONMENT: &[Row] = &[
     (
         "TERM",
         "dumb: no color or bold, and the picker will not open",
+    ),
+    (
+        "XDG_STATE_HOME",
+        "An absolute path; recent hosts are kept in sshpick/history under it (default ~/.local/state)",
     ),
 ];
 

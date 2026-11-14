@@ -51,6 +51,9 @@ sshpick doctor                # check the config, ssh and this terminal
   ↑↓ move   enter ssh   esc quit   ? keys
 ```
 
+The picker remembers the hosts you connect to. They come first, with a dim LAST column that says
+how long ago, so the host you used last is one Enter away.
+
 ## For coding agents
 
 List the hosts with `sshpick ls --json`, see where one resolves with

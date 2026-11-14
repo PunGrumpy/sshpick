@@ -1,6 +1,7 @@
 mod config;
 mod doctor;
 mod hints;
+mod history;
 mod interaction;
 mod keymap;
 mod label;
@@ -12,6 +13,7 @@ mod ssh;
 pub use config::{Entry, Host, LoadError, Loaded, Warning, config_path, load, printable};
 pub use doctor::{Check, Config, Facts, Name, Probe, Report, Status, Terminal, report};
 pub use hints::{Hint, hint};
+pub use history::{History, Recents, RecordError};
 pub use interaction::{Interaction, Refusal, refusal};
 pub use keymap::{BINDINGS, Binding};
 pub use picker::{Key, Outcome, Picker, Resolution, Row, Run, View};

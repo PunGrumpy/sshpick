@@ -64,7 +64,7 @@ fn pad(text: &str, width: usize) -> String {
 #[cfg(test)]
 mod tests {
     use insta::assert_snapshot;
-    use sshpick_core::Picker;
+    use sshpick_core::{Picker, Recents};
 
     use super::*;
 
@@ -78,7 +78,7 @@ mod tests {
     }
 
     fn table(home: &str, query: &str, width: usize) -> String {
-        let picker = Picker::new(entries(home), query);
+        let picker = Picker::new(entries(home), query, &Recents::none());
         hosts(&picker.listing(), width, NONE)
     }
 
@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn colour_styles_the_header_env_and_what_and_leaves_the_host_plain() {
         let colors = ColorConfig::new(true, false, &|_| None);
-        let picker = Picker::new(entries("ui"), "lab-a");
+        let picker = Picker::new(entries("ui"), "lab-a", &Recents::none());
         let out = hosts(&picker.listing(), 80, colors);
         let mut lines = out.lines();
         let header = lines.next().unwrap();
