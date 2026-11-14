@@ -30,15 +30,31 @@ Options go anywhere before a bare `--`:
 ## Search
 
 Words are AND terms and use fzf's extended syntax with smart case (a capital makes that word
-case-sensitive).
+case-sensitive). Each word must match inside one field of the host: ENV, HOST, WHAT, or one of the
+other names on the `Host` line. A word never takes letters from two fields, so `git` does not find
+`NEW STAGING newstg-bastion`.
 
-| Term     | Matches                  |
-|----------|--------------------------|
-| `consul` | fuzzy                    |
-| `'consul`| exact substring          |
-| `^stg`   | prefix                   |
-| `1$`     | suffix                   |
-| `!ui`    | rows without `ui`        |
+| Term      | Matches                                                     |
+|-----------|-------------------------------------------------------------|
+| `consul`  | substring; word starts when no host contains it (see below) |
+| `'consul` | substring                                                   |
+| `^stg`    | the start of a field: `^prod-db` is a host, `^PROD` an ENV  |
+| `1$`      | the end of a field: `prod$` finds `api-prod`                |
+| `!ui`     | hosts with no field that contains `ui`                      |
+
+A word with no operator matches as a substring when some host has it in a field. When none does,
+its letters may skip, but each must start a word (the start of the field, or after a character
+that is not a letter or digit, such as `-` or `.`) or follow the letter before it: `pdb` finds
+`prod-db-primary` and not `prod-bastion`.
+
+The `HostName` and `User` written in a host's `Host` block are searchable too, so an address, part
+of one, or a user finds the host. So is the target of a `RemoteCommand` that hops on, such as
+`10.0.0.5` in `sudo ssh -t root@10.0.0.5`. `ubuntu@10.13.1.9` from shell history means
+`10.13.1.9`: the user is how you log in, not which host, and is usually inherited from `Host *`.
+A word looks in these values only when no ENV, HOST, WHAT or alias of any
+host matches it, so the `1` in `consul 1` means `consul1`, not every address with a 1 in it. These
+fields are never highlighted. [Configuration](configuration.md#what-it-searches) says which values
+count.
 
 Hosts that match equally well are listed with the one you connected to last first. `ls` does not
 do this.
@@ -46,8 +62,7 @@ do this.
 A query equal to one host's name or alias selects that host, even when it also matches other rows.
 Any other query that leaves one row connects on a terminal, and exits 1 under `--non-interactive`.
 
-There is no `a | b` OR. The query is matched against ENV, HOST, WHAT and the other names on
-the `Host` line.
+There is no `a | b` OR.
 
 An argument that starts with `-` is an option. To search for text that starts with `-`, put
 `--` before it: `sshpick -- -bastion`. Everything after `--` is query text.

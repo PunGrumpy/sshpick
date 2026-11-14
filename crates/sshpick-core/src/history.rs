@@ -270,6 +270,9 @@ mod tests {
             host: Host::literal(host).unwrap(),
             what: String::new(),
             aliases: aliases.iter().map(|alias| alias.to_string()).collect(),
+            hostname: None,
+            user: None,
+            hop: None,
         }
     }
 

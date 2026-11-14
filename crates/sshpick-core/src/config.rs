@@ -28,6 +28,14 @@ pub struct Entry {
     /// WHAT column: the `#` comment on the line directly above the `Host` line, else `""`.
     pub what: String,
     pub(crate) aliases: Vec<String>,
+    /// The first `HostName` written inside this row's own `Host` block, as written. A value that
+    /// only `Host *`, another pattern or a `Match` block gives is not here: it is not searched.
+    pub(crate) hostname: Option<String>,
+    /// The first `User` written inside this row's own `Host` block, the same way.
+    pub(crate) user: Option<String>,
+    /// Where a `RemoteCommand` in this row's own block hops next: the part after `@` of its
+    /// first `user@target` word, as in `sudo ssh -t root@10.0.0.5` on a bastion.
+    pub(crate) hop: Option<String>,
 }
 
 #[derive(Debug)]
@@ -161,6 +169,8 @@ impl<'a> Walk<'a> {
     fn lines(&mut self, path: &Path, text: &str, env: &str, depth: usize) {
         self.chain.push(path.to_path_buf());
         let mut what = "";
+        // The row this file's current `Host` block added, if it added one.
+        let mut row = None;
         for line in text.lines() {
             match classify(line) {
                 Line::Comment(comment) => {
@@ -174,7 +184,25 @@ impl<'a> Walk<'a> {
                         }
                     }
                 }
-                Line::Host(tokens) => self.host(&tokens, what, env),
+                Line::Host(tokens) => row = self.host(&tokens, what, env),
+                Line::Match => row = None,
+                Line::HostName(value) => {
+                    if let Some(entry) = row.and_then(|row| self.out.entries.get_mut(row)) {
+                        entry.hostname.get_or_insert(value);
+                    }
+                }
+                Line::User(value) => {
+                    if let Some(entry) = row.and_then(|row| self.out.entries.get_mut(row)) {
+                        entry.user.get_or_insert(value);
+                    }
+                }
+                Line::RemoteCommand(hop) => {
+                    if let Some(entry) = row.and_then(|row| self.out.entries.get_mut(row))
+                        && entry.hop.is_none()
+                    {
+                        entry.hop = hop;
+                    }
+                }
                 Line::Other => {}
             }
             what = "";
@@ -263,15 +291,13 @@ impl<'a> Walk<'a> {
         None
     }
 
-    fn host(&mut self, tokens: &[String], what: &str, env: &str) {
+    /// The index of the row this `Host` line adds, or `None` when every literal on it was seen.
+    fn host(&mut self, tokens: &[String], what: &str, env: &str) -> Option<usize> {
         let literals: Vec<Host> = tokens.iter().filter_map(|t| Host::literal(t)).collect();
-        let Some(host) = literals
+        let host = literals
             .iter()
             .find(|literal| !self.seen.contains(literal.as_str()))
-            .cloned()
-        else {
-            return;
-        };
+            .cloned()?;
         let mut aliases: Vec<String> = Vec::new();
         for literal in &literals {
             self.seen.insert(literal.0.clone());
@@ -284,7 +310,11 @@ impl<'a> Walk<'a> {
             host,
             what: printable(what),
             aliases,
+            hostname: None,
+            user: None,
+            hop: None,
         });
+        Some(self.out.entries.len() - 1)
     }
 }
 
@@ -293,6 +323,10 @@ enum Line<'a> {
     Comment(&'a str),
     Include(Vec<String>),
     Host(Vec<String>),
+    Match,
+    HostName(String),
+    User(String),
+    RemoteCommand(Option<String>),
     Other,
 }
 
@@ -311,6 +345,23 @@ fn classify(line: &str) -> Line<'_> {
         Line::Host(arguments(rest))
     } else if keyword.eq_ignore_ascii_case("include") {
         Line::Include(arguments(rest))
+    } else if keyword.eq_ignore_ascii_case("match") {
+        Line::Match
+    } else if keyword.eq_ignore_ascii_case("hostname") {
+        arguments(rest)
+            .into_iter()
+            .next()
+            .map_or(Line::Other, Line::HostName)
+    } else if keyword.eq_ignore_ascii_case("remotecommand") {
+        Line::RemoteCommand(rest.split_whitespace().find_map(|word| {
+            let (_, target) = word.rsplit_once('@')?;
+            (!target.is_empty()).then(|| target.to_owned())
+        }))
+    } else if keyword.eq_ignore_ascii_case("user") {
+        arguments(rest)
+            .into_iter()
+            .next()
+            .map_or(Line::Other, Line::User)
     } else {
         Line::Other
     }
@@ -384,7 +435,8 @@ mod tests {
             Line::Comment("indented note")
         );
         assert_eq!(classify("##  x"), Line::Comment("#  x"));
-        assert_eq!(classify("Match host x"), Line::Other);
+        assert_eq!(classify("Match host x"), Line::Match);
+        assert_eq!(classify("HostName"), Line::Other);
         assert_eq!(classify(""), Line::Other);
     }
 
@@ -566,6 +618,85 @@ mod tests {
             .map(|e| e.names().collect())
             .collect();
         assert_eq!(names, [vec!["web", "web.corp", "web2"], vec!["solo"]]);
+    }
+
+    fn written(text: &str) -> Vec<(String, Option<String>, Option<String>)> {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        walk.lines(Path::new("/h/.ssh/config"), text, "", 0);
+        walk.out
+            .entries
+            .iter()
+            .map(|e| (e.host.to_string(), e.hostname.clone(), e.user.clone()))
+            .collect()
+    }
+
+    fn row(
+        host: &str,
+        hostname: Option<&str>,
+        user: Option<&str>,
+    ) -> (String, Option<String>, Option<String>) {
+        (
+            host.to_owned(),
+            hostname.map(str::to_owned),
+            user.map(str::to_owned),
+        )
+    }
+
+    #[test]
+    fn hostname_and_user_in_the_host_block_are_kept_and_the_first_one_wins() {
+        let text = "Host a a2\n\
+                    \x20 HostName 10.0.0.1\n\
+                    \x20 User ubuntu\n\
+                    \x20 HostName 10.0.0.2\n\
+                    \x20 user root\n\
+                    Host b\n\
+                    \x20 hostname=\"b.example\"\n\
+                    \x20 USER = deploy\n\
+                    Host c\n";
+        assert_eq!(
+            written(text),
+            [
+                row("a", Some("10.0.0.1"), Some("ubuntu")),
+                row("b", Some("b.example"), Some("deploy")),
+                row("c", None, None),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_remote_command_hop_target_is_kept() {
+        let var = |_: &str| None;
+        let mut walk = Walk::new(Path::new("/h"), &var);
+        let text = "Host a\n\
+                    \x20 RemoteCommand sudo ssh -t root@10.0.0.5\n\
+                    \x20 RemoteCommand ssh other@10.0.0.6\n\
+                    Host b\n\
+                    \x20 RemoteCommand tmux attach\n";
+        walk.lines(Path::new("/h/.ssh/config"), text, "", 0);
+        let hops: Vec<_> = walk.out.entries.iter().map(|e| e.hop.clone()).collect();
+        assert_eq!(hops, [Some("10.0.0.5".to_owned()), None]);
+    }
+
+    #[test]
+    fn a_block_that_adds_no_row_keeps_its_hostname_and_user_to_itself() {
+        let text = "Host a\n\
+                    \x20 User ubuntu\n\
+                    Host *\n\
+                    \x20 HostName fallback\n\
+                    \x20 User root\n\
+                    Host web-*\n\
+                    \x20 HostName 10.9.9.9\n\
+                    Host a\n\
+                    \x20 HostName 10.0.0.3\n\
+                    Host b\n\
+                    Match host b\n\
+                    \x20 HostName m.example\n\
+                    \x20 User matched\n";
+        assert_eq!(
+            written(text),
+            [row("a", None, Some("ubuntu")), row("b", None, None)]
+        );
     }
 
     #[test]

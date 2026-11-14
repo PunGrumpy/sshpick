@@ -15,6 +15,30 @@ will actually do. From 100 columns a panel beside the list shows the same keys, 
 for the session, except that a host whose `ssh -G` gives no answer within 2 seconds is asked again
 the next time it is selected.
 
+## What it searches
+
+The search reads ENV, HOST, WHAT and the other names on the `Host` line, then the `HostName` and
+`User` written inside the host's own `Host` block. The first one in the block wins, as in ssh.
+A value the host only inherits is not searched: one from `Host *`, from a pattern such as
+`Host prod-*`, or from a `Match` block. sshpick does not run `ssh -G` to find it.
+
+```text
+Host *
+  User ops
+
+Host stg-db
+  HostName 192.0.2.30
+  User postgres
+```
+
+Here `192.0.2.30`, `192.0.2` and `postgres` find `stg-db`, and so do `postgres@192.0.2.30` and
+`ops@192.0.2.30`, because the part before `@` is dropped. `ops` alone finds nothing: `stg-db`
+only inherits it.
+
+A host reached through a bastion with `RemoteCommand sudo ssh -t root@192.0.2.40` is found by
+`192.0.2.40`: the part after `@` in the first `user@target` word of its `RemoteCommand` is
+searched as well. [Search](commands.md#search) has the rules.
+
 ## Config conventions
 
 sshpick reads `~/.ssh/config` and follows its `Include` lines in the order ssh does; like ssh, a

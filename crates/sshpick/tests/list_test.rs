@@ -29,6 +29,22 @@ fn list_filters_with_all_words_and_ranks_best_first() {
 }
 
 #[test]
+fn ls_finds_a_host_by_the_address_written_in_its_host_block() {
+    sshpick("names")
+        .args(["ls", "192.0.2.3"])
+        .assert()
+        .code(0)
+        .stdout("\tdb-prod\tPostgres primary\n")
+        .stderr("");
+    sshpick("home")
+        .args(["ls", "ops"])
+        .assert()
+        .code(1)
+        .stdout("")
+        .stderr("");
+}
+
+#[test]
 fn list_keeps_three_columns_when_env_is_empty() {
     sshpick("flat")
         .arg("--list")

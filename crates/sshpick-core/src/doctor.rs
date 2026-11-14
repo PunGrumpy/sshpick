@@ -335,6 +335,9 @@ mod tests {
             host: Host::literal(host).unwrap(),
             what: what.to_owned(),
             aliases: Vec::new(),
+            hostname: None,
+            user: None,
+            hop: None,
         }
     }
 

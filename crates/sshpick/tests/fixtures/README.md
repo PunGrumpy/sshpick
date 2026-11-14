@@ -1,7 +1,8 @@
 Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewriting them.
 
 - `home/.ssh/config`: exactly one literal host, so `sshpick` with any query is a single match and
-  `tests/pick_test.rs` sees it exec the fake `ssh` without a terminal.
+  `tests/pick_test.rs` sees it exec the fake `ssh` without a terminal. Its `User ops` comes from
+  `Host *`, so `ls ops` shows that an inherited value is not searched.
 - `ui/.ssh/`: three labelled hosts per environment file, for the `--list` tests. `sshpick-ui`
   keeps its own copy for the frame tests.
 - `flat/.ssh/config`: hosts in the root file only, so the ENV column hides.
@@ -14,7 +15,8 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
   (the fake `ssh -G` fails for it) and a host named `list`, for `inspect` and `list --json`.
 - `names/.ssh/config`: `web` and `web-2`, whose names prefix each other, and `db-prod` (alias
   `pg-primary`, WHAT "Postgres primary"), so `web` is an exact name that also matches another
-  host, and `db-stg` matches only `db-prod`, loosely, through its comment.
+  host, and `postgres` matches only `db-prod`, loosely, through its comment. Each has its own
+  `HostName`, so `ls 192.0.2.3` finds `db-prod` by address.
 - `empty/.ssh/config`: no literal host (only `Host *`), so `sshpick` has nothing to pick.
 - `tabs/.ssh/config`: a tab inside the WHAT comment, so `--list` must still print three columns.
 - `named-doctor/.ssh/config`: a host named `doctor`, so `sshpick doctor` is the command and
