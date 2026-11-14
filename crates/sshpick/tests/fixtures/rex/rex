@@ -1,0 +1,5 @@
+#!/bin/sh
+# Stands in for the rex CLI: writes how it was called to $REX_RECORD, one argument per line, and
+# exits with $REX_EXIT (0 when unset).
+printf '%s\n' "$@" > "$REX_RECORD"
+exit "${REX_EXIT:-0}"

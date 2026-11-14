@@ -33,3 +33,11 @@ Byte-exact inputs; `.gitattributes` and `.editorconfig` keep tools from rewritin
   on stderr, from `stty -a`, for `picker_test.rs`.
 - `bin-read-only/ssh`: answers `-V` and `-G` like `bin/ssh` and exits 99 for anything else, so
   `read_only_test.rs` fails if a read-only command asks ssh to do more than read.
+- `rex-long/.ssh/`: one host whose ENV label is longer than a Rex tab label may be, with a
+  two-byte letter in it, so `rex_test.rs` sees the label cut at a character boundary.
+- `rex/rex`: stands in for the `rex` CLI in `rex_test.rs`; it writes its arguments to
+  `$REX_RECORD`, one per line, and exits with `$REX_EXIT`.
+- `rex/sshpick-exits`: stands in for sshpick in the picker layer's hand-off; it exits with
+  `$FAKE_EXIT`, as a cancel or a failure would.
+- `rex/sshpick-old`: stands in for an sshpick older than `--print`; it answers every call with a
+  text usage error and exit 2.

@@ -85,7 +85,8 @@ Only run `sshpick` with no query when a person is at the keyboard: it opens a pi
 
 See the [documentation](docs/README.md) for the config conventions, every command and key, and the
 output formats for scripts. When something does not work, start with `sshpick doctor` and
-[Troubleshooting](docs/troubleshooting.md).
+[Troubleshooting](docs/troubleshooting.md). To pick hosts from a key in the Rex terminal, see
+[Rex](docs/rex.md).
 
 ## Contributing
 

@@ -30,6 +30,8 @@ assert_cmd = "2"
 crossterm = "0.29"
 glob = "0.3"
 insta = "1"
+# Lua 5.1, as Rex runs it, built from source so the Rex integration test needs no system Lua.
+mlua = { version = "0.11", features = ["lua51", "vendored"] }
 nix = { version = "0.28", default-features = false, features = [
   "process",
   "signal",

@@ -17,6 +17,7 @@ sshpick-cli = { workspace = true }
 [dev-dependencies]
 assert_cmd = { workspace = true }
 insta = { workspace = true }
+mlua = { workspace = true }
 nix = { workspace = true }
 portable-pty = { workspace = true }
 serde_json = { workspace = true }
