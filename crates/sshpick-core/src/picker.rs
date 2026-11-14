@@ -818,7 +818,7 @@ mod tests {
     fn view_counts_and_cuts_hits_into_runs() {
         let entry = Entry {
             env: "LAB".to_owned(),
-            host: Host::literal("lab-a").unwrap(),
+            host: Host::literal("web-a").unwrap(),
             what: "build box".to_owned(),
             aliases: Vec::new(),
             hostname: None,
@@ -829,7 +829,7 @@ mod tests {
         assert_eq!((view.matched, view.total, view.query), (1, 1, "^lab box"));
         let row = &view.rows[0];
         assert_eq!(row.env, [run("LAB", true)]);
-        assert_eq!(row.host, [run("lab-a", false)]);
+        assert_eq!(row.host, [run("web-a", false)]);
         assert_eq!(row.what, [run("build ", false), run("box", true)]);
         assert!(row.selected);
     }

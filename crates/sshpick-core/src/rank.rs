@@ -330,8 +330,8 @@ impl Ranker {
     }
 
     /// Every positive word matches inside one field of its scope, and no negative word matches
-    /// any. The score is the sum of each word's best field; on a tie the field drawn first keeps
-    /// the hits.
+    /// any. The score is the sum of each word's best field. The hits go to HOST whenever HOST
+    /// matched, since the host name is what a person types, and otherwise to the best field.
     fn score(&mut self, index: usize, words: &[Word]) -> Option<(u32, Hits)> {
         let item = &self.items[index];
         let mut total = 0;
@@ -340,6 +340,7 @@ impl Ranker {
         let mut what = Vec::new();
         for word in words {
             let mut best: Option<(u16, Field, Vec<u32>)> = None;
+            let mut in_host: Option<Vec<u32>> = None;
             for (field, text) in item.fields(word.scope) {
                 let (matcher, chars, indices) =
                     (&mut self.matcher, &mut self.chars, &mut self.indices);
@@ -348,6 +349,9 @@ impl Ranker {
                 };
                 if word.negative {
                     return None;
+                }
+                if field == Field::Host {
+                    in_host = Some(self.indices.clone());
                 }
                 if best.as_ref().is_none_or(|(best, _, _)| score > *best) {
                     best = Some((score, field, self.indices.clone()));
@@ -358,6 +362,7 @@ impl Ranker {
             }
             let (score, field, indices) = best?;
             total += u32::from(score);
+            let (field, indices) = in_host.map_or((field, indices), |host| (Field::Host, host));
             match field {
                 Field::Env => env.extend(indices),
                 Field::Host => host.extend(indices),
@@ -583,6 +588,20 @@ mod tests {
     }
 
     #[test]
+    fn a_word_the_host_name_holds_is_highlighted_there() {
+        let mut ranker = with_no_history(vec![entry(
+            "PRODUCTION",
+            "prod-db-primary",
+            "db-primary",
+            &[],
+        )]);
+        let found = ranker.rank("prod db");
+        let hits = &found[0].hits;
+        assert_eq!(spans(&hits.host), [(0, 4), (5, 7)]);
+        assert!(hits.env.is_empty() && hits.what.is_empty());
+    }
+
+    #[test]
     fn hits_are_byte_ranges_per_column() {
         let mut ranker = with_no_history(vec![entry("E", "h", "a \u{2014} b", &[])]);
         let found = ranker.rank("\u{2014}");
@@ -590,7 +609,7 @@ mod tests {
         assert_eq!(spans(&hits.what), [(2, 5)]);
         assert!(hits.env.is_empty() && hits.host.is_empty());
 
-        let mut ranker = with_no_history(vec![entry("LAB", "lab-a", "lab VMs", &[])]);
+        let mut ranker = with_no_history(vec![entry("LAB", "web-a", "web VMs", &[])]);
         let found = ranker.rank("^lab 'b- vm");
         let hits = &found[0].hits;
         assert_eq!(spans(&hits.env), [(0, 3)]);
