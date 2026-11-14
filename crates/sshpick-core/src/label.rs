@@ -6,7 +6,7 @@ pub(crate) fn env_label(path: &Path, first_line: &str) -> String {
 
 fn from_comment(line: &str) -> Option<&str> {
     let label = line.trim().strip_prefix('#')?.trim_start_matches(' ');
-    let label = before_first(label, &[" — ", " - "]);
+    let label = before_first(label, &[" — ", " - ", ": "]);
     let label = before_first(label, &[" ("]).trim_end();
     (!label.is_empty()).then_some(label)
 }
