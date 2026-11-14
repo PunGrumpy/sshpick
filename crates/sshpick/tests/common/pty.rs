@@ -41,6 +41,13 @@ pub struct Options {
     pub history: &'static [(&'static str, u64)],
     /// A file where the state directory should be, so that sshpick cannot save anything there.
     pub unwritable: bool,
+    /// Send stdout to this file instead of the pty, as `$(sshpick --print)` does; the pty stays
+    /// stdin, stderr and the controlling terminal.
+    pub stdout_file: Option<PathBuf>,
+    /// Run this argv instead of sshpick, with the same environment, such as the Rex hand-off.
+    pub program: Option<Vec<String>>,
+    /// More environment variables for the child.
+    pub env: Vec<(String, String)>,
 }
 
 impl Options {
@@ -55,6 +62,9 @@ impl Options {
             typed: "",
             history: &[],
             unwritable: false,
+            stdout_file: None,
+            program: None,
+            env: Vec::new(),
         }
     }
 }
@@ -139,6 +149,9 @@ impl Session {
             typed,
             history,
             unwritable,
+            stdout_file,
+            program,
+            env,
         } = options;
         let state = fresh_state();
         seed(&state, history, unwritable);
@@ -192,9 +205,22 @@ impl Session {
         ok(writer.write_all(typed.as_bytes()), "type ahead");
         ok(writer.flush(), "type ahead");
 
-        let mut command = CommandBuilder::new(env!("CARGO_BIN_EXE_sshpick"));
+        let sshpick = env!("CARGO_BIN_EXE_sshpick");
+        let mut command = match (&program, &stdout_file) {
+            (Some(argv), _) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
+            (None, None) => CommandBuilder::new(sshpick),
+            // `exec` keeps the pid, so signals and the exit status are sshpick's own.
+            (None, Some(_)) => {
+                let mut command = CommandBuilder::new("/bin/sh");
+                command.args(["-c", "exec \"$0\" \"$@\" >\"$STDOUT_FILE\"", sshpick]);
+                command
+            }
+        };
         command.args(args);
         command.env_clear();
+        if let Some(file) = &stdout_file {
+            command.env("STDOUT_FILE", file);
+        }
         command.env("HOME", fixtures().join(home));
         command.env(
             "PATH",
@@ -206,6 +232,9 @@ impl Session {
         );
         command.env("TERM", term);
         command.env("XDG_STATE_HOME", &state);
+        for (name, value) in &env {
+            command.env(name, value);
+        }
         let child = ok(pair.slave.spawn_command(command), "start sshpick");
         drop(pair.slave);
 

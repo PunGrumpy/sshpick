@@ -43,6 +43,22 @@ const JSON: OptionSpec = OptionSpec {
     hidden: false,
 };
 
+const PRINT: OptionSpec = OptionSpec {
+    long: "print",
+    short: None,
+    aliases: &[],
+    description: "Print the picked host instead of connecting",
+    hidden: false,
+};
+
+const PRINT_JSON: OptionSpec = OptionSpec {
+    long: "json",
+    short: None,
+    aliases: &[],
+    description: "With --print, output the host as JSON",
+    hidden: false,
+};
+
 pub(crate) const PICK: CommandSpec = CommandSpec {
     name: "pick",
     aliases: &[],
@@ -56,7 +72,7 @@ pub(crate) const PICK: CommandSpec = CommandSpec {
         required: false,
         multiple: true,
     }],
-    options: &[],
+    options: &[PRINT, PRINT_JSON],
     keys: BINDINGS,
     examples: &[
         Example {
@@ -310,11 +326,12 @@ pub(crate) fn command_words() -> Vec<(&'static str, &'static str)> {
         .collect()
 }
 
-/// Includes hidden options.
+/// Includes hidden options. With no command word, the options are `pick`'s, which runs then.
 pub(crate) fn options_of(command: Option<&str>) -> Vec<&'static OptionSpec> {
-    let own = command
-        .and_then(command_by_name)
-        .map_or(&[][..], |spec| spec.options);
+    let own = match command {
+        Some(name) => command_by_name(name).map_or(&[][..], |spec| spec.options),
+        None => PICK.options,
+    };
     own.iter().chain(GLOBAL).collect()
 }
 

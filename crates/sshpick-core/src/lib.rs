@@ -14,7 +14,7 @@ pub use config::{Entry, Host, LoadError, Loaded, Warning, config_path, load, pri
 pub use doctor::{Check, Config, Facts, Name, Probe, Report, Status, Terminal, report};
 pub use hints::{Hint, hint};
 pub use history::{History, Recents, RecordError};
-pub use interaction::{Interaction, Refusal, refusal};
+pub use interaction::{Finish, Interaction, Refusal, Surface, refusal};
 pub use keymap::{BINDINGS, Binding};
 pub use picker::{Key, Outcome, Picker, Resolution, Row, Run, View};
 pub use preview::{Previews, Slot};

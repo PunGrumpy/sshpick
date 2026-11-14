@@ -24,8 +24,24 @@ Options go anywhere before a bare `--`:
 | `-h`, `--help`      | Show help; wins over every other error                                 |
 | `-V`, `--version`   | Print the version and exit 0; loses only to `--help`                   |
 | `--no-color`        | Same as `NO_COLOR=1`                                                   |
-| `--json`            | Print one JSON document; `ls`, `inspect` and `doctor` take it          |
+| `--json`            | Print one JSON document; `ls`, `inspect`, `doctor` and `pick --print` take it |
 | `--non-interactive` | Never open the picker: an exact host name or alias connects, a loose single match exits 1, none exits 1, several exit 2 |
+| `--print`           | `pick` only: print the picked host's name instead of connecting; with `--json`, its `{host, env, what, names}` object. The picker draws on the terminal, so `$(sshpick --print)` works |
+
+## Print instead of connect
+
+`sshpick --print` resolves a query exactly as `pick` does and prints the host instead of running
+ssh: the host's first name and a newline on stdout, exit 0. The `pick` word is not needed. An
+exact name or alias wins, one loose match prints on a terminal and exits 1 under
+`--non-interactive`, several open the picker (or exit 2 without one), and Esc exits 130 with
+stdout empty. The picker draws on the terminal (`/dev/tty`), not on stdout, so a command
+substitution captures only the host:
+
+    ssh "$(sshpick --print)" uptime
+    scp notes.txt "$(sshpick --print):"
+
+With `--json` it prints the host as one JSON object, the same shape as one element of
+`ls --json`'s `hosts`. `--json` on `pick` without `--print` is a usage error.
 
 ## Search
 

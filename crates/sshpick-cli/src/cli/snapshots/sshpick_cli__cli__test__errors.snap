@@ -4,7 +4,7 @@ expression: text
 ---
 $ sshpick --lst
 Error: unknown option "--lst"
-Fix: sshpick accepts --help, --no-color, --non-interactive, --version. Did you mean --list?
+Fix: sshpick accepts --help, --json, --no-color, --non-interactive, --print, --version. Did you mean --list?
 
 $ sshpick list --lsit
 Error: unknown option "--lsit"
@@ -12,7 +12,7 @@ Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --versi
 
 $ sshpick --bogus
 Error: unknown option "--bogus"
-Fix: sshpick accepts --help, --no-color, --non-interactive, --version.
+Fix: sshpick accepts --help, --json, --no-color, --non-interactive, --print, --version.
 
 $ sshpick help lst
 Error: unknown command "lst"
@@ -49,6 +49,17 @@ Fix: did you mean `sshpick inspect stg-consul1`?
 $ sshpick inspect
 Error: sshpick inspect needs a query
 Fix: name a host, as in `sshpick inspect stg-consul1`, or list them with `sshpick ls`.
+
+$ sshpick --json
+Error: sshpick pick takes --json only with --print
+Fix: print the picked host as JSON with `sshpick --print --json`, or list hosts with `sshpick ls --json`.
+
+$ sshpick ls --print
+Error: unknown option "--print"
+Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version.
+
+$ sshpick --print  # stdout is full
+Error: cannot print the host: No space left on device (os error 28)
 
 $ sshpick doctor extra
 Error: unexpected argument "extra" for sshpick doctor

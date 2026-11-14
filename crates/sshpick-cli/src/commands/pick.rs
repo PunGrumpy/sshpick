@@ -1,12 +1,33 @@
-use std::io;
+use std::io::{self, Write};
 use std::time::SystemTime;
 
-use sshpick_core::{History, Host, Outcome, Picker, Previews, Refusal, Resolution};
+use sshpick_core::{Entry, Finish, History, Host, Outcome, Picker, Previews, Refusal, Resolution};
 use sshpick_ui::Screen;
 
-use super::{CommandBase, did_you_mean, interaction, shell_words};
+use super::{CommandBase, HostView, did_you_mean, interaction, shell_words, write_json};
 use crate::cli;
 use crate::cli::Exit;
+
+/// How a pick ends, from argv: `--print` and `--json`. `--json` alone is a usage error, so
+/// there is no JSON without printing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Landing {
+    /// Exec `ssh -- <host>`.
+    Connect,
+    /// `host` and a newline on stdout.
+    Print,
+    /// The host's `{host, env, what, names}`, one element of `ls --json`'s `hosts`.
+    PrintJson,
+}
+
+impl Landing {
+    fn finish(self) -> Finish {
+        match self {
+            Landing::Connect => Finish::Connect,
+            Landing::Print | Landing::PrintJson => Finish::Print,
+        }
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum Error {
@@ -25,6 +46,8 @@ pub(crate) enum Error {
     Terminal(io::Error),
     #[error("cannot run ssh: {0}")]
     Exec(#[source] io::Error),
+    #[error("cannot print the host: {0}")]
+    Write(#[source] io::Error),
 }
 
 impl Error {
@@ -48,7 +71,7 @@ impl Error {
             Error::Exec(error) if error.kind() == io::ErrorKind::NotFound => {
                 Some("install OpenSSH, or put `ssh` on your PATH.".to_owned())
             }
-            Error::Previews(_) | Error::Terminal(_) | Error::Exec(_) => None,
+            Error::Previews(_) | Error::Terminal(_) | Error::Exec(_) | Error::Write(_) => None,
         }
     }
 }
@@ -62,17 +85,20 @@ fn several(count: &usize, query: &str, refusal: &Refusal) -> String {
     format!("{who}, and {}", refusal.why())
 }
 
-pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
+/// Under `--print --json` the warnings are dropped: the document is one host, and stderr stays
+/// empty. `sshpick ls --json` reports them.
+pub(crate) fn run(base: &CommandBase, query: &str, landing: Landing) -> Result<u8, cli::Error> {
     let loaded = base.load()?;
     base.warn_all(&loaded.warnings);
-    let interaction = interaction(base.non_interactive);
+    let surface = landing.finish().surface();
+    let interaction = interaction(base.non_interactive, surface);
     let history = History::open(&base.home, &interaction);
     let screen = Screen::new(&loaded.entries);
     let recents = history.recents(SystemTime::now());
     let mut picker = Picker::new(loaded.entries, query, &recents);
     let refusal = sshpick_core::refusal(&interaction);
     match (picker.resolve(), refusal) {
-        (Resolution::One(entry), _) => return exec(base, &history, &entry.host),
+        (Resolution::One(entry), _) => return land(base, &history, entry, landing),
         (Resolution::Loose(entry), Some(Refusal::NonInteractive)) => {
             return Err(Error::Loose {
                 query: query.to_owned(),
@@ -80,7 +106,7 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
             }
             .into());
         }
-        (Resolution::Loose(entry), _) => return exec(base, &history, &entry.host),
+        (Resolution::Loose(entry), _) => return land(base, &history, entry, landing),
         (Resolution::NoMatch, Some(_)) => {
             return Err(cli::Error::NoMatch {
                 query: query.to_owned(),
@@ -108,8 +134,8 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
         previews.prefetch(host);
     }
 
-    match sshpick_ui::run(&screen, &mut picker, &mut previews) {
-        Ok(Outcome::Pick(host)) => exec(base, &history, &host),
+    match sshpick_ui::run(&screen, &mut picker, &mut previews, surface) {
+        Ok(Outcome::Pick(entry)) => land(base, &history, &entry, landing),
         Ok(Outcome::Cancel) => Ok(Exit::Cancelled.code()),
         Ok(Outcome::NoMatch) => Err(cli::Error::NoMatch {
             query: picker.query().to_owned(),
@@ -120,12 +146,32 @@ pub(crate) fn run(base: &CommandBase, query: &str) -> Result<u8, cli::Error> {
     }
 }
 
-/// A fuzzy query or a single match hides which host it chose, so the command is said first.
-fn exec(base: &CommandBase, history: &History, host: &Host) -> Result<u8, cli::Error> {
-    let command = sshpick_core::command(host).join(" ");
-    base.output.log(&sshpick_core::printable(&command));
-    if let Err(error) = history.record(host, SystemTime::now()) {
+/// The one place a pick ends: ssh, or the host on stdout and exit 0. Either way a person chose
+/// it, so it goes in the history, which is closed unless the picker could open.
+fn land(
+    base: &CommandBase,
+    history: &History,
+    entry: &Entry,
+    landing: Landing,
+) -> Result<u8, cli::Error> {
+    if let Err(error) = history.record(&entry.host, SystemTime::now()) {
         base.output.warn(&error);
     }
+    let printed = match landing {
+        Landing::Connect => return exec(base, &entry.host),
+        Landing::Print => {
+            let mut out = base.output.result();
+            writeln!(out, "{}", entry.host).and_then(|()| out.flush())
+        }
+        Landing::PrintJson => write_json(base.output.result(), &HostView::of(entry)),
+    };
+    printed.map_err(Error::Write)?;
+    Ok(Exit::Success.code())
+}
+
+/// A fuzzy query or a single match hides which host it chose, so the command is said first.
+fn exec(base: &CommandBase, host: &Host) -> Result<u8, cli::Error> {
+    let command = sshpick_core::command(host).join(" ");
+    base.output.log(&sshpick_core::printable(&command));
     Err(Error::Exec(sshpick_core::exec(host)).into())
 }

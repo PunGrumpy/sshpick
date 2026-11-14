@@ -8,6 +8,9 @@ the top versioned section as the release notes.
 
 ### Added
 
+- `sshpick --print` prints the picked host instead of connecting, and `--print --json` prints its
+  `{host, env, what, names}` object. The picker draws on `/dev/tty`, so `$(sshpick --print)`
+  captures only the host.
 - A host with no comment of its own takes the heading of its section as its WHAT: the first line
   of a comment block after a blank line, up to the next blank line or the next host with its own
   comment.
