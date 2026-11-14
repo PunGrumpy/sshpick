@@ -6,7 +6,7 @@ pub(crate) fn env_label(path: &Path, first_line: &str) -> String {
 
 fn from_comment(line: &str) -> Option<&str> {
     let label = line.trim().strip_prefix('#')?.trim_start_matches(' ');
-    let label = before_first(label, &[" — ", " - "]);
+    let label = before_first(label, &[" — ", " - ", ": "]);
     let label = before_first(label, &[" ("]).trim_end();
     (!label.is_empty()).then_some(label)
 }
@@ -33,7 +33,7 @@ fn from_stem(path: &Path) -> String {
 mod tests {
     use super::*;
 
-    const CASES: [(&str, &str); 11] = [
+    const CASES: [(&str, &str); 14] = [
         (
             "# LAB — personal DevStack / OpenSDN VMs (direct, no bastion)",
             "LAB",
@@ -54,10 +54,19 @@ mod tests {
         ("# LAB-ONE (x)", "LAB-ONE"),
         ("# (only paren)", "(only paren)"),
         ("# Has trailing space  — x", "Has trailing space"),
+        (
+            "# LAB: personal dev VMs (public IPs, direct, no VPN or bastion)",
+            "LAB",
+        ),
+        (
+            "# OLD STAGING: stg.example.com, kolla, region NCP-TH. Being retired.",
+            "OLD STAGING",
+        ),
+        ("# GPSC (customer): private cloud", "GPSC"),
     ];
 
     #[test]
-    fn the_label_is_the_comment_up_to_the_first_dash_or_paren() {
+    fn the_label_is_the_comment_up_to_the_first_dash_colon_or_paren() {
         for (line, want) in CASES {
             assert_eq!(env_label(Path::new("10-x.conf"), line), want, "{line:?}");
         }

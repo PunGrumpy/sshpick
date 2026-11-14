@@ -4,7 +4,7 @@
 
 | Column | Where it comes from |
 |--------|---------------------|
-| ENV    | line 1 of each included file: `# OLD STAGING — anything` shows `OLD STAGING`; no label: the file name (`30-prod.conf` shows `prod`); hosts in `~/.ssh/config` itself: blank (the column hides when all are) |
+| ENV    | line 1 of each included file: `# OLD STAGING — anything` or `# OLD STAGING: anything` shows `OLD STAGING`; no label: the file name (`30-prod.conf` shows `prod`); hosts in `~/.ssh/config` itself: blank (the column hides when all are) |
 | HOST   | the first name on the `Host` line, the one you would type; `*`/`?` patterns and `!negations` are skipped; the other names are searchable but not shown |
 | WHAT   | the `#` comment on the line directly above `Host` |
 | LAST   | how long ago you connected to the host: `now`, `5m`, `2h`, `3d`, `6w` or `1y`; blank for a host you have not used; the column shows once some host has history |
@@ -58,8 +58,9 @@ Host stg-consul1 consul1.stg
   ProxyJump stg-bastion
 ```
 
-- Line 1 of an included file is the ENV label. Text from the first ` — `, ` - ` or ` (` on is
-  dropped, so this file's label is `STAGING`.
+- Line 1 of an included file is the ENV label. Text from the first ` — `, ` - `, `: ` or ` (`
+  on is dropped, so this file's label is `STAGING`, and `# PROD: production, VPN only` gives
+  `PROD`.
 - A comment directly above a `Host` line is its WHAT. A blank line or any other line in
   between clears it. Here `stg-bastion` gets `jump host for the staging network`. A `Host`
   on line 2 would get the label line as its WHAT too.

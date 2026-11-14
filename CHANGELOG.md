@@ -25,6 +25,11 @@ the top versioned section as the release notes.
 - `^` and `$` anchor the start and end of each column, so `^prod-db` and `prod$` find hosts, and a
   capital `^PROD` or `API$` is no longer always empty.
 
+### Fixed
+
+- An ENV label line such as `# PROD: production, VPN only` shows `PROD`. Before, the whole line
+  filled the ENV column and pushed WHAT off the screen.
+
 ## [0.2.0] - 2026-11-08
 
 The first tagged release. Everything before it was installed from `main`.
