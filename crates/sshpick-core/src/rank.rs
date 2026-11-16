@@ -120,13 +120,14 @@ impl Item {
 impl Word {
     /// Every word of the query, operators parsed. `user@host`, as pasted from an ssh command
     /// line, is its host part: the user is how you log in, not which machine, and is usually set
-    /// by `Host *` where search cannot see it.
+    /// by `Host *` where search cannot see it. A leading `!` negates the host.
     fn parse(query: &str) -> Vec<Word> {
         let mut words = Vec::new();
         for token in tokens(query) {
             match token.rsplit_once('@') {
                 Some((user, host)) if !user.is_empty() && !host.is_empty() => {
-                    words.extend(Word::new(host));
+                    let negation = if user.starts_with('!') { "!" } else { "" };
+                    words.extend(Word::new(&format!("{negation}{host}")));
                 }
                 _ => words.extend(Word::new(token)),
             }
