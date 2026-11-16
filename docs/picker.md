@@ -10,6 +10,7 @@ scrollback included, when it closes. With an empty filter, in a terminal of 80 b
 > type to filter                                                             5/5
   ENV         HOST           WHAT
 ▌ LAB         lab-a          LAB — personal VMs
+  └ ubuntu@10.11.212.191:22 via newstg-bastion
   LAB         lab-b          build box
   NEW STAGING newstg-consul1 consul server 1 — mgmt
   NEW STAGING newstg-consul2
@@ -17,7 +18,6 @@ scrollback included, when it closes. With an empty filter, in a terminal of 80 b
 
 
 
-  → ubuntu@10.11.212.191:22 via newstg-bastion
   ↑↓ move   enter ssh   esc quit   ? keys
 ```
 
@@ -72,6 +72,7 @@ to `newstg-consul1` two hours ago and to `lab-b` three days ago:
 > type to filter                                                             5/5
   ENV         HOST           LAST WHAT
 ▌ NEW STAGING newstg-consul1   2h consul server 1 — mgmt
+  └ ubuntu@10.11.212.191:22 via newstg-bastion
   LAB         lab-b            3d build box
   LAB         lab-a               LAB — personal VMs
   NEW STAGING newstg-consul2
@@ -79,7 +80,6 @@ to `newstg-consul1` two hours ago and to `lab-b` three days ago:
 
 
 
-  → ubuntu@10.11.212.191:22 via newstg-bastion
   ↑↓ move   enter ssh   esc quit   ? keys
 ```
 
@@ -104,9 +104,9 @@ the history is kept and how to forget it.
 ## Appearance
 
 The picker takes the alternate screen: the whole window, with the shell's screen and scrollback
-kept aside until it closes. The prompt is on the top row, the route and the hint row are on the
-bottom two, and the list fills the rows between. Rows the hosts do not need stay blank, so a short
-config, or a query that matches fewer hosts, leaves blank rows above the route.
+kept aside until it closes. The prompt is on the top row, the hint row is on the bottom one, and
+the list fills the rows between. Rows the hosts do not need stay blank, so a short config, or a
+query that matches fewer hosts, leaves blank rows above the hint row.
 
 Esc gives the shell its screen back as it was, with the cursor where the command left it. Enter
 does the same, and `> ssh -- <host>` is printed there before ssh starts. Enter with nothing
@@ -122,39 +122,33 @@ the filter is empty and `F1` once it is not. With the help open the row says `es
 more rows match than fit, the range on screen (`1–8`) sits at the right edge of the row, and goes
 before any key does.
 
-The row above it says where the selected host goes, as `ssh -G` resolves it:
-`→ ubuntu@192.0.2.11:22 via stg-bastion`, with `runs <command>` after it when the host sets a
-RemoteCommand. Until ssh answers it reads `→ resolving…`. If ssh fails it reads
-`→ ssh -G failed:` and the first line of what ssh said; `sshpick inspect <host>` has the rest. The
-row is cut with `…` at the edge of the terminal and never wraps, and it is blank when nothing
-matches.
-
-From 100 columns the route takes no row. It moves into a panel beside the header and the list,
-two fifths of the width wide, behind a dim rule: the selected host, then one row per key, with the
-names and in the order `sshpick inspect` prints under Resolved. `resolving…` reads the same as on
-the row, and a failure wraps over the panel's rows, ending in `…` if it does not fit. The panel
-needs six rows beside it, so a terminal shorter than 8 rows keeps the route row. With a query, in
-a terminal of 100 by 12:
+The row under the selected host says where it goes, as `ssh -G` resolves it, behind a dim `└`:
+`└ ubuntu@192.0.2.11:22 via stg-bastion`, with `runs <command>` after it when the host sets a
+RemoteCommand. The hosts below it move down a row. Until ssh answers it reads `└ resolving…`. If
+ssh fails it reads `└ ssh -G failed:` and the first line of what ssh said; `sshpick inspect <host>`
+has the rest. The line is cut with `…` at the edge of the terminal and never wraps, and there is
+none when nothing matches. It takes one row of the block, so a terminal of 100 columns or more
+draws the same block as one of 80, only wider. With a query, in a terminal of 100 by 12:
 
 ```text
 ~/work $ sshpick consul
 > consul                                                                                         2/5
-  ENV         HOST           WHAT                           │ newstg-consul1
-▌ NEW STAGING newstg-consul1 consul server 1 — mgmt         │ user       ubuntu
-  NEW STAGING newstg-consul2                                │ hostname   10.11.212.191
-                                                            │ port       22
-                                                            │ proxyjump  newstg-bastion
-                                                            │
-                                                            │
-                                                            │
-                                                            │
-                                                            │
+  ENV         HOST           WHAT
+▌ NEW STAGING newstg-consul1 consul server 1 — mgmt
+  └ ubuntu@10.11.212.191:22 via newstg-bastion
+  NEW STAGING newstg-consul2
+
+
+
+
+
+
   ↑↓ move   enter ssh   esc quit   F1 keys
 ```
 
 The selected row is reversed video with a `▌` marker. Matched characters are bold. ENV, LAST,
-WHAT, the header, the count, the arrow and the words `via` and `runs`, the hint row, and the panel's
-rule and keys are dim. Nothing has a colour, so `NO_COLOR` has nothing to remove here.
+WHAT, the header, the count, the `└` and the words `via` and `runs`, and the hint row are dim.
+Nothing has a colour, so `NO_COLOR` has nothing to remove here.
 
 When nothing matches, the first list row shows a dim `no matching hosts`. An empty prompt shows
 a dim `type to filter`. A WHAT wider than its column ends in `…`, and one too narrow for more
@@ -162,8 +156,8 @@ than that is left out. HOST and ENV are never cut. LAST is drawn once some host 
 aligned between HOST and WHAT. It is left out before WHAT is.
 
 A shorter terminal gets fewer rows of the same screen, never another layout: the header goes
-first, then the route row, then hosts, and the hint row with `enter` and `esc` outlasts every host
-but one. Width changes one thing: under 100 columns the panel is the route row again. A screen of
+first, then the route line, then hosts, and the hint row with `enter` and `esc` outlasts every host
+but one. Width changes nothing but how much of a line is cut. A screen of
 one row shows the selected host where the count was, so Enter is never blind. A resize clears the
 screen and draws it again.
 

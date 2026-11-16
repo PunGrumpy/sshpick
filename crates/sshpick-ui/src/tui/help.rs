@@ -77,14 +77,18 @@ mod tests {
         assert_snapshot!("help_80x24", frame(&lines));
         picker.handle(Key::Esc);
 
-        // Twenty rows: the five hosts, the route and every key, with no blank row left.
+        // Twenty rows: the five hosts, the route line and every key, with no blank row left.
         let mut terminal = terminal(80, 20);
         let plain = render(&mut terminal, &screen, &mut picker, &ready());
         open(&mut picker);
         let lines = render(&mut terminal, &screen, &mut picker, &ready());
         assert_eq!(lines.len(), plain.len(), "the screen does not grow");
-        assert_eq!(lines[..7], plain[..7], "the prompt, header and hosts stay");
-        assert_eq!(lines[7], plain[18], "the route moves up under the list");
+        assert_eq!(
+            lines[..8],
+            plain[..8],
+            "the prompt, header, hosts and the route under the selection stay"
+        );
+        assert!(lines[3].starts_with("  └ "), "{lines:#?}");
         assert!(lines[8].is_empty(), "a blank row opens the section");
         for (row, binding) in lines[9..19].iter().zip(BINDINGS) {
             assert!(
@@ -94,7 +98,7 @@ mod tests {
         }
         assert_eq!(lines[19], "  ↑↓ move   enter ssh   esc close");
         assert!(
-            !lines.concat().contains(['│', '─', '┌', '┐', '└', '┘']),
+            !lines.concat().contains(['│', '─', '┌', '┐', '┘']),
             "a section of the block, not a box over it"
         );
         let plain_keys = (2..60).all(|x| !dim(&cell(&terminal, x, 9)));
@@ -185,15 +189,16 @@ mod tests {
         assert_eq!(keys, BINDINGS.len() - hidden, "{section:#?}");
 
         let list = lines.len() - 4 - rows;
-        let hosts = lines[2..2 + list]
+        let body = &lines[2..3 + list];
+        let hosts = body
             .iter()
-            .filter(|row| !row.is_empty())
+            .filter(|row| !row.is_empty() && !row.starts_with("  └ "))
             .count();
         assert_eq!(hosts, list.min(5), "the list gave the rows up");
         assert!(list >= 3, "but kept three");
         assert!(
-            lines[2 + list].starts_with("  → "),
-            "the route row is under the list"
+            lines[3].starts_with("  └ "),
+            "the route line stays under the selected host: {lines:#?}"
         );
     }
 
@@ -238,7 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn a_wide_terminal_keeps_the_panel_above_the_help() {
+    fn a_wide_terminal_draws_the_same_block_wider() {
         let (screen, mut picker) = setup("ui", "consul");
         open(&mut picker);
         let lines = render(&mut terminal(120, 30), &screen, &mut picker, &ready());

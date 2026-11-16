@@ -37,16 +37,25 @@ impl HostTable {
         }
     }
 
-    pub(super) fn list(&self, frame: &mut Frame, area: Rect, view: &View<'_>) {
+    /// With `gap`, the row under the selected host is left blank and returned, for the route.
+    pub(super) fn list(
+        &self,
+        frame: &mut Frame,
+        area: Rect,
+        view: &View<'_>,
+        gap: bool,
+    ) -> Option<Rect> {
         if view.matched == 0 {
             if view.total > 0 {
                 let text = format!("{GUTTER}{NO_MATCH}");
                 frame.render_widget(Line::from(Span::styled(text, DIM)), area);
             }
-            return;
+            return None;
         }
         let shown = self.fit(area.width, view);
-        let table_rows = view.rows.iter().map(|row| {
+        let selected = view.rows.iter().position(|row| row.selected);
+        let gap = selected.filter(|_| gap);
+        let table_rows = view.rows.iter().enumerate().flat_map(|(at, row)| {
             let what = fit(&row.what, shown.what);
             let columns = [
                 (self.env > 0).then(|| cell(&row.env, DIM)),
@@ -56,15 +65,19 @@ impl HostTable {
                     .then(|| Line::styled(row.last, DIM).right_aligned()),
                 Some(cell(&what, DIM)),
             ];
-            TableRow::new(columns.into_iter().flatten())
+            let host = TableRow::new(columns.into_iter().flatten());
+            let blank = (gap == Some(at)).then(|| TableRow::new(Vec::<Line>::new()));
+            std::iter::once(host).chain(blank)
         });
         let table = Table::new(table_rows, self.widths(shown.last))
             .column_spacing(COLUMN_SPACING)
             .highlight_symbol(MARKER)
             .highlight_spacing(HighlightSpacing::Always)
             .row_highlight_style(REVERSED.remove_modifier(Modifier::DIM));
-        let selected = view.rows.iter().position(|row| row.selected);
         frame.render_stateful_widget(table, area, &mut TableState::new().with_selected(selected));
+        let below = u16::try_from(gap? + 1).ok()?;
+        let row = Rect::new(area.x, area.y.checked_add(below)?, area.width, 1);
+        Some(row.intersection(area)).filter(|row| !row.is_empty())
     }
 
     pub(super) fn header(&self, frame: &mut Frame, area: Rect, view: &View<'_>) {

@@ -44,6 +44,7 @@ sshpick doctor                # check the config, ssh and this terminal
 > type to filter                                                             5/5
   ENV         HOST           WHAT
 ▌ LAB         lab-a          LAB — personal VMs
+  └ ubuntu@10.11.212.191:22 via newstg-bastion
   LAB         lab-b          build box
   NEW STAGING newstg-consul1 consul server 1 — mgmt
   NEW STAGING newstg-consul2
@@ -51,7 +52,6 @@ sshpick doctor                # check the config, ssh and this terminal
 
 
 
-  → ubuntu@10.11.212.191:22 via newstg-bastion
   ↑↓ move   enter ssh   esc quit   ? keys
 ```
 

@@ -5,9 +5,9 @@ expression: frame(&lines)
  0|> type to filter                                                             5/5
  1|  ENV         HOST           WHAT
  2|▌ LAB         lab-a          LAB — personal VMs
- 3|  LAB         lab-b          build box
- 4|  NEW STAGING newstg-consul1 consul server 1 — mgmt
- 5|  → ubuntu@10.11.212.191:22 via newstg-bastion
+ 3|  └ ubuntu@10.11.212.191:22 via newstg-bastion
+ 4|  LAB         lab-b          build box
+ 5|  NEW STAGING newstg-consul1 consul server 1 — mgmt
  6|
  7|  Enter                       - ssh to the selected host
  8|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first

@@ -6,10 +6,10 @@ expression: frame(&lines)
  1|  ENV         HOST           WHAT
  2|  LAB         lab-a          LAB — personal VMs
  3|▌ LAB         lab-b          build box
- 4|  NEW STAGING newstg-consul1 consul server 1 — mgmt
- 5|  NEW STAGING newstg-consul2
- 6|  NEW STAGING newstg-bastion bastion
- 7|
+ 4|  └ resolving…
+ 5|  NEW STAGING newstg-consul1 consul server 1 — mgmt
+ 6|  NEW STAGING newstg-consul2
+ 7|  NEW STAGING newstg-bastion bastion
  8|
  9|
 10|
@@ -20,5 +20,5 @@ expression: frame(&lines)
 15|
 16|
 17|
-18|  → resolving…
+18|
 19|  ↑↓ move   enter ssh   esc quit   ? keys
