@@ -9,9 +9,10 @@
 | WHAT   | the `#` comment on the line directly above `Host`, else the heading of the section the host is in |
 | LAST   | how long ago you connected to the host: `now`, `5m`, `2h`, `3d`, `6w` or `1y`; blank for a host you have not used; the column shows once some host has history |
 
-The route row runs `ssh -G -- <host>` and shows `user`, `hostname` and `port`, then `proxyjump`
-after `via` and `remotecommand` after `runs`, so `Match`, `ProxyJump` and `%` tokens show what ssh
-will actually do. From 100 columns a panel beside the list shows the same keys, one per row. A broken config shows the first line of ssh's own error there. Results are kept
+The route line under the selected host runs `ssh -G -- <host>` and shows `user`, `hostname` and
+`port`, then `proxyjump` after `via` and `remotecommand` after `runs`, so `Match`, `ProxyJump` and
+`%` tokens show what ssh will actually do. A broken config shows the first line of ssh's own error
+there. Results are kept
 for the session, except that a host whose `ssh -G` gives no answer within 2 seconds is asked again
 the next time it is selected.
 

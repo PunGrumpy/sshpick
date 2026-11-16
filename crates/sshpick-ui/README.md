@@ -23,15 +23,16 @@ sshpick-ui
         ├── app.rs - the event loop: fit the screen, draw, poll, hand a key to the Picker
         ├── plan.rs - plan(): which rows the screen gives to what, from the terminal's size, the
         │   number of hosts and the open help; one ladder of what goes first on a short terminal,
-        │   and from 100 columns the route as a panel beside the list
+        │   at any width
         ├── input.rs - crossterm key event to Key, one to one, no policy
-        ├── screen.rs - lays out the screen: prompt, header, list, route row or panel, help, hint row
+        ├── screen.rs - lays out the screen: prompt, header, list with the route under the selected
+        │   host, help, hint row
         ├── signals.rs - a thread that restores the terminal on SIGINT, SIGTERM, SIGHUP or SIGQUIT,
         │   then ends the process by that signal
         ├── table.rs - the prompt row, the header, the host rows and the hint row; LAST, when some host
         │   has history, is dropped before WHAT is
-        ├── route.rs - where the selected host goes, `resolving…` or why ssh -G failed: one row cut
-        │   with `…`, or a panel of one row per key with the failure wrapped
+        ├── route.rs - where the selected host goes, `resolving…` or why ssh -G failed: one `└` line
+        │   under the selected host, cut with `…`
         ├── help.rs - the key help as rows just above the hint row, from the blank rows first:
         │   rows from BINDINGS, cut with a `+N more · sshpick pick --help` pointer
         ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans

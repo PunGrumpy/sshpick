@@ -9,9 +9,9 @@ use pty::{Exit, Frame, Options, Session};
 use test_case::test_case;
 
 const SHELL: &[&str] = &["$ git status", "clean", "$ sshpick"];
-/// The picker fills the default 24 rows: the prompt on the top one, the route and the hint row on
-/// the last two.
-const ROUTE: usize = 22;
+/// The picker fills the default 24 rows: the prompt on the top one and the hint row on the last.
+/// The route is the line under the selected host, the first of the list.
+const ROUTE: usize = 3;
 const HINT: usize = 23;
 
 fn started() -> Session {
@@ -62,7 +62,7 @@ fn the_picker_fills_the_screen_with_the_hint_row_at_the_bottom() {
     );
     assert!(frame.rows[2].starts_with("▌ LAB         lab-a"), "{frame}");
     assert!(
-        frame.rows[7..ROUTE].iter().all(String::is_empty),
+        frame.rows[8..HINT].iter().all(String::is_empty),
         "the rows the hosts do not need are blank: {frame}"
     );
     assert_eq!(
@@ -220,13 +220,15 @@ fn the_hint_row_is_the_last_row_of_the_screen_and_keeps_enter_and_esc(cols: u16,
 }
 
 #[test]
-fn the_route_row_says_where_the_selected_host_goes_and_the_hint_row_stays_last() {
+fn the_route_line_says_where_the_selected_host_goes_and_the_hint_row_stays_last() {
     let mut session = started();
     let frame = session.wait_for("the route", resolved);
     assert_eq!(
-        frame.rows[ROUTE], "  → ubuntu@192.0.2.11:22 via stg-bastion",
+        frame.rows[ROUTE], "  └ ubuntu@192.0.2.11:22 via stg-bastion",
         "{frame}"
     );
+    assert!(frame.rows[2].starts_with("▌ LAB         lab-a"), "{frame}");
+    assert!(frame.rows[4].starts_with("  LAB         lab-b"), "{frame}");
     assert_eq!(
         frame.rows[HINT], "  ↑↓ move   enter ssh   esc quit   ? keys",
         "{frame}"
@@ -236,16 +238,16 @@ fn the_route_row_says_where_the_selected_host_goes_and_the_hint_row_stays_last()
 }
 
 #[test]
-fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure_on_the_route_row() {
+fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure_on_the_route_line() {
     let mut options = Options::new("inspect");
-    // One column short of the panel, so the failure is on the route row.
+    // Wide enough for the whole first line.
     options.cols = 99;
     options.typed = "broken";
     let mut session = Session::start(options);
     let frame = session.wait_for("the failure", |frame| frame.rows[ROUTE].contains("failed"));
     assert_eq!(
         frame.rows[ROUTE],
-        "  → ssh -G failed: /home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus",
+        "  └ ssh -G failed: /home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus",
         "{frame}"
     );
     assert!(!frame.has("terminating"), "only the first line: {frame}");
@@ -254,21 +256,23 @@ fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure_on_the_route_ro
 }
 
 #[test]
-fn a_wide_terminal_shows_the_route_beside_the_list_and_enter_leaves_none_of_it() {
+fn a_wide_terminal_shows_the_route_under_the_host_and_enter_leaves_none_of_it() {
     let mut options = Options::new("ui");
     options.shell = SHELL;
     options.cols = 120;
     let mut session = Session::start(options);
-    let frame = session.wait_for("the panel", |frame| {
-        frame.rows[2].ends_with("│ user       ubuntu")
-    });
-    assert!(frame.rows[1].ends_with("│ lab-a"), "{frame}");
-    assert!(
-        frame.rows[3].ends_with("│ hostname   192.0.2.11"),
+    let frame = session.wait_for("the route", resolved);
+    assert_eq!(
+        frame.rows[ROUTE], "  └ ubuntu@192.0.2.11:22 via stg-bastion",
         "{frame}"
     );
     assert!(frame.rows[HINT].contains("esc quit"), "{frame}");
-    assert!(!frame.has("→"), "the route is drawn once: {frame}");
+    assert!(!frame.has("│"), "no panel beside the list: {frame}");
+    assert_eq!(
+        frame.rows.iter().filter(|row| row.contains('└')).count(),
+        1,
+        "{frame}"
+    );
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
     let frame = session.frame();
@@ -301,8 +305,8 @@ fn the_key_help_takes_the_blank_rows_and_esc_closes_it_before_the_picker(open: &
         "the list is still there: {frame}"
     );
     assert!(
-        frame.rows[11].starts_with("  → "),
-        "the route under the hosts: {frame}"
+        frame.rows[ROUTE].starts_with("  └ "),
+        "the route under the selected host: {frame}"
     );
     assert!(frame.rows[12].is_empty(), "{frame}");
     assert!(frame.rows[13].starts_with("  Enter"), "{frame}");
@@ -321,7 +325,7 @@ fn the_key_help_takes_the_blank_rows_and_esc_closes_it_before_the_picker(open: &
         frame.rows[HINT].contains("esc close")
             && frame.rows[0].starts_with("> consul")
             && frame.rows[0].ends_with("2/5")
-            && frame.rows[3] == "  NEW STAGING newstg-consul2"
+            && frame.rows[4] == "  NEW STAGING newstg-consul2"
     });
     assert!(frame.has("toggle this help"), "{frame}");
 
@@ -379,11 +383,7 @@ fn a_resize_redraws_one_picker_on_the_whole_screen() {
             .filter(|row| row.contains("esc quit"))
             .count();
         assert_eq!((prompts, hints), (1, 1), "{frame}");
-        if cols >= 100 {
-            assert!(frame.rows[2].ends_with("user       ubuntu"), "{frame}");
-        } else {
-            assert!(frame.rows[hint - 1].contains("ubuntu@"), "{frame}");
-        }
+        assert!(frame.rows[ROUTE].contains("ubuntu@"), "{frame}");
     }
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
@@ -693,11 +693,12 @@ fn the_host_used_last_is_the_first_row_and_one_enter_reconnects_to_it() {
         frame.rows[2].starts_with("▌ NEW STAGING newstg-consul2   2h"),
         "{frame}"
     );
+    assert!(frame.rows[3].starts_with("  └ "), "{frame}");
     assert!(
-        frame.rows[3].starts_with("  LAB         lab-b            3d"),
+        frame.rows[4].starts_with("  LAB         lab-b            3d"),
         "{frame}"
     );
-    assert!(frame.rows[4].starts_with("  LAB         lab-a "), "{frame}");
+    assert!(frame.rows[5].starts_with("  LAB         lab-a "), "{frame}");
 
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));

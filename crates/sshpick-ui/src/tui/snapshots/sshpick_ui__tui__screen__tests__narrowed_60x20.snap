@@ -5,7 +5,7 @@ expression: frame(&lines)
  0|> 'lab-b                                                 1/5
  1|  ENV         HOST           WHAT
  2|▌ LAB         lab-b          build box
- 3|
+ 3|  └ resolving…
  4|
  5|
  6|
@@ -20,5 +20,5 @@ expression: frame(&lines)
 15|
 16|
 17|
-18|  → resolving…
+18|
 19|  enter ssh   esc quit   F1 keys
