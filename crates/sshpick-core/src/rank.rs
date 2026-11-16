@@ -120,13 +120,14 @@ impl Item {
 impl Word {
     /// Every word of the query, operators parsed. `user@host`, as pasted from an ssh command
     /// line, is its host part: the user is how you log in, not which machine, and is usually set
-    /// by `Host *` where search cannot see it.
+    /// by `Host *` where search cannot see it. A leading `!` negates the host.
     fn parse(query: &str) -> Vec<Word> {
         let mut words = Vec::new();
         for token in tokens(query) {
             match token.rsplit_once('@') {
                 Some((user, host)) if !user.is_empty() && !host.is_empty() => {
-                    words.extend(Word::new(host));
+                    let negation = if user.starts_with('!') { "!" } else { "" };
+                    words.extend(Word::new(&format!("{negation}{host}")));
                 }
                 _ => words.extend(Word::new(token)),
             }
@@ -496,6 +497,7 @@ mod tests {
     #[test_case("1.10" => "prod-db-replica"; "the end of an address")]
     #[test_case("db !stg" => "lab-db-primary prod-db-primary prod-db-replica"; "a negated word excludes")]
     #[test_case("db !10.13" => "lab-db-primary newstg-db-primary"; "a negated address excludes")]
+    #[test_case("db !ubuntu@10.13" => "lab-db-primary newstg-db-primary"; "a negated user at host excludes the host")]
     #[test_case("'consul1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "a quoted word")]
     #[test_case("stg" => "newstg-api1 newstg-bastion newstg-consul1 newstg-db-primary newstg-web1 oldstg-consul1 oldstg-k8s-worker1"; "stg")]
     #[test_case("consul 1" => "newstg-consul1 oldstg-consul1 prod-consul1"; "a 1 in a name keeps the 1 in an address out")]
