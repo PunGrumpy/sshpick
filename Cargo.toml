@@ -16,6 +16,12 @@ unsafe_code = "forbid"
 expect_used = "deny"
 unwrap_used = "deny"
 
+# Dependencies build at -O2 in tests too. The terminal-size sweep tests in
+# sshpick-ui spend most of their time inside ratatui, and ran more than ten
+# times slower with it at opt-level 0.
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
