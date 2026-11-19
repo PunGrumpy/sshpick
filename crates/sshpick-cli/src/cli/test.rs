@@ -10,7 +10,7 @@ use super::args::{Command, UsageError, parse};
 use super::error::{Error, Exit, Reason};
 use super::help::{self, MAX_WIDTH};
 use super::spec::{self, COMMANDS, EXIT_STATUS, GLOBAL};
-use crate::commands::list::ListFormat;
+use crate::commands::list::{ListFormat, Order};
 use crate::commands::pick::Landing;
 use crate::commands::{doctor, inspect, list, pick};
 
@@ -36,9 +36,14 @@ fn pick_then(query: &str, landing: Landing) -> Result<Command, UsageError> {
 }
 
 fn list_as(query: &str, format: ListFormat) -> Result<Command, UsageError> {
+    list_in(query, format, Order::Config)
+}
+
+fn list_in(query: &str, format: ListFormat, order: Order) -> Result<Command, UsageError> {
     Ok(Command::List {
         query: query.to_owned(),
         format,
+        order,
     })
 }
 
@@ -129,6 +134,15 @@ fn unknown_command(word: &str) -> Result<Command, UsageError> {
 #[test_case(&["--list", "--", "-x", "y"] => list_as("-x y", ListFormat::Tsv); "list with a dashed query after --")]
 #[test_case(&["ls", "-l"] => list_as("", ListFormat::Tsv); "ls with -l is tab-separated")]
 #[test_case(&["pick", "-l", "db"] => list_as("db", ListFormat::Tsv); "pick with -l lists")]
+#[test_case(&["ls", "--recent"] => list_in("", ListFormat::Auto, Order::Recent); "ls recent")]
+#[test_case(&["list", "db", "--recent"] => list_in("db", ListFormat::Auto, Order::Recent); "list recent after a query")]
+#[test_case(&["--recent", "ls", "db"] => list_in("db", ListFormat::Auto, Order::Recent); "recent before the command")]
+#[test_case(&["ls", "--recent", "--json"] => list_in("", ListFormat::Json, Order::Recent); "recent as json")]
+#[test_case(&["ls", "--recent", "-l"] => list_in("", ListFormat::Tsv, Order::Recent); "recent as tab-separated rows")]
+#[test_case(&["ls", "--", "--recent"] => list_as("--recent", ListFormat::Auto); "recent after -- is query text")]
+#[test_case(&["--recent"] => unknown_option("--recent"); "recent is not a pick option")]
+#[test_case(&["-l", "--recent"] => unknown_option("--recent"); "-l without ls keeps recent unknown")]
+#[test_case(&["inspect", "db", "--recent"] => unknown_option_of(Some("inspect"), "--recent"); "inspect does not take recent")]
 #[test_case(&["-h"] => help_for(None); "short help")]
 #[test_case(&["--help"] => help_for(None); "long help")]
 #[test_case(&["db", "-h"] => help_for(None); "help after a word")]

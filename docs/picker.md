@@ -98,8 +98,8 @@ connects at once are the same with or without it.
 
 A host is remembered when you connect at a terminal: with Enter, with an exact name, or with a
 query that matches one host. `--non-interactive`, a pipe and `TERM=dumb` remember nothing, and
-`ls`, `inspect` and `doctor` never look. [Configuration](configuration.md#recent-hosts) says where
-the history is kept and how to forget it.
+`inspect` and `doctor` never look. `ls` looks only with `--recent`, which lists hosts in this order.
+[Configuration](configuration.md#recent-hosts) says where the history is kept and how to forget it.
 
 ## Appearance
 

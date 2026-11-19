@@ -59,6 +59,14 @@ const PRINT_JSON: OptionSpec = OptionSpec {
     hidden: false,
 };
 
+const RECENT: OptionSpec = OptionSpec {
+    long: "recent",
+    short: None,
+    aliases: &[],
+    description: "Put the hosts you connected to last first, as the picker does",
+    hidden: false,
+};
+
 pub(crate) const PICK: CommandSpec = CommandSpec {
     name: "pick",
     aliases: &[],
@@ -95,13 +103,14 @@ pub(crate) const LIST: CommandSpec = CommandSpec {
     aliases: &["ls"],
     default: false,
     summary: "List the hosts that match a query",
-    description: "List the hosts that match a query.",
+    description: "List the hosts that match a query. With --recent the hosts you connected to \
+                  last come first, as in the picker.",
     arguments: &[Argument {
         name: "query",
         required: false,
         multiple: true,
     }],
-    options: &[JSON],
+    options: &[JSON, RECENT],
     keys: &[],
     examples: &[
         Example {

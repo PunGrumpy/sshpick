@@ -21,6 +21,9 @@ the top versioned section as the release notes.
 - The picker remembers the hosts you connect to at a terminal. It lists them first with an empty
   filter, breaks ties between equal matches by last use, and shows when in a dim LAST column.
   `XDG_STATE_HOME` moves the history from `~/.local/state/sshpick`.
+- `sshpick ls --recent` lists hosts in the picker's order, the ones you connected to first, the
+  latest first. It reads the history and never writes it, and changes the order only. Plain `ls`
+  is unchanged.
 - An address, part of one, a user or `user@address` from shell history finds a host, from the
   `HostName` and `User` written in its `Host` block, or the `user@target` of its `RemoteCommand`.
 

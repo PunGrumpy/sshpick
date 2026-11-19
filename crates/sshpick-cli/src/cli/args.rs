@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 
 use super::spec::{self, CommandSpec};
-use crate::commands::list::ListFormat;
+use crate::commands::list::{ListFormat, Order};
 use crate::commands::pick::Landing;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -20,11 +20,25 @@ pub(crate) struct GlobalArgs {
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Command {
-    Pick { query: String, landing: Landing },
-    List { query: String, format: ListFormat },
-    Inspect { query: String, json: bool },
-    Doctor { json: bool },
-    Help { topic: Option<&'static str> },
+    Pick {
+        query: String,
+        landing: Landing,
+    },
+    List {
+        query: String,
+        format: ListFormat,
+        order: Order,
+    },
+    Inspect {
+        query: String,
+        json: bool,
+    },
+    Doctor {
+        json: bool,
+    },
+    Help {
+        topic: Option<&'static str>,
+    },
     Version,
 }
 
@@ -102,10 +116,12 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
     let asked_json = scoped.iter().any(|(_, long)| *long == "json");
     let mut json = false;
     let mut print = false;
+    let mut recent = false;
     for (arg, long) in scoped {
         if accepts(long) {
             json |= long == "json";
             print |= long == "print";
+            recent |= long == "recent";
         } else {
             unknown.get_or_insert(arg);
         }
@@ -128,7 +144,7 @@ pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
             command: named.map(|spec| spec.name),
         })
     } else {
-        route(named, words, flags.list, json, print)
+        route(named, words, flags.list, json, print, recent)
     };
     Args {
         global,
@@ -143,6 +159,7 @@ fn route(
     list: bool,
     json: bool,
     print: bool,
+    recent: bool,
 ) -> Result<Command, UsageError> {
     if let Some(spec) = named.filter(|spec| !spec.arguments.iter().any(|a| a.multiple))
         && let Some(word) = words.get(spec.arguments.len())
@@ -185,7 +202,12 @@ fn route(
             (false, true) => ListFormat::Tsv,
             (false, false) => ListFormat::Auto,
         };
-        return Ok(Command::List { query, format });
+        let order = if recent { Order::Recent } else { Order::Config };
+        return Ok(Command::List {
+            query,
+            format,
+            order,
+        });
     }
     let landing = match (print, json) {
         (false, false) => Landing::Connect,

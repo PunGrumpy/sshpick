@@ -104,7 +104,8 @@ host keeps its history while its old name stays on the `Host` line.
 
 A connection is remembered when you make it at a terminal, with Enter in the picker, with an exact
 name, or with a query that matches one host. It is not remembered under `--non-interactive`, in a
-pipe or with `TERM=dumb`. `ls`, `inspect` and `doctor` neither read nor write the file.
+pipe or with `TERM=dumb`. `inspect` and `doctor` neither read nor write the file, and `ls` does not
+unless you pass `--recent`, which reads it, wherever stdout goes, and never writes it.
 
 If sshpick cannot write the file, it prints `! cannot save recent hosts to <path>: <why>` and runs
 ssh anyway.

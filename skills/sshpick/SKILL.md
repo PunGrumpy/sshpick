@@ -54,7 +54,7 @@ Fix: connect with `sshpick --non-interactive stg-consul1`, or list candidates wi
 ```
 
 A connection made with `--non-interactive` is not remembered, and the order of `ls` never depends
-on history.
+on history unless you pass `ls --recent`, which an agent rarely needs.
 
 Take names from `sshpick ls --json`, as `.hosts[].host` or one of `.hosts[].names`. Never take them
 from memory.

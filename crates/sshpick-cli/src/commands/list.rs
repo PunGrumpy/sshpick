@@ -1,7 +1,8 @@
 use std::io::{self, Write};
+use std::time::SystemTime;
 
 use serde::Serialize;
-use sshpick_core::{Entry, Picker, Recents};
+use sshpick_core::{Entry, History, Picker, Recents};
 
 use super::{CommandBase, HostView, WarningView, note_if_also_a_host, write_json};
 use crate::cli;
@@ -20,9 +21,19 @@ pub(crate) enum ListFormat {
     Json,
 }
 
+/// Which order the rows come in. `Recent` is the picker's order, so it reads the history.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Order {
+    /// What the text alone decides: best match first, then the order of the config.
+    Config,
+    /// The hosts connected to first, most recent first, and equal matches by last use.
+    Recent,
+}
+
 pub(crate) struct Request<'a> {
     pub(crate) query: &'a str,
     pub(crate) format: ListFormat,
+    pub(crate) order: Order,
     pub(crate) typed: Option<&'a str>,
 }
 
@@ -40,6 +51,7 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
     let Request {
         query,
         format,
+        order,
         typed,
     } = *request;
     let human = format == ListFormat::Auto;
@@ -47,7 +59,11 @@ pub(crate) fn run(base: &CommandBase, request: &Request) -> Result<u8, cli::Erro
         note_if_also_a_host(base.output, word, &loaded.entries);
     }
     let total = loaded.entries.len();
-    let picker = Picker::new(loaded.entries, query, &Recents::none());
+    let recents = match order {
+        Order::Config => Recents::none(),
+        Order::Recent => History::read(&base.home, SystemTime::now()),
+    };
+    let picker = Picker::new(loaded.entries, query, &recents);
     let rows = picker.listing();
     let output = base.output;
     if human {
