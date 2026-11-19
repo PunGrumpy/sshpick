@@ -990,11 +990,20 @@ fn the_tab_holds_only_when_ssh_itself_fails(exit: &str, code: Option<i32>, waits
         done.stdout
     );
     assert!(
-        done.stderr
-            .contains("sshpick-exits --non-interactive -- web"),
+        done.stderr.contains("sshpick-exits -- web"),
         "{}",
         done.stderr
     );
+}
+
+#[test]
+fn a_host_opened_in_a_tab_is_remembered_for_the_next_palette() {
+    let mut options = Options::new("ui");
+    options.program = Some(serde_json::from_value(session_argv("lab-b")).or_panic());
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(0));
+    let history = session.history().or_panic();
+    assert!(history.trim_end().ends_with("\tlab-b"), "{history}");
 }
 
 /// The layer as the owner sees it: sshpick's picker drawn on the layer's terminal, a query, Enter.

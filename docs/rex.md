@@ -94,11 +94,11 @@ change here.
 
 Without `host`, the action runs `sshpick ls --recent --json`, with the query after `--` once you
 have typed one, so a query that starts with `-` is text. `--recent` gives the picker's order and
-reads the history only. The tab connects with `--non-interactive`, which remembers nothing, so a
-host you open from the palette does not move up. The order follows the connections you made with
-sshpick's picker at a terminal. Each host in the answer becomes a row, in that order: the host is
-its title and its id, the WHAT its second line and the ENV its far end. Either is left out when
-empty. The action asks Rex to show them with `rex.ui.pick`. What comes back is one of three things:
+reads the history only. The tab connects without `--non-interactive`, so sshpick remembers the
+host as it does at any terminal, and it is first in the palette the next time. Each host in the
+answer becomes a row, in that order: the host is its title and its id, the WHAT its second line
+and the ENV its far end. Either is left out when empty. The action asks Rex to show them with
+`rex.ui.pick`. What comes back is one of three things:
 
 - A row's id. The action takes the path below with it.
 - Typed text. The action runs `sshpick ls --recent --json -- <text>` and asks again.
@@ -112,7 +112,7 @@ A query that matches no host is not an error: the palette opens with no rows and
 With `host`, the action runs `sshpick --print --json --non-interactive -- <host>`. sshpick checks
 the name against the config as it is now and returns `{host, env, what, names}`. The action then
 opens a focused tab, labelled `host · ENV` (the host alone when it has no ENV, cut to Rex's 128
-characters), whose terminal runs `sshpick --non-interactive -- <host>`. That prints
+characters), whose terminal runs `sshpick -- <host>`. That prints
 `> ssh -- host` and becomes ssh, so sshpick stays the only thing that runs ssh. A short `/bin/sh`
 script around it holds the tab when ssh exits 255, its own failure, because Rex keeps a tab open
 after any exit in its quick-exit window and closes it after any exit later.
