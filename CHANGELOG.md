@@ -12,8 +12,9 @@ the top versioned section as the release notes.
   `{host, env, what, names}` object. The picker draws on `/dev/tty`, so `$(sshpick --print)`
   captures only the host.
 - `integrations/rex/sshpick.lua` lists the hosts in Rex's command palette from a key and opens the
-  picked host in a new tab labelled `host · ENV`. A Rex app too old for prompts gets sshpick's
-  picker in a floating layer. See `docs/rex.md`.
+  picked host in a new tab labelled `host · ENV`, the hosts you connected to last first. A Rex app
+  too old for prompts gets sshpick's picker in a floating layer. It needs an sshpick with
+  `ls --recent`. See `docs/rex.md`.
 - A host with no comment of its own takes the heading of its section as its WHAT: the first line
   of a comment block after a blank line, up to the next blank line or the next host with its own
   comment.

@@ -4,8 +4,9 @@
 own command palette. Enter on a host opens a new tab labelled `host · ENV`, such as
 `stg-consul1 · STAGING`, that runs ssh. Esc closes the palette and nothing else happens.
 
-Each row shows the host, its WHAT under it and its ENV at the far end. Typing filters the rows in
-Rex. A host that Rex's filter does not show, because you typed an alias, an address or a user,
+Each row shows the host, its WHAT under it and its ENV at the far end. The hosts you connected to
+last come first, the way sshpick's own picker lists them, and the rest follow in the order of the
+config. Typing filters the rows in Rex. A host that Rex's filter does not show, because you typed an alias, an address or a user,
 is found by the "use typed text" row: it asks sshpick, which matches those too, and the palette
 opens again with the hosts it found and a title that counts them. Nothing connects from typed
 text. You always pick a row, so a loose match never opens a host unasked.
@@ -19,8 +20,8 @@ that defines one action, `sshpick`.
 
 ## Install
 
-1. Install an sshpick that has `--print` (newer than 0.2.0): `make install` puts it in
-   `~/.local/bin`.
+1. Install an sshpick that has `--print` and `ls --recent` (newer than 0.2.0): `make install` puts
+   it in `~/.local/bin`. The palette needs both.
 2. Copy or link the file next to your `init.lua`:
 
        ln -s "$PWD/integrations/rex/sshpick.lua" ~/.config/rex/sshpick.lua
@@ -77,7 +78,7 @@ sshpick.paths.rex = "/Applications/Rex Beta.app/Contents/Helpers/Rex Server.rex/
 ## Many hosts
 
 Rex shows at most 2,000 rows in one prompt. With more hosts than that, the palette lists the first
-2,000, in the order sshpick gives them, and its title says so, as `First 2,000 of 2,345 hosts`.
+2,000, in the order sshpick gives them (recent hosts first), and its title says so, as `First 2,000 of 2,345 hosts`.
 Type to narrow it: the "use typed text" row asks sshpick across all of them, and a query that
 matches 2,000 or fewer shows every match.
 
@@ -91,14 +92,16 @@ change here.
 
 ## How it works
 
-Without `host`, the action runs `sshpick ls --json`, with the query after `--` once you have typed
-one, so a query that starts with `-` is text. Each host in the answer becomes a row, in sshpick's
-order: the host is its title and its id, the WHAT its second line and the ENV its far end. Either
-is left out when empty. The action asks Rex to show them with `rex.ui.pick`. What comes back is
-one of three things:
+Without `host`, the action runs `sshpick ls --recent --json`, with the query after `--` once you
+have typed one, so a query that starts with `-` is text. `--recent` gives the picker's order and
+reads the history only. The tab connects with `--non-interactive`, which remembers nothing, so a
+host you open from the palette does not move up. The order follows the connections you made with
+sshpick's picker at a terminal. Each host in the answer becomes a row, in that order: the host is
+its title and its id, the WHAT its second line and the ENV its far end. Either is left out when
+empty. The action asks Rex to show them with `rex.ui.pick`. What comes back is one of three things:
 
 - A row's id. The action takes the path below with it.
-- Typed text. The action runs `sshpick ls --json -- <text>` and asks again.
+- Typed text. The action runs `sshpick ls --recent --json -- <text>` and asks again.
 - No answer, with a reason. `cancelled` and `timeout` end the action quietly. `unsupported` opens
   the layer above. `no_client`, `busy`, `failed` and any reason Rex adds later are an action error.
 
@@ -131,6 +134,7 @@ draws the picker on the layer's terminal and prints the picked host, then runs
 | Rex fails to show the palette | An action error with the detail Rex gave |
 | The Rex app is too old for prompts | sshpick's own picker opens in a layer, as above |
 | That layer needs the `rex` CLI and it is not found | An action error for `paths.rex`, before any layer opens |
+| sshpick is older than `ls --recent` | An action error with sshpick's `unknown option "--recent"` and its `Fix:`; no palette opens. Install a newer sshpick |
 | sshpick is older than `--print` | In the layer, `Error: unknown option "--print"`, and it waits for Enter |
 | `host=` names no host, or matches one only loosely | An action error with sshpick's message and `Fix:`; no tab opens |
 | ssh cannot connect (DNS, refused, auth): it exits 255 | The tab shows ssh's message and closes on Enter |
@@ -141,7 +145,8 @@ draws the picker on the layer's terminal and prints the picked host, then runs
 1. `rex config check ~/.config/rex/init.lua` reports `actions: 1` and no complaints.
 2. After the reload, `rex actions` lists `sshpick`.
 3. `rex do sshpick host=<a host>` opens a tab labelled with its host and ENV.
-4. `ctrl+a s`: the palette lists your hosts, each with its WHAT and ENV. Pick one with Enter: a
+4. `ctrl+a s`: the palette lists your hosts, the ones you used last first, each with its WHAT and
+   ENV. Pick one with Enter: a
    labelled tab opens. Press `ctrl+a s` again, then Esc: no tab opens.
 5. `ctrl+a s`, then type a host's alias or address and choose the "use typed text" row: the palette
    opens again with the hosts sshpick found, and its title counts them.
