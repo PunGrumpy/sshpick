@@ -7,8 +7,10 @@
 --   rex.bind("ctrl+a>b", "sshpick", { host = "stg-bastion" })  -- a favourite
 --
 -- One action, `sshpick`:
---   no host   sshpick's own picker in a floating layer. Enter runs this action again with the
---             picked host; Esc closes the layer.
+--   no host   the hosts in Rex's command palette, from `sshpick ls --json`. Typing filters in
+--             Rex; the "use typed text" row asks sshpick again, which also finds a host by alias,
+--             address or user. Enter on a row opens that host as below; Esc ends the action. A
+--             Rex app too old for prompts gets sshpick's own picker in a floating layer instead.
 --   host=...  a new tab labelled "host · ENV" running `sshpick --non-interactive -- <host>`,
 --             which becomes ssh.
 --
@@ -25,8 +27,12 @@ M.paths = { sshpick = nil, rex = nil }
 local TERMINAL = "com.superlogical.terminal.shell"
 -- Rex refuses a window label over 128 characters.
 local LABEL_LIMIT = 128
+-- Rex refuses a prompt with more than this many items.
+local PICK_LIMIT = 2000
+-- The longest query shown in the prompt's title.
+local QUERY_LIMIT = 60
 
--- The picker layer's program. `$1` is sshpick and `$2` is rex. sshpick draws its picker on
+-- The fallback layer's program. `$1` is sshpick and `$2` is rex. sshpick draws its picker on
 -- /dev/tty under --print, so $(...) holds only the host. `rex do` types host= against this
 -- action's schema, so the name stays a string. Esc (130) and Enter on no match (1) close the
 -- layer quietly; any other failure stays on screen until Enter.
@@ -151,7 +157,8 @@ local function label(host)
   return cut(text, LABEL_LIMIT)
 end
 
-local function open_picker()
+-- For a Rex app that cannot show prompts. The rex CLI is needed only here, to hand the host back.
+local function open_tui_layer()
   local argv = { "/bin/sh", "-c", HANDOFF, "sshpick-rex", need("sshpick"), need("rex") }
   local layer, err = rex.session.new_layer{
     bounds = { 0.1, 0.1, 0.8, 0.8 },
@@ -204,18 +211,148 @@ local function connect(name)
   return { window_id = window.window_id, host = host.host }
 end
 
+-- 2345 as "2,345".
+local function count(number)
+  local text = tostring(number)
+  local found
+  repeat
+    text, found = text:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+  until found == 0
+  return text
+end
+
+local function searching(query)
+  return query ~= nil and query ~= ""
+end
+
+-- The prompt's title: what is listed, and of how many, for the query.
+local function title(query, shown, matched)
+  local cut_off = shown < matched
+  if not searching(query) then
+    if cut_off then
+      return ("First %s of %s hosts"):format(count(shown), count(matched))
+    end
+    return "Connect to SSH Host"
+  end
+  local quoted = ('"%s"'):format(cut(query, QUERY_LIMIT))
+  if cut_off then
+    return ("First %s of %s hosts match %s"):format(count(shown), count(matched), quoted)
+  end
+  if matched == 0 then
+    return "No host matches " .. quoted
+  end
+  if matched == 1 then
+    return "1 host matches " .. quoted
+  end
+  return ("%s hosts match %s"):format(count(matched), quoted)
+end
+
+-- The hosts `sshpick ls --json` finds for `query`, or all of them. No match is exit 1 with an
+-- empty list; that is an answer, not a failure.
+local function list(query)
+  local argv = { need("sshpick"), "ls", "--json" }
+  if searching(query) then
+    -- After `--`, so a query that starts with `-` is text.
+    argv[#argv + 1] = "--"
+    argv[#argv + 1] = query
+  end
+  local result, err = rex.exec(argv, { cwd = os.getenv("HOME"), timeout = 10 })
+  if result == nil then
+    error(err, 0)
+  end
+  local document = rex.json.decode(result.stdout)
+  if type(document) ~= "table" or type(document.hosts) ~= "table" then
+    if result.ok then
+      error("sshpick printed no host list: " .. result.stdout, 0)
+    end
+    error(failure(result), 0)
+  end
+  for _, warning in ipairs(document.warnings or {}) do
+    rex.log("warn", warning.message)
+  end
+  return document.hosts
+end
+
+-- One row per host, in sshpick's order, up to what Rex takes. The id is the host, which `connect`
+-- takes as it is.
+local function rows(hosts)
+  local items = {}
+  for i = 1, math.min(#hosts, PICK_LIMIT) do
+    local host = hosts[i]
+    items[i] = { id = host.host, title = host.host, icon = "server" }
+    if host.what ~= "" then
+      items[i].subtitle = host.what
+    end
+    if host.env ~= "" then
+      items[i].detail = host.env
+    end
+  end
+  return items
+end
+
+local function refuse(message)
+  return function()
+    error(message, 0)
+  end
+end
+
+-- What the action does when the prompt gives no answer, by Rex's reason. A cancel and a timeout
+-- end it quietly.
+local UNANSWERED = {
+  cancelled = function() end,
+  timeout = function() end,
+  unsupported = open_tui_layer,
+  no_client = refuse("no Rex app is connected to show the host list\nFix: open the Rex app, then run the action again."),
+  busy = refuse("Rex is showing another prompt\nFix: answer or close it, then run the action again."),
+  failed = function(detail)
+    error("Rex could not show the host list" .. (detail and (": " .. detail) or ""), 0)
+  end,
+}
+
+local function unanswered(reason, detail)
+  local outcome = UNANSWERED[reason]
+  if outcome == nil then
+    error("Rex gave no answer to the host list: " .. tostring(reason), 0)
+  end
+  return outcome(detail)
+end
+
+-- Rex's own filter sees only the text of the rows. Typed text comes back from the "use typed
+-- text" row, and sshpick matches it again, by alias, address and user too. It is never a host to
+-- connect to: a loose match must not open a host unasked, so the person always picks a row.
+local function pick_in_palette()
+  local query
+  while true do
+    local hosts = list(query)
+    local items = rows(hosts)
+    local answer, reason, detail = rex.ui.pick{
+      title = title(query, #items, #hosts),
+      placeholder = "Search host, ENV or what",
+      items = items,
+      allow_other = true,
+    }
+    if type(answer) == "table" then
+      query = answer.text:match("^%s*(.-)%s*$")
+    elseif answer ~= nil then
+      return connect(answer)
+    else
+      return unanswered(reason, detail)
+    end
+  end
+end
+
 rex.action{
   name = "sshpick",
   title = "Connect to SSH Host…",
   category = "SSH",
   keywords = "ssh sshpick host server remote connect",
-  description = "Pick a host from ~/.ssh/config and open it in a new tab. host= skips the picker.",
+  description = "Pick a host from ~/.ssh/config in the command palette and open it in a new tab. host= skips the picker.",
   args = { host = "string?" },
   run = function(ctx, args)
     if args.host ~= nil then
       return connect(args.host)
     end
-    open_picker()
+    return pick_in_palette()
   end,
 }
 
