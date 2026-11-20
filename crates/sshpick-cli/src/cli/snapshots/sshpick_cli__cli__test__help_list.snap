@@ -5,10 +5,12 @@ expression: "page(topic, 80)"
 
   ▌ sshpick list [query]... [options]
 
-  List the hosts that match a query.
+  List the hosts that match a query. With --recent the hosts you connected to
+  last come first, as in the picker.
 
   Options:
-       --json  Output as JSON
+       --json    Output as JSON
+       --recent  Put the hosts you connected to last first, as the picker does
 
   Global Options: See `sshpick --help`
 

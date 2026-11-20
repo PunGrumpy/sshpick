@@ -3,6 +3,7 @@
     sshpick ls                  # every host, one per line
     sshpick ls new consul       # only the hosts matching the query
     sshpick ls | cut -f2        # just the host names
+    sshpick ls --recent         # the hosts you connected to last first, as the picker lists them
     sshpick --list | fzf        # the older spelling, still works
 
 On a terminal `ls` prints an aligned table with a dim header, the way the picker draws its rows,
@@ -11,11 +12,21 @@ one, and WHAT is cut with `…` to the width of the terminal.
 
 When stdout is not a terminal `ls` prints the matching hosts as `ENV`, `HOST` and `WHAT`, separated
 by tabs, with no header and no styling. The order is best match first, as the text alone decides
-it, and with no query it is the order of the config. It never depends on which hosts you
-connected to. Only the picker reads that. There are always three columns, so
+it, and with no query it is the order of the config. Plain `ls` never reads which hosts you
+connected to, so a script gets the same order on every machine. There are always three columns, so
 `cut -f2` gives the host names even when ENV is empty. Tabs and other control characters inside a
 comment become spaces. Warnings go to stderr, except under `--json`, where they are in the document.
 The exit status is 1 when nothing matches.
+
+`ls --recent` orders the hosts as the picker does, and changes nothing else. With no query the hosts
+you connected to come first, the latest first, and the rest follow in the order of the config. With
+a query the best match is still first, and hosts that match equally well are ordered by last use.
+It applies to the table, the tab-separated rows and `--json` alike, and adds no column and no key.
+It reads the history even when stdout is a pipe or you pass `--non-interactive`, because you asked
+for it, and it never writes it. With no history file, or one it cannot read, the order is the
+config's, byte for byte what plain `ls` prints. [Configuration](configuration.md#recent-hosts) says
+where the history is kept. An sshpick older than this option stops with `unknown option
+"--recent"`.
 
 `--list` and `-l` stay as hidden spellings of `ls` that always print the tab-separated rows,
 even on a terminal, so `sshpick --list | fzf` keeps working.
@@ -133,7 +144,8 @@ order:
 `COLUMNS` sets the width of help when stdout is not a terminal (80 if unset).
 
 `XDG_STATE_HOME` moves the file where the picker remembers the hosts you connect to, when it is an
-absolute path. `ls`, `inspect`, `doctor`, a pipe and `--non-interactive` never read or write it.
+absolute path. `inspect`, `doctor`, a pipe and `--non-interactive` never read or write it, and `ls`
+reads it only with `--recent`.
 
 ## Doctor
 

@@ -26,6 +26,7 @@ Options go anywhere before a bare `--`:
 | `--no-color`        | Same as `NO_COLOR=1`                                                   |
 | `--json`            | Print one JSON document; `ls`, `inspect`, `doctor` and `pick --print` take it |
 | `--non-interactive` | Never open the picker: an exact host name or alias connects, a loose single match exits 1, none exits 1, several exit 2 |
+| `--recent`          | `ls` only: list the hosts you connected to last first, as the picker does. Reads the history; see [Scripting](scripting.md) |
 | `--print`           | `pick` only: print the picked host's name instead of connecting; with `--json`, its `{host, env, what, names}` object. The picker draws on the terminal, so `$(sshpick --print)` works |
 
 ## Print instead of connect
@@ -73,7 +74,7 @@ fields are never highlighted. [Configuration](configuration.md#what-it-searches)
 count.
 
 Hosts that match equally well are listed with the one you connected to last first. `ls` does not
-do this.
+do this unless you pass `--recent`.
 
 A query equal to one host's name or alias selects that host, even when it also matches other rows.
 Any other query that leaves one row connects on a terminal, and exits 1 under `--non-interactive`.

@@ -7,12 +7,12 @@
 --   rex.bind("ctrl+a>b", "sshpick", { host = "stg-bastion" })  -- a favourite
 --
 -- One action, `sshpick`:
---   no host   the hosts in Rex's command palette, from `sshpick ls --json`. Typing filters in
---             Rex; the "use typed text" row asks sshpick again, which also finds a host by alias,
---             address or user. Enter on a row opens that host as below; Esc ends the action. A
---             Rex app too old for prompts gets sshpick's own picker in a floating layer instead.
---   host=...  a new tab labelled "host · ENV" running `sshpick --non-interactive -- <host>`,
---             which becomes ssh.
+--   no host   the hosts in Rex's command palette, from `sshpick ls --recent --json`, the ones you
+--             connected to last first. Typing filters in Rex; the "use typed text" row asks
+--             sshpick again, which also finds a host by alias, address or user. Enter on a row
+--             opens that host as below; Esc ends the action. A Rex app too old for prompts gets
+--             sshpick's own picker in a floating layer instead.
+--   host=...  a new tab labelled "host · ENV" running `sshpick -- <host>`, which becomes ssh.
 --
 -- Nothing here reads ~/.ssh/config or ranks hosts. sshpick is asked each time, so a host added a
 -- minute ago is there without `rex config reload`. Loading this file does no work.
@@ -50,9 +50,11 @@ esac
 
 -- The tab's program. `$1` is sshpick and `$2` the host. Rex keeps a tab open after any exit
 -- inside its quick-exit window, a clean one too, so the tab decides: ssh's own failure (255)
--- waits for Enter, and a logout closes the tab.
+-- waits for Enter, and a logout closes the tab. No --non-interactive: sshpick remembers only a
+-- connection made at a terminal, and the palette lists remembered hosts first. `$2` is a name
+-- sshpick just resolved, so it does not open its picker here.
 local SESSION = [[
-"$1" --non-interactive -- "$2"
+"$1" -- "$2"
 s=$?
 if [ "$s" -eq 255 ]; then
   printf '\nssh exited 255. Press Enter to close.'
@@ -247,10 +249,10 @@ local function title(query, shown, matched)
   return ("%s hosts match %s"):format(count(matched), quoted)
 end
 
--- The hosts `sshpick ls --json` finds for `query`, or all of them. No match is exit 1 with an
--- empty list; that is an answer, not a failure.
+-- The hosts `sshpick ls --recent --json` finds for `query`, or all of them, in the picker's
+-- order. No match is exit 1 with an empty list; that is an answer, not a failure.
 local function list(query)
-  local argv = { need("sshpick"), "ls", "--json" }
+  local argv = { need("sshpick"), "ls", "--recent", "--json" }
   if searching(query) then
     -- After `--`, so a query that starts with `-` is text.
     argv[#argv + 1] = "--"

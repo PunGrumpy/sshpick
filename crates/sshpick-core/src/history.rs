@@ -87,13 +87,27 @@ impl History {
         if refusal(interaction).is_some() {
             return History { dir: None };
         }
-        let state = var("XDG_STATE_HOME")
-            .map(PathBuf::from)
-            .filter(|path| path.is_absolute())
-            .unwrap_or_else(|| home.join(".local").join("state"));
         History {
-            dir: Some(state.join(DIR)),
+            dir: Some(directory(home, var)),
         }
+    }
+
+    /// The recents of a person who asked for them, as `ls --recent` does, wherever stdout goes:
+    /// the file in the same directory as [`History::open`], read and never written. Returns the
+    /// `Recents` and no `History`, so the caller has nothing to record with.
+    pub fn read(home: &Path, now: SystemTime) -> Recents {
+        History::read_with(home, now, &|name| std::env::var_os(name))
+    }
+
+    pub(crate) fn read_with(
+        home: &Path,
+        now: SystemTime,
+        var: &dyn Fn(&str) -> Option<OsString>,
+    ) -> Recents {
+        History {
+            dir: Some(directory(home, var)),
+        }
+        .recents(now)
     }
 
     /// The latest use of each recorded name, as of `now`. Never fails: a missing or unreadable
@@ -185,6 +199,16 @@ impl Recents {
             ago: ago(self.now - at),
         })
     }
+}
+
+/// `$XDG_STATE_HOME/sshpick` when that variable is an absolute path, else
+/// `<home>/.local/state/sshpick`.
+fn directory(home: &Path, var: &dyn Fn(&str) -> Option<OsString>) -> PathBuf {
+    var("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+        .unwrap_or_else(|| home.join(".local").join("state"))
+        .join(DIR)
 }
 
 fn seconds(time: SystemTime) -> u64 {
@@ -364,6 +388,27 @@ mod tests {
                 assert!(!state.exists(), "{interaction:?}");
             }
         }
+    }
+
+    #[test]
+    fn a_read_for_ls_needs_no_terminal_and_writes_nothing() {
+        let scratch = Scratch::new("read");
+        let state = scratch.0.join("state");
+        let var = |_: &str| Some(state.clone().into_os_string());
+        assert!(
+            History::read_with(&scratch.0, at(NOW), &var)
+                .last
+                .is_empty()
+        );
+        assert!(!state.exists(), "a read creates nothing");
+
+        fs::create_dir_all(state.join(DIR)).unwrap();
+        fs::write(state.join(DIR).join(FILE), "5\tlab-a\n7\tlab-b\n").unwrap();
+        let recents = History::read_with(&scratch.0, at(NOW), &var);
+        assert_eq!(recents.last["lab-a"], 5);
+        assert_eq!(recents.last["lab-b"], 7);
+        let text = fs::read_to_string(state.join(DIR).join(FILE)).unwrap();
+        assert_eq!(text, "5\tlab-a\n7\tlab-b\n", "a read changes nothing");
     }
 
     #[test]

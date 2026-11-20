@@ -8,7 +8,7 @@ Fix: sshpick accepts --help, --json, --no-color, --non-interactive, --print, --v
 
 $ sshpick list --lsit
 Error: unknown option "--lsit"
-Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version. Did you mean --list?
+Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --recent, --version. Did you mean --list?
 
 $ sshpick --bogus
 Error: unknown option "--bogus"
@@ -56,7 +56,7 @@ Fix: print the picked host as JSON with `sshpick --print --json`, or list hosts 
 
 $ sshpick ls --print
 Error: unknown option "--print"
-Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version.
+Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --recent, --version.
 
 $ sshpick --print  # stdout is full
 Error: cannot print the host: No space left on device (os error 28)

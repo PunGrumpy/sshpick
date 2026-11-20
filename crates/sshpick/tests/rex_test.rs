@@ -12,6 +12,7 @@ mod pty;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{self, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use mlua::{Lua, Table, Value};
 use pty::{Exit, Options, Session};
@@ -144,6 +145,15 @@ enum Answer<'a> {
 
 struct Rex {
     lua: Lua,
+    /// Where sshpick keeps its history for this stub's `rex.exec`: a scratch directory of its own,
+    /// so a developer's real history never reaches these tests.
+    state: PathBuf,
+}
+
+impl Drop for Rex {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.state);
+    }
 }
 
 impl Rex {
@@ -157,6 +167,13 @@ impl Rex {
 
     /// `home` is a fixture's name, or an absolute path, which `join` takes as it is.
     fn bare(home: &str) -> Rex {
+        static NEXT: AtomicUsize = AtomicUsize::new(0);
+        let state = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+            "rex-state-{}-{}",
+            process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let _ = std::fs::remove_dir_all(&state);
         let lua = Lua::new();
         let home = fixtures().join(home);
         let globals = lua.globals();
@@ -172,6 +189,7 @@ impl Rex {
             })
             .or_panic();
         let exec_home = home.clone();
+        let exec_state = state.clone();
         let exec = lua
             .create_function(move |lua, argv: Vec<String>| {
                 let Some((program, args)) = argv.split_first() else {
@@ -180,6 +198,7 @@ impl Rex {
                 let output = process::Command::new(program)
                     .args(args)
                     .env("HOME", &exec_home)
+                    .env("XDG_STATE_HOME", &exec_state)
                     .env("PATH", search_path())
                     .env_remove("TERM")
                     .stdin(Stdio::null())
@@ -212,7 +231,18 @@ impl Rex {
             .set("path", format!("{}/?.lua", integration_dir().display()))
             .or_panic();
         lua.load(r#"require("sshpick")"#).exec().or_panic();
-        Rex { lua }
+        Rex { lua, state }
+    }
+
+    /// Writes the history sshpick reads, one `<unix seconds>\t<host>` line per use.
+    fn seed_history(&self, uses: &[(u64, &str)]) {
+        let dir = self.state.join("sshpick");
+        std::fs::create_dir_all(&dir).or_panic();
+        let lines: String = uses
+            .iter()
+            .map(|(at, host)| format!("{at}\t{host}\n"))
+            .collect();
+        std::fs::write(dir.join("history"), lines).or_panic();
     }
 
     fn set_paths(&self, sshpick: Option<&str>, rex: Option<&str>) {
@@ -600,7 +630,7 @@ fn no_host_lists_the_hosts_in_the_palette_and_a_pick_opens_the_tab_host_would() 
     assert_eq!(rex.kinds(), ["exec", "pick", "exec", "new_window"]);
 
     let list = &rex.calls_of("exec")[0];
-    assert_eq!(list["argv"], json!([SSHPICK, "ls", "--json"]));
+    assert_eq!(list["argv"], json!([SSHPICK, "ls", "--recent", "--json"]));
     assert_eq!(list["opts"]["timeout"], 10);
     assert_eq!(
         list["opts"]["cwd"],
@@ -632,6 +662,52 @@ fn no_host_lists_the_hosts_in_the_palette_and_a_pick_opens_the_tab_host_would() 
     assert_eq!(rex.call("new_window"), by_name.call("new_window"));
 }
 
+#[test]
+fn the_palette_lists_the_hosts_you_used_first_and_a_typed_query_breaks_ties_by_last_use() {
+    let rex = Rex::bare("ui");
+    rex.set_paths(Some(SSHPICK), None);
+    rex.seed_history(&[
+        (1_794_556_700, "newstg-consul2"),
+        (1_794_556_790, "lab-b"),
+        (1_794_556_800, "newstg-consul1"),
+    ]);
+    rex.script(&[Answer::Text("newstg"), CANCELLED]);
+    assert_eq!(rex.run(json!({})), Ok(json!(null)));
+    let prompts = rex.prompts();
+    assert_eq!(
+        prompts[0].1,
+        [
+            "newstg-consul1",
+            "lab-b",
+            "newstg-consul2",
+            "lab-a",
+            "newstg-bastion"
+        ]
+    );
+    assert_eq!(
+        prompts[1],
+        (
+            "3 hosts match \"newstg\"".to_owned(),
+            ["newstg-consul1", "newstg-consul2", "newstg-bastion"]
+                .map(str::to_owned)
+                .to_vec()
+        )
+    );
+}
+
+#[test]
+fn an_sshpick_too_old_for_recent_fails_with_its_own_usage_error() {
+    let rex = Rex::bare("ui");
+    rex.set_paths(Some(&fake("sshpick-no-recent")), None);
+    assert_eq!(
+        rex.run(json!({})),
+        Err("unknown option \"--recent\"\n\
+             Fix: sshpick list accepts --help, --json, --no-color, --non-interactive, --version."
+            .to_owned())
+    );
+    assert_eq!(rex.kinds(), ["exec"], "no palette opens");
+}
+
 #[test_case("web", "2 hosts match \"web\"", &["web", "web-2"]; "several hosts")]
 #[test_case("pg-primary", "1 host matches \"pg-primary\"", &["db-prod"]; "an alias no row shows")]
 #[test_case("192.0.2.3", "1 host matches \"192.0.2.3\"", &["db-prod"]; "an address no row shows")]
@@ -647,7 +723,7 @@ fn typed_text_asks_sshpick_again_and_the_title_counts_what_it_found(
     assert_eq!(rex.kinds(), ["exec", "pick", "exec", "pick"]);
     assert_eq!(
         rex.calls_of("exec")[1]["argv"],
-        json!([SSHPICK, "ls", "--json", "--", typed])
+        json!([SSHPICK, "ls", "--recent", "--json", "--", typed])
     );
     let prompts = rex.prompts();
     assert_eq!(prompts[0].0, "Connect to SSH Host");
@@ -914,11 +990,20 @@ fn the_tab_holds_only_when_ssh_itself_fails(exit: &str, code: Option<i32>, waits
         done.stdout
     );
     assert!(
-        done.stderr
-            .contains("sshpick-exits --non-interactive -- web"),
+        done.stderr.contains("sshpick-exits -- web"),
         "{}",
         done.stderr
     );
+}
+
+#[test]
+fn a_host_opened_in_a_tab_is_remembered_for_the_next_palette() {
+    let mut options = Options::new("ui");
+    options.program = Some(serde_json::from_value(session_argv("lab-b")).or_panic());
+    let mut session = Session::start(options);
+    assert_eq!(session.exit(), Exit::Code(0));
+    let history = session.history().or_panic();
+    assert!(history.trim_end().ends_with("\tlab-b"), "{history}");
 }
 
 /// The layer as the owner sees it: sshpick's picker drawn on the layer's terminal, a query, Enter.

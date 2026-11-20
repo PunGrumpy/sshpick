@@ -165,7 +165,7 @@ config needs.
 The picker lists hosts in the order of the config and has no LAST column. Look for one of:
 
 - The picker did not open. Only a connection made at a terminal is remembered, so `--non-interactive`,
-  a pipe and `TERM=dumb` record nothing. `ls` never uses the history.
+  a pipe and `TERM=dumb` record nothing. `ls` uses the history only with `--recent`.
 - A `! cannot save recent hosts to …` line was printed before ssh started. The directory it names
   cannot be written. Make it writable, or point `XDG_STATE_HOME` at a directory you own.
 - `XDG_STATE_HOME` is empty or relative. Only an absolute path counts. Otherwise the history is in

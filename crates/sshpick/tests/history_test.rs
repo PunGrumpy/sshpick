@@ -1,5 +1,6 @@
 //! Without a terminal sshpick neither reads nor writes the history, so what a script sees is a
-//! function of the config and the query. The picker's half is in `picker_test.rs`, on a pty.
+//! function of the config and the query. The one exception is `ls --recent`, which a script asks
+//! for by name and which only reads. The picker's half is in `picker_test.rs`, on a pty.
 
 mod common;
 
@@ -23,10 +24,13 @@ impl State {
     }
 
     fn seeded(name: &str) -> State {
+        State::with(name, "1794556700\tnewstg-consul2\n1794556790\tlab-b\n")
+    }
+
+    fn with(name: &str, lines: &str) -> State {
         let state = State::new(name);
         let dir = state.0.join("sshpick");
         fs::create_dir_all(&dir).unwrap_or_else(|error| panic!("cannot create {dir:?}: {error}"));
-        let lines = "1794556700\tnewstg-consul2\n1794556790\tlab-b\n";
         fs::write(dir.join("history"), lines)
             .unwrap_or_else(|error| panic!("cannot seed the history: {error}"));
         state
@@ -77,4 +81,107 @@ fn a_history_changes_not_one_byte_a_script_sees(args: &[&str]) {
     assert_eq!(with, none, "{args:?}");
     let history = fs::read_to_string(seeded.path().join("sshpick/history")).unwrap_or_default();
     assert_eq!(history.lines().count(), 2, "nothing was recorded");
+}
+
+fn hosts(state: &State, args: &[&str]) -> Vec<String> {
+    let (code, stdout, _) = run(state, args);
+    assert!(matches!(code, Some(0 | 1)), "{args:?}: {code:?}");
+    let text = String::from_utf8_lossy(&stdout).into_owned();
+    if args.contains(&"--json") {
+        let document: serde_json::Value = serde_json::from_str(&text).unwrap_or_default();
+        let names = document["hosts"].as_array().into_iter().flatten();
+        return names
+            .filter_map(|host| host["host"].as_str().map(str::to_owned))
+            .collect();
+    }
+    text.lines()
+        .filter_map(|line| line.split('\t').nth(1).map(str::to_owned))
+        .collect()
+}
+
+const CONFIG_ORDER: [&str; 5] = [
+    "lab-a",
+    "lab-b",
+    "newstg-consul1",
+    "newstg-consul2",
+    "newstg-bastion",
+];
+const RECENT_ORDER: [&str; 5] = [
+    "lab-b",
+    "newstg-consul2",
+    "lab-a",
+    "newstg-consul1",
+    "newstg-bastion",
+];
+
+#[test_case(&["ls", "--recent"]; "tab-separated rows")]
+#[test_case(&["ls", "--recent", "--json"]; "json")]
+#[test_case(&["ls", "--recent", "-l"]; "the older spelling")]
+#[test_case(&["--non-interactive", "ls", "--recent"]; "non-interactive")]
+fn recent_lists_the_hosts_you_used_first_most_recent_first_then_the_config(args: &[&str]) {
+    let state = State::seeded("recent");
+    assert_eq!(hosts(&state, args), RECENT_ORDER, "{args:?}");
+}
+
+#[test_case(&["ls"]; "tab-separated rows")]
+#[test_case(&["ls", "--json"]; "json")]
+fn a_plain_ls_keeps_the_config_order_whatever_the_history_holds(args: &[&str]) {
+    let state = State::seeded("plain");
+    assert_eq!(hosts(&state, args), CONFIG_ORDER, "{args:?}");
+}
+
+#[test]
+fn a_query_with_equal_matches_lists_the_one_used_last_first_under_recent() {
+    let state = State::with("tie", "1794556700\tnewstg-consul1\n");
+    let config = ["newstg-consul2", "newstg-bastion", "newstg-consul1"];
+    assert_eq!(hosts(&state, &["ls", "newstg"]), config);
+    assert_eq!(
+        hosts(&state, &["ls", "--recent", "newstg"]),
+        ["newstg-consul1", "newstg-consul2", "newstg-bastion"]
+    );
+}
+
+#[test_case(&["ls", "--recent"]; "all hosts")]
+#[test_case(&["ls", "--recent", "--json"]; "json")]
+#[test_case(&["ls", "--recent", "lab"]; "a query")]
+#[test_case(&["ls", "--recent", "zzz"]; "no match")]
+fn recent_with_no_history_is_plain_ls_to_the_byte(args: &[&str]) {
+    let plain: Vec<&str> = args.iter().copied().filter(|a| *a != "--recent").collect();
+    let state = State::new("empty");
+    let with = run(&state, args);
+    assert_eq!(with, run(&state, &plain), "{args:?}");
+    assert!(!state.path().exists(), "reading created nothing");
+}
+
+#[test]
+fn recent_ignores_a_history_that_is_not_readable() {
+    let state = State::new("garbled");
+    let dir = state.path().join("sshpick");
+    fs::create_dir_all(dir.join("history")).unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(hosts(&state, &["ls", "--recent"]), CONFIG_ORDER);
+    fs::remove_dir(dir.join("history")).unwrap_or_else(|error| panic!("{error}"));
+    fs::write(dir.join("history"), "not a history\n\u{0}\u{1}\n5\n")
+        .unwrap_or_else(|error| panic!("{error}"));
+    assert_eq!(hosts(&state, &["ls", "--recent"]), CONFIG_ORDER);
+}
+
+#[test]
+fn recent_only_reads_the_history() {
+    let seeded = State::seeded("read");
+    let file = seeded.path().join("sshpick/history");
+    let before = fs::read(&file).unwrap_or_default();
+    run(&seeded, &["ls", "--recent"]);
+    run(&seeded, &["ls", "--recent", "--json", "lab"]);
+    assert_eq!(fs::read(&file).unwrap_or_default(), before);
+    assert_eq!(
+        fs::read_dir(seeded.path().join("sshpick"))
+            .map(|entries| entries.count())
+            .unwrap_or_default(),
+        1,
+        "no other file appeared"
+    );
+
+    let absent = State::new("read-absent");
+    run(&absent, &["ls", "--recent"]);
+    assert!(!absent.path().exists());
 }
