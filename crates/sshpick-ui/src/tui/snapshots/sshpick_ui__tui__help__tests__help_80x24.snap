@@ -1,28 +1,27 @@
 ---
 source: crates/sshpick-ui/src/tui/help.rs
-expression: frame(&lines)
+expression: shown(&terminal)
 ---
- 0|> type to filter                                                             5/5
- 1|  ENV         HOST           WHAT
- 2|▌ LAB         lab-a          LAB — personal VMs
- 3|  └ ubuntu@10.11.212.191:22 via newstg-bastion
- 4|  LAB         lab-b          build box
- 5|  NEW STAGING newstg-consul1 consul server 1 — mgmt
- 6|  NEW STAGING newstg-consul2
- 7|  NEW STAGING newstg-bastion bastion
- 8|
- 9|
-10|
-11|
-12|
-13|  Enter                       - ssh to the selected host
-14|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
-15|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
-16|  Down, Ctrl-N, Ctrl-J        - select the next host; wraps to the first
-17|  type                        - filter; 'exact ^prefix suffix$ !not
-18|  Backspace, Ctrl-H           - delete the last character
-19|  Ctrl-U                      - clear the filter
-20|  Ctrl-W                      - delete the last word
-21|  Ctrl-D                      - quit when the filter is empty
-22|  ?, F1                       - toggle this help (? only on an empty filter)
-23|  ↑↓ move   enter ssh   esc close
+ 0|
+ 1|  ╭──────────────────────────────────────────────────────────────────────────╮
+ 2|  │  Search host, ENV or what                                       5 hosts  │
+ 3|  │                                                                          │
+ 4|  │  lab-a           LAB — personal VMs                                 LAB  │
+ 5|  │  lab-b           build box                                          LAB  │
+ 6|  │  newstg-consul1  consul server 1 — mgmt                     NEW STAGING  │
+ 7|  │  newstg-consul2                                             NEW STAGING  │
+ 8|  │  newstg-bastion  bastion                                    NEW STAGING  │
+ 9|  │                                                                          │
+10|  │  Enter                        ssh to the selected host                   │
+11|  │  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes the help first │
+12|  │  Up, Ctrl-P, Ctrl-K           previous host; wraps to the last           │
+13|  │  Down, Ctrl-N, Ctrl-J         next host; wraps to the first              │
+14|  │  type                         filter; 'exact ^prefix suffix$ !not        │
+15|  │  Backspace, Ctrl-H            delete the last character                  │
+16|  │  Ctrl-U                       clear the filter                           │
+17|  │  Ctrl-W                       delete the last word                       │
+18|  │  Ctrl-D                       quit when the filter is empty              │
+19|  │  ?, F1                        toggle help; ? only on an empty filter     │
+20|  ├──────────────────────────────────────────────────────────────────────────┤
+21|  │  ubuntu@10.11.212.191:22 via newstg-bastion      Close esc    Connect ↵  │
+22|  ╰──────────────────────────────────────────────────────────────────────────╯

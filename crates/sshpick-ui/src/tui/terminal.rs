@@ -181,7 +181,7 @@ impl Drop for Tty {
 }
 
 fn area(plan: Plan) -> Rect {
-    Rect::new(0, 0, plan.cols, plan.height())
+    Rect::new(0, 0, plan.space.cols, plan.space.rows)
 }
 
 fn restore() {

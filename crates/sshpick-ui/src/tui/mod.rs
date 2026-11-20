@@ -1,6 +1,7 @@
 mod app;
 mod help;
 mod input;
+mod panel;
 mod plan;
 mod route;
 mod screen;

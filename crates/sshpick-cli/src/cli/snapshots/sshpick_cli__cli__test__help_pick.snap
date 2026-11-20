@@ -15,15 +15,15 @@ expression: "page(topic, 80)"
 
   Keys:
   Enter                        ssh to the selected host
-  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes this help first
-  Up, Ctrl-P, Ctrl-K           select the previous host; wraps to the last
-  Down, Ctrl-N, Ctrl-J         select the next host; wraps to the first
+  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes the help first
+  Up, Ctrl-P, Ctrl-K           previous host; wraps to the last
+  Down, Ctrl-N, Ctrl-J         next host; wraps to the first
   type                         filter; 'exact ^prefix suffix$ !not
   Backspace, Ctrl-H            delete the last character
   Ctrl-U                       clear the filter
   Ctrl-W                       delete the last word
   Ctrl-D                       quit when the filter is empty
-  ?, F1                        toggle this help (? only on an empty filter)
+  ?, F1                        toggle help; ? only on an empty filter
 
   Global Options: See `sshpick --help`
 

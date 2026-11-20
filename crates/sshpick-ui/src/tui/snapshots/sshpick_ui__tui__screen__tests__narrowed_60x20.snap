@@ -1,24 +1,23 @@
 ---
 source: crates/sshpick-ui/src/tui/screen.rs
-expression: frame(&lines)
+expression: shown(&terminal)
 ---
- 0|> 'lab-b                                                 1/5
- 1|  ENV         HOST           WHAT
- 2|▌ LAB         lab-b          build box
- 3|  └ resolving…
- 4|
- 5|
- 6|
- 7|
- 8|
- 9|
-10|
-11|
-12|
-13|
-14|
-15|
-16|
-17|
-18|
-19|  enter ssh   esc quit   F1 keys
+ 0|
+ 1|  ╭──────────────────────────────────────────────────────╮
+ 2|  │  'lab-b                                       1 / 5  │
+ 3|  │                                                      │
+ 4|  │  lab-b           build box                      LAB  │
+ 5|  │                                                      │
+ 6|  │                                                      │
+ 7|  │                                                      │
+ 8|  │                                                      │
+ 9|  │                                                      │
+10|  │                                                      │
+11|  │                                                      │
+12|  │                                                      │
+13|  │                                                      │
+14|  │                                                      │
+15|  │                                                      │
+16|  ├──────────────────────────────────────────────────────┤
+17|  │  resolving…                    Keys F1    Connect ↵  │
+18|  ╰──────────────────────────────────────────────────────╯

@@ -93,7 +93,7 @@ pub(crate) fn run(base: &CommandBase, query: &str, landing: Landing) -> Result<u
     let surface = landing.finish().surface();
     let interaction = interaction(base.non_interactive, surface);
     let history = History::open(&base.home, &interaction);
-    let screen = Screen::new(&loaded.entries);
+    let screen = Screen::new(&loaded.entries, base.output.picker_colors(surface));
     let recents = history.recents(SystemTime::now());
     let mut picker = Picker::new(loaded.entries, query, &recents);
     let refusal = sshpick_core::refusal(&interaction);

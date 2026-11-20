@@ -116,9 +116,16 @@ The parentheses in the `terminal` line name the rule that decided:
 | `stdout is not a terminal` | Colour is off in a pipe; set `CLICOLOR_FORCE=1` to keep it       |
 
 The rules are tried in this order, and [Scripting](scripting.md) lists them. Without colour, bold,
-dim and reverse video stay on a terminal, except under `TERM=dumb`. The picker itself draws no
-colour at all, so `NO_COLOR` changes nothing there. Colour shows up in help, errors, warnings and
-the `doctor` tokens.
+dim and reverse video stay on a terminal, except under `TERM=dumb`. The picker follows the same
+rules for the terminal it draws on: with colour the selected host is a blue bar, and without it the
+bar is reverse video, and the border is dim. Colour shows up in the picker, help, errors, warnings
+and the `doctor` tokens.
+
+## The picker has no border
+
+The picker is a panel nearly the whole window. A terminal narrower than 60 columns or shorter
+than 10 rows draws it without the border: the full width when it is narrow, with the same rows.
+Make the window bigger to get the border back.
 
 ## The terminal looks wrong after sshpick was killed
 

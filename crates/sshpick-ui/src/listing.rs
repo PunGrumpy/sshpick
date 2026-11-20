@@ -10,7 +10,7 @@ const GAP: &str = "  ";
 /// a dim header. ENV disappears when no host has one. WHAT is cut with `…` to `width`, and no
 /// line ends in a space.
 pub fn hosts(entries: &[&Entry], width: usize, colors: ColorConfig) -> String {
-    let ColumnWidths { env, host } = ColumnWidths::of(entries.iter().copied());
+    let ColumnWidths { env, host, .. } = ColumnWidths::of(entries.iter().copied());
     let taken = INDENT.len() + env.map_or(0, |env| env + GAP.len()) + host + GAP.len();
     let room = width.saturating_sub(taken);
 
