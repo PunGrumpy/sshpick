@@ -1,8 +1,9 @@
 //! The shipped Rex integration, `integrations/rex/sshpick.lua`, loaded in Lua 5.1 as Rex runs it,
 //! against a stub `rex` table. `rex.exec` runs the real programs with `HOME` at a fixture home and
-//! the fake `ssh` first on `PATH`, so these tests catch a flag sshpick no longer takes. The
-//! picker layer's hand-off is taken from the recorded `new_layer` call and run as Rex would run
-//! it: through a pipe, and on a pty with a person typing.
+//! the fake `ssh` first on `PATH`, so these tests catch a flag sshpick no longer takes.
+//! `rex.ui.pick` answers from a script each test sets: a row, typed text, or no answer and why.
+//! The fallback layer's hand-off is taken from the recorded `new_layer` call and run as Rex would
+//! run it: through a pipe, and on a pty with a person typing.
 
 #[path = "common/pty.rs"]
 #[allow(dead_code)]
@@ -31,6 +32,7 @@ end
 rex = {
   _calls = calls,
   _actions = {},
+  _answers = {},
   action = function(spec) table.insert(rex._actions, spec) end,
   session = {
     new_window = function(args)
@@ -42,6 +44,19 @@ rex = {
       return { block_ids = { "block:2" }, revision = 2 }
     end,
   },
+  ui = {
+    pick = function(spec)
+      table.insert(calls, { call = "pick", args = spec })
+      local answer = table.remove(rex._answers, 1)
+      if answer == nil then
+        error("rex.ui.pick was called with no answer scripted", 0)
+      end
+      return unpack(answer, 1, answer.n)
+    end,
+  },
+  log = function(level, message)
+    table.insert(calls, { call = "log", level = level, message = message })
+  end,
   json = { decode = __decode },
   exec = function(argv, opts)
     table.insert(calls, { call = "exec", argv = argv, opts = opts })
@@ -117,6 +132,16 @@ impl<T> OrPanic<T> for Option<T> {
     }
 }
 
+/// What `rex.ui.pick` gives back, in the order Rex's docs name them.
+enum Answer<'a> {
+    /// The id of the row the person chose.
+    Id(&'a str),
+    /// The text typed on the "use typed text" row.
+    Text(&'a str),
+    /// No answer: Rex's reason, and its detail for `failed`.
+    Unanswered(&'a str, Option<&'a str>),
+}
+
 struct Rex {
     lua: Lua,
 }
@@ -130,6 +155,7 @@ impl Rex {
         rex
     }
 
+    /// `home` is a fixture's name, or an absolute path, which `join` takes as it is.
     fn bare(home: &str) -> Rex {
         let lua = Lua::new();
         let home = fixtures().join(home);
@@ -220,31 +246,99 @@ impl Rex {
         }
     }
 
+    /// Queues what the next `rex.ui.pick` calls return; a call with nothing queued fails.
+    fn script(&self, answers: &[Answer]) {
+        let rex: Table = self.lua.globals().get("rex").or_panic();
+        let queue: Table = rex.get("_answers").or_panic();
+        for answer in answers {
+            let entry = self.lua.create_table().or_panic();
+            match answer {
+                Answer::Id(id) => {
+                    entry.set("n", 1).or_panic();
+                    entry.set(1, *id).or_panic();
+                }
+                Answer::Text(text) => {
+                    let typed = self.lua.create_table().or_panic();
+                    typed.set("text", *text).or_panic();
+                    entry.set("n", 1).or_panic();
+                    entry.set(1, typed).or_panic();
+                }
+                Answer::Unanswered(reason, detail) => {
+                    entry.set("n", 3).or_panic();
+                    entry.set(2, *reason).or_panic();
+                    entry.set(3, *detail).or_panic();
+                }
+            }
+            queue.push(entry).or_panic();
+        }
+    }
+
     fn calls(&self) -> serde_json::Value {
         let rex: Table = self.lua.globals().get("rex").or_panic();
         to_json(&rex.get::<Value>("_calls").or_panic())
     }
 
-    fn call(&self, kind: &str) -> serde_json::Value {
-        let calls = self.calls();
-        let found: Vec<&serde_json::Value> = calls
+    fn calls_of(&self, kind: &str) -> Vec<serde_json::Value> {
+        self.calls()
             .as_array()
             .into_iter()
             .flatten()
             .filter(|call| call["call"] == kind)
-            .collect();
-        let [call] = found[..] else {
-            panic!("one {kind} call in {calls:#}");
+            .cloned()
+            .collect()
+    }
+
+    fn call(&self, kind: &str) -> serde_json::Value {
+        let found = self.calls_of(kind);
+        let [call] = &found[..] else {
+            panic!("one {kind} call in {:#}", self.calls());
         };
         call.clone()
     }
 
-    /// The argv the picker layer's terminal runs.
-    fn handoff(&self) -> Vec<String> {
+    /// Every call so far, by kind, in order.
+    fn kinds(&self) -> Vec<String> {
+        self.calls()
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|call| call["call"].as_str().unwrap_or_default().to_owned())
+            .collect()
+    }
+
+    /// The `title` and row ids of every prompt so far.
+    fn prompts(&self) -> Vec<(String, Vec<String>)> {
+        self.calls_of("pick")
+            .iter()
+            .map(|pick| {
+                let ids = pick["args"]["items"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|item| item["id"].as_str().map(str::to_owned))
+                    .collect();
+                (
+                    pick["args"]["title"]
+                        .as_str()
+                        .unwrap_or_default()
+                        .to_owned(),
+                    ids,
+                )
+            })
+            .collect()
+    }
+
+    /// The argv the fallback layer's terminal runs, with `sshpick` as the program it runs. The
+    /// layer opens only after the palette listed hosts with the built sshpick, so a fake one is
+    /// put in afterwards.
+    fn handoff(&self, sshpick: &str) -> Vec<String> {
+        self.script(&[Answer::Unanswered("unsupported", None)]);
         assert_eq!(self.run(json!({})), Ok(json!(null)));
         let layer = self.call("new_layer");
         let argv = &layer["args"]["layout"]["block"]["options"]["command"];
-        serde_json::from_value(argv.clone()).or_panic()
+        let mut argv: Vec<String> = serde_json::from_value(argv.clone()).or_panic();
+        argv[4] = sshpick.to_owned();
+        argv
     }
 }
 
@@ -443,14 +537,16 @@ fn a_binary_set_in_paths_that_is_not_there_is_an_error_naming_it() {
     assert_eq!(rex.calls(), json!({}), "nothing ran");
 }
 
-#[test_case("sshpick", json!({ "host": "web" }); "sshpick for a host")]
-#[test_case("sshpick", json!({}); "sshpick for the picker")]
-#[test_case("rex", json!({}); "rex for the picker")]
+#[test_case("sshpick", json!({ "host": "web" }), &[]; "sshpick for a host")]
+#[test_case("sshpick", json!({}), &[]; "sshpick for the palette")]
+#[test_case("rex", json!({}), &["exec", "pick"]; "rex for the fallback layer, after the palette is tried")]
 fn a_binary_in_none_of_the_usual_places_is_an_error_listing_them(
     name: &str,
     args: serde_json::Value,
+    ran: &[&str],
 ) {
     let rex = Rex::load("names");
+    rex.script(&[Answer::Unanswered("unsupported", None)]);
     let other = if name == "sshpick" {
         rex.set_paths(None, Some(&fake("rex")));
         fake("rex")
@@ -487,12 +583,196 @@ fn a_binary_in_none_of_the_usual_places_is_an_error_listing_them(
         )),
         "{error}"
     );
-    assert_eq!(rex.calls(), json!({}), "no layer opens: nothing ran");
+    assert_eq!(rex.kinds(), ran, "no tab and no layer opens");
+}
+
+const CANCELLED: Answer = Answer::Unanswered("cancelled", None);
+
+#[test]
+fn no_host_lists_the_hosts_in_the_palette_and_a_pick_opens_the_tab_host_would() {
+    let rex = Rex::bare("ui");
+    rex.set_paths(Some(SSHPICK), None);
+    rex.script(&[Answer::Id("newstg-consul2")]);
+    assert_eq!(
+        rex.run(json!({})),
+        Ok(json!({ "window_id": "window:1", "host": "newstg-consul2" }))
+    );
+    assert_eq!(rex.kinds(), ["exec", "pick", "exec", "new_window"]);
+
+    let list = &rex.calls_of("exec")[0];
+    assert_eq!(list["argv"], json!([SSHPICK, "ls", "--json"]));
+    assert_eq!(list["opts"]["timeout"], 10);
+    assert_eq!(
+        list["opts"]["cwd"],
+        fixtures().join("ui").display().to_string()
+    );
+    assert_eq!(
+        rex.call("pick")["args"],
+        json!({
+            "title": "Connect to SSH Host",
+            "placeholder": "Search host, ENV or what",
+            "allow_other": true,
+            "items": [
+                { "id": "lab-a", "title": "lab-a", "icon": "server",
+                  "subtitle": "LAB — personal VMs", "detail": "LAB" },
+                { "id": "lab-b", "title": "lab-b", "icon": "server",
+                  "subtitle": "build box", "detail": "LAB" },
+                { "id": "newstg-consul1", "title": "newstg-consul1", "icon": "server",
+                  "subtitle": "consul server 1 — mgmt", "detail": "NEW STAGING" },
+                { "id": "newstg-consul2", "title": "newstg-consul2", "icon": "server",
+                  "detail": "NEW STAGING" },
+                { "id": "newstg-bastion", "title": "newstg-bastion", "icon": "server",
+                  "subtitle": "bastion", "detail": "NEW STAGING" },
+            ],
+        })
+    );
+
+    let by_name = Rex::load("ui");
+    by_name.run(json!({ "host": "newstg-consul2" })).or_panic();
+    assert_eq!(rex.call("new_window"), by_name.call("new_window"));
+}
+
+#[test_case("web", "2 hosts match \"web\"", &["web", "web-2"]; "several hosts")]
+#[test_case("pg-primary", "1 host matches \"pg-primary\"", &["db-prod"]; "an alias no row shows")]
+#[test_case("192.0.2.3", "1 host matches \"192.0.2.3\"", &["db-prod"]; "an address no row shows")]
+#[test_case("-2", "1 host matches \"-2\"", &["web-2"]; "a query that starts with a dash is text")]
+fn typed_text_asks_sshpick_again_and_the_title_counts_what_it_found(
+    typed: &str,
+    title: &str,
+    ids: &[&str],
+) {
+    let rex = Rex::load("names");
+    rex.script(&[Answer::Text(typed), CANCELLED]);
+    assert_eq!(rex.run(json!({})), Ok(json!(null)));
+    assert_eq!(rex.kinds(), ["exec", "pick", "exec", "pick"]);
+    assert_eq!(
+        rex.calls_of("exec")[1]["argv"],
+        json!([SSHPICK, "ls", "--json", "--", typed])
+    );
+    let prompts = rex.prompts();
+    assert_eq!(prompts[0].0, "Connect to SSH Host");
+    assert_eq!(
+        prompts[1],
+        (
+            title.to_owned(),
+            ids.iter().map(|id| (*id).to_owned()).collect()
+        )
+    );
 }
 
 #[test]
-fn no_host_opens_a_focused_layer_that_runs_the_hand_off_with_both_binaries() {
+fn a_query_that_matches_nothing_asks_again_and_a_later_pick_still_connects() {
+    let rex = Rex::load("names");
+    rex.script(&[
+        Answer::Text("zzz"),
+        Answer::Text("  pg-primary "),
+        Answer::Id("db-prod"),
+    ]);
+    assert_eq!(
+        rex.run(json!({})),
+        Ok(json!({ "window_id": "window:1", "host": "db-prod" }))
+    );
+    let titles: Vec<String> = rex.prompts().into_iter().map(|(title, _)| title).collect();
+    assert_eq!(
+        titles,
+        [
+            "Connect to SSH Host",
+            "No host matches \"zzz\"",
+            "1 host matches \"pg-primary\""
+        ]
+    );
+    assert_eq!(rex.prompts()[1].1, Vec::<String>::new());
+    assert_eq!(rex.call("new_window")["args"]["window_label"], "db-prod");
+}
+
+#[test_case("cancelled"; "esc")]
+#[test_case("timeout"; "no answer in time")]
+fn a_prompt_with_no_choice_ends_the_action_quietly(reason: &str) {
     let rex = Rex::load("ui");
+    rex.script(&[Answer::Unanswered(reason, None)]);
+    assert_eq!(rex.run(json!({})), Ok(json!(null)));
+    assert_eq!(rex.kinds(), ["exec", "pick"], "no tab and no layer opens");
+}
+
+#[test_case("no_client", None, "no Rex app is connected to show the host list\nFix: open the Rex app, then run the action again."; "no app")]
+#[test_case("busy", None, "Rex is showing another prompt\nFix: answer or close it, then run the action again."; "another prompt is open")]
+#[test_case("failed", Some("boom"), "Rex could not show the host list: boom"; "failed, with its detail")]
+#[test_case("failed", None, "Rex could not show the host list"; "failed, with no detail")]
+#[test_case("later", None, "Rex gave no answer to the host list: later"; "a reason Rex adds later")]
+fn a_prompt_rex_cannot_show_is_an_action_error(reason: &str, detail: Option<&str>, want: &str) {
+    let rex = Rex::load("ui");
+    rex.script(&[Answer::Unanswered(reason, detail)]);
+    assert_eq!(rex.run(json!({})), Err(want.to_owned()));
+    assert_eq!(rex.kinds(), ["exec", "pick"], "no tab and no layer opens");
+}
+
+#[test]
+fn a_config_without_hosts_is_sshpicks_error_and_no_prompt_opens() {
+    let rex = Rex::load("empty");
+    assert_eq!(
+        rex.run(json!({})),
+        Err("no hosts found in ~/.ssh/config or the files it Includes\n\
+             Fix: add `Host` lines; ENV and WHAT come from comments."
+            .to_owned())
+    );
+    assert_eq!(rex.kinds(), ["exec"]);
+}
+
+#[test]
+fn a_config_warning_is_logged_and_the_hosts_are_still_listed() {
+    let rex = Rex::load("warns");
+    rex.script(&[CANCELLED]);
+    assert_eq!(rex.run(json!({})), Ok(json!(null)));
+    assert_eq!(rex.kinds(), ["exec", "log", "pick"]);
+    let log = rex.call("log");
+    assert_eq!(log["level"], "warn");
+    assert!(
+        log["message"]
+            .as_str()
+            .or_panic()
+            .ends_with(": skipped, include cycle"),
+        "{log}"
+    );
+    assert_eq!(rex.prompts()[0].1, ["warm-a", "warm-b"]);
+}
+
+/// A home whose config has `count` hosts, `host-0000` on, written under cargo's test directory.
+fn home_with_hosts(count: usize) -> String {
+    let home = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("rex-hosts-{}", process::id()));
+    let ssh = home.join(".ssh");
+    std::fs::create_dir_all(&ssh).or_panic();
+    let config: String = (0..count).map(|n| format!("Host host-{n:04}\n")).collect();
+    std::fs::write(ssh.join("config"), config).or_panic();
+    home.display().to_string()
+}
+
+#[test]
+fn more_hosts_than_rex_takes_are_cut_and_the_title_says_so() {
+    let rex = Rex::load(&home_with_hosts(2345));
+    rex.script(&[Answer::Text("host-"), Answer::Text("host-1"), CANCELLED]);
+    assert_eq!(rex.run(json!({})), Ok(json!(null)));
+    let prompts = rex.prompts();
+    let titles: Vec<&str> = prompts.iter().map(|(title, _)| title.as_str()).collect();
+    assert_eq!(
+        titles,
+        [
+            "First 2,000 of 2,345 hosts",
+            "First 2,000 of 2,345 hosts match \"host-\"",
+            "1,000 hosts match \"host-1\"",
+        ]
+    );
+    for (_, ids) in &prompts[..2] {
+        assert_eq!(ids.len(), 2000);
+        assert_eq!(ids.first().map(String::as_str), Some("host-0000"));
+        assert_eq!(ids.last().map(String::as_str), Some("host-1999"));
+    }
+    assert_eq!(prompts[2].1.len(), 1000);
+}
+
+#[test]
+fn a_rex_app_too_old_for_prompts_gets_a_focused_layer_that_runs_the_hand_off_with_both_binaries() {
+    let rex = Rex::load("ui");
+    rex.script(&[Answer::Unanswered("unsupported", None)]);
     assert_eq!(rex.run(json!({})), Ok(json!(null)));
     let layer = rex.call("new_layer")["args"].clone();
     assert_eq!(layer["bounds"], json!([0.1, 0.1, 0.8, 0.8]));
@@ -504,7 +784,7 @@ fn no_host_opens_a_focused_layer_that_runs_the_hand_off_with_both_binaries() {
     let argv: Vec<String> = serde_json::from_value(block["options"]["command"].clone()).or_panic();
     assert_eq!(argv[..2], ["/bin/sh", "-c"]);
     assert_eq!(argv[3..], ["sshpick-rex", SSHPICK, &fake("rex")]);
-    assert_eq!(rex.calls().as_array().map(Vec::len), Some(1), "no exec");
+    assert_eq!(rex.kinds(), ["exec", "pick", "new_layer"]);
 }
 
 struct Handoff {
@@ -547,7 +827,7 @@ fn run_handoff(argv: &[String], home: &str, env: &[(&str, &str)], name: &str) ->
 #[test]
 fn the_hand_off_gives_the_picked_host_back_to_the_action() {
     let rex = Rex::load("home");
-    let argv = rex.handoff();
+    let argv = rex.handoff(SSHPICK);
     let done = run_handoff(&argv, "home", &[], "picked");
     assert_eq!(done.code, Some(0), "{}", done.stderr);
     assert_eq!(done.stdout, "");
@@ -569,8 +849,7 @@ fn the_hand_off_gives_the_picked_host_back_to_the_action() {
 #[test_case("127", Some(127), true; "a missing ssh waits too")]
 fn the_hand_off_closes_quietly_only_on_a_cancel(exit: &str, code: Option<i32>, waits: bool) {
     let rex = Rex::load("ui");
-    rex.set_paths(Some(&fake("sshpick-exits")), Some(&fake("rex")));
-    let argv = rex.handoff();
+    let argv = rex.handoff(&fake("sshpick-exits"));
     let done = run_handoff(&argv, "ui", &[("FAKE_EXIT", exit)], &format!("exit-{exit}"));
     assert_eq!(done.code, code, "{}", done.stderr);
     assert_eq!(done.rex, None, "rex is not called");
@@ -590,8 +869,7 @@ fn the_hand_off_closes_quietly_only_on_a_cancel(exit: &str, code: Option<i32>, w
 #[test]
 fn the_hand_off_waits_when_sshpick_is_too_old_for_print() {
     let rex = Rex::load("ui");
-    rex.set_paths(Some(&fake("sshpick-old")), Some(&fake("rex")));
-    let done = run_handoff(&rex.handoff(), "ui", &[], "old");
+    let done = run_handoff(&rex.handoff(&fake("sshpick-old")), "ui", &[], "old");
     assert_eq!(done.code, Some(2));
     assert!(
         done.stderr.contains("unknown option \"--print\""),
@@ -605,7 +883,12 @@ fn the_hand_off_waits_when_sshpick_is_too_old_for_print() {
 #[test]
 fn the_hand_off_waits_when_rex_refuses_the_host() {
     let rex = Rex::load("home");
-    let done = run_handoff(&rex.handoff(), "home", &[("REX_EXIT", "3")], "refused");
+    let done = run_handoff(
+        &rex.handoff(SSHPICK),
+        "home",
+        &[("REX_EXIT", "3")],
+        "refused",
+    );
     assert_eq!(done.code, Some(3));
     assert!(
         done.stdout.contains("Press Enter to close."),
@@ -643,7 +926,7 @@ fn picker_layer(keys: &str, name: &str) -> (Exit, Option<Vec<String>>) {
     let rex = Rex::load("ui");
     let record = scratch(name);
     let mut options = Options::new("ui");
-    options.program = Some(rex.handoff());
+    options.program = Some(rex.handoff(SSHPICK));
     options.env = vec![("REX_RECORD".to_owned(), record.display().to_string())];
     let mut session = Session::start(options);
     session.wait_for("the picker", |frame| {
