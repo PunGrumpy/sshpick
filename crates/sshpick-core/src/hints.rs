@@ -1,83 +1,112 @@
-//! The hint row never loses accept and cancel: the window range is dropped before any key is.
-//! `?` is offered only while the filter is empty; it is a filter character otherwise.
+//! The footer's keys. The row keeps columns for the route at its left — [`ROUTE_RESERVE`] of them
+//! beside the full rung, [`ROUTE_RESERVE_MIN`] beside the shorter one — so the caps never move
+//! with the selection. `Quit esc` is the first cap a narrow row loses; the narrowest rung is the
+//! keys of what is left, without their labels. `?` is offered only while the filter is empty; it
+//! is a filter character otherwise.
 
 use crate::picker::View;
 
-const GAP: &str = "   ";
-const RANGE_DASH: char = '\u{2013}';
+/// Columns between one cap and the next.
+pub const HINT_GAP: usize = 3;
+/// The columns the route's side keeps beside the full rung, its indent and the gap before the
+/// keys among them.
+pub const ROUTE_RESERVE: usize = 45;
+/// The columns the route's side keeps beside the short rung, so `Keys` and `Connect` keep their
+/// labels on a narrow row.
+const ROUTE_RESERVE_MIN: usize = 24;
+/// A key sits in a keycap, one space either side.
+const CAP_PADDING: usize = 2;
 
+/// A label, then its key in a keycap. The keycap's left space is all that parts them, so a cap
+/// reads `Quit esc` and is the label, the key and two more columns wide.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Cap {
+    /// Empty on the narrowest rung, which is the keys alone.
+    pub label: &'static str,
+    pub key: &'static str,
+}
+
+impl Cap {
+    pub fn width(self) -> usize {
+        width(self.label) + width(self.key) + CAP_PADDING
+    }
+}
+
+/// What the footer says, left to right, at its right end, each cap as wide as it is.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Hint {
-    pub keys: String,
-    /// The window range, `6–17`, or empty when it does not fit beside the keys.
-    pub status: String,
+    pub caps: Vec<Cap>,
 }
 
-#[derive(Clone, Copy)]
-struct Chip {
-    key: &'static str,
-    does: &'static str,
-}
-
+/// `room` is the columns of the row, margins left out. The route at the row's left keeps
+/// [`ROUTE_RESERVE`] of them beside the full rung and [`ROUTE_RESERVE_MIN`] beside the shorter
+/// one; the widest rung that fits beside its share is the one drawn, and when not even the
+/// narrowest fits it is the keys alone.
 pub fn hint(view: &View<'_>, room: usize) -> Hint {
-    let [movement, accept, leave, help] = chips(view);
-    let narrowest = present([accept, leave]);
-    let rungs = [
-        present([movement, accept, leave, help]),
-        present([movement, accept, leave]),
-        narrowest.clone(),
-    ];
-    let keys = rungs
-        .iter()
-        .map(|rung| spell(rung))
-        .find(|text| width(text) <= room)
-        .unwrap_or_else(|| bare(&narrowest));
-    let left = room.saturating_sub(width(&keys) + width(GAP));
-    let status = view
-        .range()
-        .map(|(first, last)| format!("{first}{RANGE_DASH}{last}"))
-        .filter(|text| width(text) <= left)
-        .unwrap_or_default();
-    Hint { keys, status }
+    let [help, leave, accept] = caps(view);
+    let full = present([help, leave, accept]);
+    // Without a help cap (the help is open) the shorter rung is the same as the full one.
+    let short = if help.is_some() {
+        present([help, accept])
+    } else {
+        full.clone()
+    };
+    let caps = [(full, ROUTE_RESERVE), (short.clone(), ROUTE_RESERVE_MIN)]
+        .into_iter()
+        .find(|(rung, reserve)| spread(rung) + reserve <= room)
+        .map(|(rung, _)| rung)
+        .unwrap_or_else(|| bare(&short));
+    Hint { caps }
 }
 
-fn chips(view: &View<'_>) -> [Option<Chip>; 4] {
+/// The columns `caps` take, with the gaps between them.
+pub fn spread(caps: &[Cap]) -> usize {
+    let gaps = caps.len().saturating_sub(1) * HINT_GAP;
+    caps.iter().map(|cap| cap.width()).sum::<usize>() + gaps
+}
+
+/// What the prompt strip says at its right: every host while the filter is empty, the matches of
+/// the whole while it is not.
+pub fn counter(view: &View<'_>) -> String {
+    if view.query.is_empty() {
+        match view.total {
+            1 => "1 host".to_owned(),
+            total => format!("{total} hosts"),
+        }
+    } else {
+        format!("{} / {}", view.matched, view.total)
+    }
+}
+
+/// Left to right: help, leave and accept, so the key that drops first is at the left.
+fn caps(view: &View<'_>) -> [Option<Cap>; 3] {
     [
-        (view.matched > 1).then_some(Chip {
-            key: "\u{2191}\u{2193}",
-            does: "move",
-        }),
-        (view.matched > 0).then_some(Chip {
-            key: "enter",
-            does: "ssh",
-        }),
-        Some(Chip {
-            key: "esc",
-            does: if view.help { "close" } else { "quit" },
-        }),
-        (!view.help).then_some(Chip {
+        (!view.help).then_some(Cap {
+            label: "Keys",
             key: if view.query.is_empty() { "?" } else { "F1" },
-            does: "keys",
+        }),
+        Some(Cap {
+            label: if view.help { "Close" } else { "Quit" },
+            key: "esc",
+        }),
+        (view.matched > 0).then_some(Cap {
+            label: "Connect",
+            key: "\u{21b5}",
         }),
     ]
 }
 
-fn present<const N: usize>(chips: [Option<Chip>; N]) -> Vec<Chip> {
-    chips.into_iter().flatten().collect()
+fn present<const N: usize>(caps: [Option<Cap>; N]) -> Vec<Cap> {
+    caps.into_iter().flatten().collect()
 }
 
-fn spell(rung: &[Chip]) -> String {
+fn bare(rung: &[Cap]) -> Vec<Cap> {
     rung.iter()
-        .map(|chip| format!("{} {}", chip.key, chip.does))
-        .collect::<Vec<_>>()
-        .join(GAP)
-}
-
-fn bare(rung: &[Chip]) -> String {
-    rung.iter()
-        .map(|chip| chip.key)
-        .collect::<Vec<_>>()
-        .join(" ")
+        .map(|cap| Cap {
+            label: "",
+            key: cap.key,
+        })
+        .collect()
 }
 
 fn width(text: &str) -> usize {
@@ -92,54 +121,54 @@ mod tests {
 
     use super::*;
     use crate::keymap::BINDINGS;
-    use crate::picker::Row;
 
-    fn view(matched: usize, query: &str, help: bool, above: usize, shown: usize) -> View<'_> {
+    fn view(matched: usize, query: &str, help: bool) -> View<'_> {
         View {
             query,
             matched,
             total: matched.max(5),
-            above,
-            rows: (0..shown)
-                .map(|_| Row {
-                    env: Vec::new(),
-                    host: Vec::new(),
-                    last: "",
-                    what: Vec::new(),
-                    selected: false,
-                })
-                .collect(),
+            rows: Vec::new(),
             help,
             recents: false,
         }
     }
 
-    #[test_case(5, "", false, (0, 5), 78, "\u{2191}\u{2193} move   enter ssh   esc quit   ? keys", ""; "the whole ladder")]
-    #[test_case(2, "consul", false, (0, 2), 78, "\u{2191}\u{2193} move   enter ssh   esc quit   F1 keys", ""; "? is a character once there is a query")]
-    #[test_case(1, "lab-a", false, (0, 1), 78, "enter ssh   esc quit   F1 keys", ""; "nothing to move between")]
-    #[test_case(0, "zzzz", false, (0, 0), 78, "esc quit   F1 keys", ""; "no enter when nothing matches")]
-    #[test_case(5, "", true, (0, 5), 78, "\u{2191}\u{2193} move   enter ssh   esc close", ""; "esc closes the help first")]
-    #[test_case(0, "zzzz", true, (0, 0), 78, "esc close", ""; "esc closes the help with nothing matched")]
-    #[test_case(29, "", false, (0, 11), 78, "\u{2191}\u{2193} move   enter ssh   esc quit   ? keys", "1\u{2013}11"; "the window when the list scrolls")]
-    #[test_case(29, "", false, (5, 11), 78, "\u{2191}\u{2193} move   enter ssh   esc quit   ? keys", "6\u{2013}16"; "the window follows the scroll")]
-    #[test_case(5, "", false, (0, 5), 38, "\u{2191}\u{2193} move   enter ssh   esc quit", ""; "rung two when ? keys does not fit")]
-    #[test_case(5, "", false, (0, 3), 38, "\u{2191}\u{2193} move   enter ssh   esc quit", "1\u{2013}3"; "the window needs room too")]
-    #[test_case(29, "", false, (0, 11), 38, "\u{2191}\u{2193} move   enter ssh   esc quit", "1\u{2013}11"; "the window fits beside rung two")]
-    #[test_case(29, "", false, (0, 11), 36, "\u{2191}\u{2193} move   enter ssh   esc quit", ""; "the window is dropped before a key is")]
-    #[test_case(5, "", false, (0, 5), 22, "enter ssh   esc quit", ""; "rung three")]
-    #[test_case(5, "", false, (0, 5), 8, "enter esc", ""; "bare key names")]
-    #[test_case(0, "zzzz", false, (0, 0), 0, "esc", ""; "bare esc alone")]
-    fn the_ladder_keeps_accept_and_cancel(
+    fn spell(caps: &[Cap]) -> String {
+        caps.iter()
+            .map(|cap| {
+                if cap.label.is_empty() {
+                    cap.key.to_owned()
+                } else {
+                    format!("{} {}", cap.label, cap.key)
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    #[test_case(5, "", false, 78, "Keys ?, Quit esc, Connect \u{21b5}"; "the whole ladder")]
+    #[test_case(2, "consul", false, 78, "Keys F1, Quit esc, Connect \u{21b5}"; "? is a character once there is a query")]
+    #[test_case(1, "lab-a", false, 78, "Keys F1, Quit esc, Connect \u{21b5}"; "one match is the same ladder")]
+    #[test_case(0, "zzzz", false, 78, "Keys F1, Quit esc"; "no connect when nothing matches")]
+    #[test_case(5, "", true, 78, "Close esc, Connect \u{21b5}"; "esc closes the help first, and the help key is not offered")]
+    #[test_case(0, "zzzz", true, 78, "Close esc"; "esc closes the help with nothing matched")]
+    #[test_case(5, "", false, 77, "Keys ?, Quit esc, Connect \u{21b5}"; "every key beside the route's room")]
+    #[test_case(5, "", false, 76, "Keys ?, Connect \u{21b5}"; "Quit goes first")]
+    #[test_case(5, "", false, 65, "Keys ?, Connect \u{21b5}"; "the second rung to the column")]
+    #[test_case(5, "", false, 52, "Keys ?, Connect \u{21b5}"; "the labels keep their smaller reserve")]
+    #[test_case(5, "", false, 44, "Keys ?, Connect \u{21b5}"; "the labels to the column")]
+    #[test_case(5, "", false, 43, "?, \u{21b5}"; "the keys alone")]
+    #[test_case(0, "zzzz", false, 0, "F1"; "the help key alone")]
+    #[test_case(5, "", true, 9, "esc, \u{21b5}"; "the help open: the bare keys of the only rung")]
+    fn the_ladder_drops_quit_first(
         matched: usize,
         query: &str,
         help: bool,
-        (above, shown): (usize, usize),
         room: usize,
-        keys: &str,
-        status: &str,
+        caps: &str,
     ) {
-        let got = hint(&view(matched, query, help, above, shown), room);
-        assert_eq!((got.keys.as_str(), got.status.as_str()), (keys, status));
+        let got = hint(&view(matched, query, help), room);
+        assert_eq!(spell(&got.caps), caps);
     }
 
     fn every_state(mut check: impl FnMut(&View<'_>, usize, &Hint)) {
@@ -147,7 +176,7 @@ mod tests {
             for query in ["", "x"] {
                 for help in [false, true] {
                     for room in 0..=80 {
-                        let view = view(matched, query, help, 0, matched.saturating_sub(1));
+                        let view = view(matched, query, help);
                         check(&view, room, &hint(&view, room));
                     }
                 }
@@ -156,40 +185,72 @@ mod tests {
     }
 
     #[test]
-    fn at_any_width_the_row_fits_or_is_the_bare_last_rung() {
+    fn at_any_width_the_row_fits_or_is_the_keys_alone() {
         every_state(|view, room, hint| {
-            let used = width(&hint.keys)
-                + if hint.status.is_empty() {
-                    0
-                } else {
-                    width(GAP) + width(&hint.status)
-                };
+            let used = spread(&hint.caps);
+            let alone = hint.caps.iter().all(|cap| cap.label.is_empty());
+            let reserve = if hint.caps.len() == 3 {
+                ROUTE_RESERVE
+            } else {
+                ROUTE_RESERVE_MIN
+            };
             assert!(
-                used <= room || width(&hint.keys) <= "enter esc".len(),
+                used + reserve <= room || alone,
                 "{} {:?} {} {room}: {hint:?}",
                 view.matched,
                 view.query,
                 view.help
             );
-            assert!(hint.keys.contains("esc"));
-            assert_eq!(hint.keys.contains("enter"), view.matched > 0);
             assert_eq!(
-                hint.keys.contains("F1"),
-                hint.keys.contains("keys") && !view.query.is_empty()
+                hint.caps.iter().any(|cap| cap.key == "\u{21b5}"),
+                view.matched > 0,
+                "Connect stays to the last rung: {hint:?}"
             );
             assert_eq!(
-                hint.keys.contains('?'),
-                hint.keys.contains("keys") && view.query.is_empty()
+                hint.caps
+                    .iter()
+                    .any(|cap| cap.key == "F1" || cap.key == "?"),
+                !view.help,
+                "the help key stays to the last rung while the help is closed: {hint:?}"
             );
-            if view.help {
-                assert!(!hint.keys.contains("keys"));
-            }
+            assert_eq!(
+                hint.caps.iter().any(|cap| cap.key == "F1"),
+                !view.help && !view.query.is_empty()
+            );
+            assert_eq!(
+                hint.caps.iter().any(|cap| cap.key == "?"),
+                !view.help && view.query.is_empty()
+            );
         });
     }
 
     #[test]
+    fn the_keys_are_ordered_so_the_ones_that_drop_first_are_at_the_left() {
+        let view = view(5, "", false);
+        let widest = hint(&view, 80);
+        let order: Vec<_> = widest.caps.iter().map(|cap| cap.label).collect();
+        assert_eq!(order, ["Keys", "Quit", "Connect"]);
+        for room in 0..=80 {
+            let caps = hint(&view, room).caps;
+            let kept: Vec<_> = widest
+                .caps
+                .iter()
+                .filter(|cap| caps.iter().any(|c| c.key == cap.key))
+                .collect();
+            assert_eq!(
+                kept.len(),
+                caps.len(),
+                "{room}: only keys of the widest row"
+            );
+            assert!(
+                kept.iter().all(|cap| cap.label != "Quit") || caps.len() == 3,
+                "{room}: Quit drops before Keys and Connect"
+            );
+        }
+    }
+
+    #[test]
     fn every_key_a_rung_names_is_a_row_of_the_key_table() {
-        const VERBS: [&str; 5] = ["move", "ssh", "quit", "close", "keys"];
         let rows: BTreeSet<String> = BINDINGS
             .iter()
             .flat_map(|binding| binding.keys.split(", "))
@@ -197,9 +258,9 @@ mod tests {
             .collect();
         let mut named = BTreeSet::new();
         every_state(|_, _, hint| {
-            for word in hint.keys.split_whitespace().filter(|w| !VERBS.contains(w)) {
-                let names = match word {
-                    "\u{2191}\u{2193}" => vec!["up".to_owned(), "down".to_owned()],
+            for cap in &hint.caps {
+                let names = match cap.key {
+                    "\u{21b5}" => vec!["enter".to_owned()],
                     other => vec![other.to_lowercase()],
                 };
                 for name in names {
@@ -210,10 +271,26 @@ mod tests {
         });
         assert_eq!(
             named,
-            ["?", "down", "enter", "esc", "f1", "up"]
-                .map(str::to_owned)
-                .into(),
+            ["?", "enter", "esc", "f1"].map(str::to_owned).into(),
             "every key the ladder can name was reached"
         );
+    }
+
+    //          matched total query => counter
+    #[test_case(5, 5, "" => "5 hosts"; "every host")]
+    #[test_case(1, 1, "" => "1 host"; "one host")]
+    #[test_case(0, 0, "" => "0 hosts"; "no hosts")]
+    #[test_case(2, 5, "con" => "2 / 5"; "matches of the whole")]
+    #[test_case(0, 5, "zz" => "0 / 5"; "no match")]
+    fn the_counter_counts(matched: usize, total: usize, query: &str) -> String {
+        let view = View {
+            query,
+            matched,
+            total,
+            rows: Vec::new(),
+            help: false,
+            recents: false,
+        };
+        counter(&view)
     }
 }

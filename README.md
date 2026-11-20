@@ -41,21 +41,32 @@ sshpick doctor                # check the config, ssh and this terminal
 
 ```text
 ~/work $ sshpick
-> type to filter                                                             5/5
-  ENV         HOST           WHAT
-▌ LAB         lab-a          LAB — personal VMs
-  └ ubuntu@10.11.212.191:22 via newstg-bastion
-  LAB         lab-b          build box
-  NEW STAGING newstg-consul1 consul server 1 — mgmt
-  NEW STAGING newstg-consul2
-  NEW STAGING newstg-bastion bastion
-
-
-
-  ↑↓ move   enter ssh   esc quit   ? keys
+╭──────────────────────────────────────────────────────────────────────────╮
+│  Search host, ENV or what                                       5 hosts  │
+│                                                                          │
+│  lab-a           LAB — personal VMs                                 LAB  │
+│  lab-b           build box                                          LAB  │
+│  newstg-consul1  consul server 1 — mgmt                     NEW STAGING  │
+│  newstg-consul2                                             NEW STAGING  │
+│  newstg-bastion  bastion                                    NEW STAGING  │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+│                                                                          │
+├──────────────────────────────────────────────────────────────────────────┤
+│  ubuntu@10.11.212.191:22 via newstg-bastion         Keys ?    Connect ↵  │
+╰──────────────────────────────────────────────────────────────────────────╯
 ```
 
-The picker remembers the hosts you connect to. They come first, with a dim LAST column that says
+The picker is a panel nearly the whole window, with one line per host. It
+remembers the hosts you connect to. They come first, with a muted LAST column that says
 how long ago, so the host you used last is one Enter away.
 
 ## For coding agents

@@ -9,10 +9,9 @@ use pty::{Exit, Frame, Options, Session};
 use test_case::test_case;
 
 const SHELL: &[&str] = &["$ git status", "clean", "$ sshpick"];
-/// The picker fills the default 24 rows: the prompt on the top one and the hint row on the last.
-/// The route is the line under the selected host, the first of the list.
-const ROUTE: usize = 3;
-const HINT: usize = 23;
+/// The footer at 80 columns with an empty filter, from the first key to the last.
+const KEYS: &str = "Keys ?    Connect ↵";
+const CLOSE_KEYS: &str = "Close esc    Connect ↵";
 
 fn started() -> Session {
     let mut options = Options::new("ui");
@@ -22,14 +21,74 @@ fn started() -> Session {
     session
 }
 
-/// The hint row is the last row a frame writes, and the cursor goes back to the prompt after it,
-/// so once both hold the whole frame is on the screen.
+const PROMPT: &str = "  Search host, ENV or what";
+
+/// Where the cursor is on the prompt of a panel on `cols` columns, after `typed` characters: the
+/// row under the border, and the query after the border, the margin and the strip's padding.
+fn prompt_at(cols: u16, typed: u16) -> (u16, u16) {
+    if cols >= 60 {
+        let panel = (cols - 4).min(110);
+        (2, (cols - panel) / 2 + 3 + typed)
+    } else {
+        (0, 2 + typed)
+    }
+}
+
+/// What is inside the border, a line per row, as the picker's own tests see it. A terminal too
+/// small for a border has the picker's rows, from the first that is not blank.
+fn lines(frame: &Frame) -> Vec<String> {
+    let find = |mark| frame.rows.iter().position(|row| row.contains(mark));
+    if let Some((top, bottom)) = find('╭')
+        .zip(find('╰'))
+        .filter(|(top, bottom)| top < bottom)
+    {
+        return frame.rows[top + 1..bottom]
+            .iter()
+            .map(|row| inside(row))
+            .collect();
+    }
+    let used = |row: &String| !row.is_empty();
+    match (
+        frame.rows.iter().position(used),
+        frame.rows.iter().rposition(used),
+    ) {
+        (Some(first), Some(last)) => frame.rows[first..=last].to_vec(),
+        _ => Vec::new(),
+    }
+}
+
+fn inside(row: &str) -> String {
+    let chars: Vec<char> = row.chars().collect();
+    let edge = |c: &char| matches!(c, '│' | '├' | '┤');
+    let (Some(from), Some(to)) = (chars.iter().position(edge), chars.iter().rposition(edge)) else {
+        return row.to_owned();
+    };
+    let inner: String = chars.get(from + 1..to).unwrap_or_default().iter().collect();
+    inner.trim_end().to_owned()
+}
+
+fn line(frame: &Frame, at: usize) -> String {
+    lines(frame).get(at).cloned().unwrap_or_default()
+}
+
+/// The last line: the footer.
+fn footer(frame: &Frame) -> String {
+    lines(frame).pop().unwrap_or_default()
+}
+
+/// The footer is the last row inside the border and the cursor goes back to the prompt after the
+/// frame, so once both hold the whole frame is on the screen.
 fn drawn(frame: &Frame) -> bool {
-    frame.alternate && frame.rows[HINT].contains("esc quit") && frame.cursor == (0, 2)
+    frame.alternate && footer(frame).contains("Connect ↵") && frame.cursor == prompt_at(80, 0)
+}
+
+/// One host matches, so the footer says `F1` for the key help.
+fn one_match(frame: &Frame) -> bool {
+    footer(frame).ends_with("Keys F1    Connect ↵")
 }
 
 fn resolved(frame: &Frame) -> bool {
-    frame.rows[ROUTE].contains("ubuntu@")
+    footer(frame).contains("ubuntu@")
 }
 
 /// The shell's screen as it was before sshpick started, with nothing of the picker on it.
@@ -49,26 +108,41 @@ fn assert_restored(session: &Session) {
 }
 
 #[test]
-fn the_picker_fills_the_screen_with_the_hint_row_at_the_bottom() {
+fn the_picker_is_a_panel_nearly_the_whole_screen_with_the_hint_row_under_a_rule() {
     let session = started();
     let frame = session.frame();
-    assert!(
-        frame.rows[0].starts_with("> type to filter") && frame.rows[0].ends_with("5/5"),
+    let pad = " ".repeat(2);
+    assert!(frame.rows[0].is_empty(), "a blank row above: {frame}");
+    assert_eq!(
+        frame.rows[1],
+        format!("{pad}╭{}╮", "─".repeat(74)),
         "{frame}"
     );
     assert_eq!(
-        frame.rows[1], "  ENV         HOST           WHAT",
-        "{frame}"
+        frame.rows[22],
+        format!("{pad}╰{}╯", "─".repeat(74)),
+        "the panel is nearly the whole screen: {frame}"
     );
-    assert!(frame.rows[2].starts_with("▌ LAB         lab-a"), "{frame}");
+    assert!(frame.rows[23..].iter().all(String::is_empty), "{frame}");
+    let inner = lines(&frame);
+    assert_eq!(inner.len(), 20, "{frame}");
     assert!(
-        frame.rows[8..HINT].iter().all(String::is_empty),
-        "the rows the hosts do not need are blank: {frame}"
-    );
-    assert_eq!(
-        frame.rows[HINT], "  ↑↓ move   enter ssh   esc quit   ? keys",
+        inner[0].starts_with(PROMPT) && inner[0].ends_with("5 hosts"),
         "{frame}"
     );
+    assert!(inner[1].is_empty(), "a blank row under the strip: {frame}");
+    assert!(
+        inner[2].starts_with("  lab-a")
+            && inner[2].contains("LAB — personal VMs")
+            && inner[2].ends_with("LAB"),
+        "one line per host: {frame}"
+    );
+    assert!(
+        inner[3].starts_with("  lab-b") && inner[3].contains("build box"),
+        "{frame}"
+    );
+    assert!(inner[18].starts_with('─'), "the rule: {frame}");
+    assert!(inner[19].ends_with(KEYS), "{frame}");
     assert!(
         !frame.has("$ git status"),
         "the shell is behind it: {frame}"
@@ -89,7 +163,7 @@ fn esc_exits_130_and_gives_the_shell_its_screen_back() {
 fn enter_says_which_host_runs_under_the_command_then_ssh_starts_on_a_cooked_terminal() {
     let mut session = started();
     session.send("lab-a");
-    session.wait_for("one match", |frame| frame.rows[0].ends_with("1/5"));
+    session.wait_for("one match", one_match);
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
     let frame = session.frame();
@@ -136,7 +210,9 @@ fn enter_with_nothing_matched_says_so_and_exits_1() {
     let mut session = started();
     session.send("zzzz");
     session.wait_for("no match", |frame| {
-        frame.rows[2] == "  no matching hosts" && frame.rows[HINT] == "  esc quit   F1 keys"
+        line(frame, 2) == "  No host matches \"zzzz\""
+            && footer(frame).ends_with("Keys F1    Quit esc")
+            && frame.cursor == prompt_at(80, 4)
     });
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(1));
@@ -188,7 +264,7 @@ fn a_full_shell_screen_comes_back_as_it_was_and_the_scrollback_is_untouched() {
     options.shell = &HISTORY;
     let mut session = Session::start(options);
     let frame = session.wait_for("the first frame", drawn);
-    assert!(frame.rows[0].starts_with("> type to filter"), "{frame}");
+    assert!(line(&frame, 0).starts_with(PROMPT), "{frame}");
     assert!(
         session.scrollback().is_empty(),
         "nothing scrolled to make room"
@@ -207,48 +283,45 @@ fn a_full_shell_screen_comes_back_as_it_was_and_the_scrollback_is_untouched() {
     );
 }
 
-#[test_case(80, "  ↑↓ move   enter ssh   esc quit   ? keys"; "every key")]
-#[test_case(30, "  enter ssh   esc quit"; "no movement or help")]
-#[test_case(20, "  enter esc"; "bare key names")]
-fn the_hint_row_is_the_last_row_of_the_screen_and_keeps_enter_and_esc(cols: u16, row: &str) {
+#[test_case(80, KEYS; "every key")]
+#[test_case(33, "?     ↵"; "the keys alone")]
+fn the_footer_is_the_last_row_of_the_panel_and_keeps_enter_and_esc(cols: u16, keys: &str) {
     let mut options = Options::new("ui");
     options.cols = cols;
     let mut session = Session::start(options);
-    session.wait_for("the hint row", |frame| frame.rows[HINT] == row);
+    session.wait_for("the footer", |frame| {
+        footer(frame).trim_start().ends_with(keys)
+    });
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
 }
 
 #[test]
-fn the_route_line_says_where_the_selected_host_goes_and_the_hint_row_stays_last() {
+fn the_route_is_on_the_footers_left_and_the_keys_on_its_right() {
     let mut session = started();
     let frame = session.wait_for("the route", resolved);
-    assert_eq!(
-        frame.rows[ROUTE], "  └ ubuntu@192.0.2.11:22 via stg-bastion",
+    let footer = footer(&frame);
+    assert!(
+        footer.starts_with("  ubuntu@192.0.2.11:22 via stg-bastion"),
         "{frame}"
     );
-    assert!(frame.rows[2].starts_with("▌ LAB         lab-a"), "{frame}");
-    assert!(frame.rows[4].starts_with("  LAB         lab-b"), "{frame}");
-    assert_eq!(
-        frame.rows[HINT], "  ↑↓ move   enter ssh   esc quit   ? keys",
-        "{frame}"
-    );
+    assert!(footer.ends_with(KEYS), "{frame}");
+    assert!(line(&frame, 2).starts_with("  lab-a"), "{frame}");
+    assert!(line(&frame, 3).starts_with("  lab-b"), "{frame}");
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
 }
 
 #[test]
-fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure_on_the_route_line() {
+fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure() {
     let mut options = Options::new("inspect");
-    // Wide enough for the whole first line.
-    options.cols = 99;
     options.typed = "broken";
     let mut session = Session::start(options);
-    let frame = session.wait_for("the failure", |frame| frame.rows[ROUTE].contains("failed"));
-    assert_eq!(
-        frame.rows[ROUTE],
-        "  └ ssh -G failed: /home/me/.ssh/config.d/10-staging.conf line 6: Bad configuration option: bogus",
-        "{frame}"
+    let frame = session.wait_for("the failure", |frame| footer(frame).contains("failed"));
+    let shown = footer(&frame);
+    assert!(
+        shown.starts_with("  ssh -G failed: /home/me/.ssh/config.d/10-stagin…"),
+        "the route is cut past the columns the footer keeps for it: {frame}"
     );
     assert!(!frame.has("terminating"), "only the first line: {frame}");
     session.send("\x1b");
@@ -256,22 +329,65 @@ fn a_host_ssh_cannot_resolve_shows_the_first_line_of_the_failure_on_the_route_li
 }
 
 #[test]
-fn a_wide_terminal_shows_the_route_under_the_host_and_enter_leaves_none_of_it() {
+fn the_key_help_takes_rows_from_the_list_without_moving_the_panel() {
+    let mut options = Options::new("ui");
+    options.cols = 120;
+    options.rows = 30;
+    let mut session = Session::start(options);
+    session.wait_for("the route", resolved);
+    let before = session.frame();
+    session.send("\x1bOP");
+    let frame = session.wait_for("the key help", |frame| footer(frame).contains("Close esc"));
+    assert!(
+        frame.has("quit (exit 130); Esc closes the help first")
+            && frame.has("toggle help; ? only on an empty filter")
+            && !frame.rows.iter().any(|row| row.contains('…')),
+        "no key row is cut: {frame}"
+    );
+    let border = |frame: &Frame| {
+        frame
+            .rows
+            .iter()
+            .filter(|row| row.contains(['╭', '╰', '├']))
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        border(&frame),
+        border(&before),
+        "the help does not move the panel: {frame}"
+    );
+
+    session.send("\x1b");
+    let frame = session.wait_for("the key help to close", |frame| {
+        footer(frame).contains("Keys")
+    });
+    assert_eq!(border(&frame), border(&before), "{frame}");
+    session.send("\x1b");
+    assert_eq!(session.exit(), Exit::Code(130));
+}
+
+#[test]
+fn a_wide_terminal_centres_the_same_box_and_enter_leaves_none_of_it() {
     let mut options = Options::new("ui");
     options.shell = SHELL;
     options.cols = 120;
     let mut session = Session::start(options);
     let frame = session.wait_for("the route", resolved);
-    assert_eq!(
-        frame.rows[ROUTE], "  └ ubuntu@192.0.2.11:22 via stg-bastion",
+    assert!(
+        footer(&frame).starts_with("  ubuntu@192.0.2.11:22 via stg-bastion"),
         "{frame}"
     );
-    assert!(frame.rows[HINT].contains("esc quit"), "{frame}");
-    assert!(!frame.has("│"), "no panel beside the list: {frame}");
+    assert!(footer(&frame).contains("Quit esc"), "{frame}");
+    assert_eq!(
+        frame.rows[1],
+        format!("{}╭{}╮", " ".repeat(5), "─".repeat(108)),
+        "110 columns, centred: {frame}"
+    );
     assert_eq!(
         frame.rows.iter().filter(|row| row.contains('└')).count(),
-        1,
-        "{frame}"
+        0,
+        "the route is in the footer, not under a host: {frame}"
     );
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
@@ -293,47 +409,51 @@ fn a_wide_terminal_shows_the_route_under_the_host_and_enter_leaves_none_of_it() 
 
 #[test_case("\x1bOP"; "f1")]
 #[test_case("?"; "question mark on an empty filter")]
-fn the_key_help_takes_the_blank_rows_and_esc_closes_it_before_the_picker(open: &str) {
+fn the_key_help_takes_rows_and_esc_closes_it_before_the_picker(open: &str) {
     let mut session = started();
     session.send(open);
     let frame = session.wait_for("the key help", |frame| {
-        frame.rows[HINT].contains("esc close")
+        footer(frame).ends_with(CLOSE_KEYS) && footer(frame).contains("ubuntu@")
     });
-    assert!(frame.rows[0].starts_with("> type to filter"), "{frame}");
+    assert!(line(&frame, 0).starts_with(PROMPT), "{frame}");
     assert!(
-        frame.rows[2].starts_with("▌ LAB         lab-a"),
+        line(&frame, 2).starts_with("  lab-a"),
         "the list is still there: {frame}"
     );
     assert!(
-        frame.rows[ROUTE].starts_with("  └ "),
-        "the route under the selected host: {frame}"
+        footer(&frame).starts_with("  ubuntu@"),
+        "the route is on the footer: {frame}"
     );
-    assert!(frame.rows[12].is_empty(), "{frame}");
-    assert!(frame.rows[13].starts_with("  Enter"), "{frame}");
-    assert!(frame.has("toggle this help"), "{frame}");
-    assert_eq!(
-        frame.rows[HINT], "  ↑↓ move   enter ssh   esc close",
+    assert!(line(&frame, 7).is_empty(), "{frame}");
+    assert!(line(&frame, 8).starts_with("  Enter"), "{frame}");
+    assert!(
+        frame.has("toggle help; ? only on an empty filter"),
         "{frame}"
     );
+    assert!(footer(&frame).ends_with(CLOSE_KEYS), "{frame}");
+    let corners = frame.rows.iter().filter(|row| row.contains('╭')).count();
     assert!(
-        !frame.has("Keybinds") && !frame.has("┘"),
-        "not a popup: {frame}"
+        !frame.has("Keybinds") && corners == 1,
+        "not a popup, a section of the one panel: {frame}"
     );
 
     session.send("consul");
     let frame = session.wait_for("the filter to apply with the help open", |frame| {
-        frame.rows[HINT].contains("esc close")
-            && frame.rows[0].starts_with("> consul")
-            && frame.rows[0].ends_with("2/5")
-            && frame.rows[4] == "  NEW STAGING newstg-consul2"
+        footer(frame).contains("Close esc")
+            && line(frame, 0).starts_with("  consul")
+            && line(frame, 3).starts_with("  newstg-consul2")
+            && frame.cursor == prompt_at(80, 6)
     });
-    assert!(frame.has("toggle this help"), "{frame}");
+    assert!(
+        frame.has("toggle help; ? only on an empty filter"),
+        "{frame}"
+    );
 
     session.send("\x1b");
     let frame = session.wait_for("the key help to close, not the picker", |frame| {
-        frame.rows[HINT].contains("esc quit")
+        footer(frame).contains("Keys") && frame.cursor == prompt_at(80, 6)
     });
-    assert!(frame.alternate && !frame.has("toggle this help"), "{frame}");
+    assert!(frame.alternate && !frame.has("toggle help"), "{frame}");
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
     assert_restored(&session);
@@ -342,48 +462,54 @@ fn the_key_help_takes_the_blank_rows_and_esc_closes_it_before_the_picker(open: &
 #[test]
 fn a_short_terminal_points_at_pick_help_for_the_keys_it_cannot_show() {
     let mut options = Options::new("ui");
-    options.rows = 12;
+    options.rows = 16;
     let mut session = Session::start(options);
-    session.wait_for("the first frame", |frame| {
-        frame.rows[11].contains("esc quit")
-    });
+    let closed = |frame: &Frame| footer(frame).contains("Keys") && frame.cursor == (2, 5);
+    session.wait_for("the first frame", closed);
     session.send("\x1bOP");
-    let frame = session.wait_for("the key help", |frame| frame.rows[11].contains("esc close"));
-    assert_eq!(frame.rows[10], "  +7 more · sshpick pick --help", "{frame}");
-    assert!(frame.rows[7].starts_with("  Enter"), "{frame}");
-    session.send("\x1b");
-    session.wait_for("the key help to close", |frame| {
-        frame.rows[11].contains("esc quit")
+    let frame = session.wait_for("the key help", |frame| {
+        footer(frame).contains("Close esc") && frame.cursor == (2, 5)
     });
+    assert_eq!(
+        line(&frame, 9),
+        "  +7 more · sshpick pick --help",
+        "{frame}"
+    );
+    assert!(line(&frame, 6).starts_with("  Enter"), "{frame}");
+    session.send("\x1b");
+    session.wait_for("the key help to close", closed);
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
 }
 
 #[test]
-fn a_resize_redraws_one_picker_on_the_whole_screen() {
+fn a_resize_redraws_one_picker_in_the_new_size() {
     let mut session = started();
     session.wait_for("the route", resolved);
-    for (cols, rows) in [(50, 24), (120, 24), (40, 24), (80, 12)] {
+    //     cols rows  where the cursor goes: row, column
+    for (cols, rows, cursor) in [
+        (50, 24, (0, 2)),
+        (120, 24, (2, 8)),
+        (40, 24, (0, 2)),
+        (80, 12, (2, 5)),
+    ] {
         session.resize(cols, rows);
-        let hint = usize::from(rows) - 1;
         let frame = session.wait_for(&format!("a frame at {cols}x{rows}"), |frame| {
-            frame.rows[0].chars().count() == usize::from(cols)
-                && frame.rows[0].ends_with("5/5")
-                && frame.rows[hint].contains("esc quit")
-                && frame.cursor == (0, 2)
+            footer(frame).contains('↵') && frame.cursor == cursor
         });
         let prompts = frame
             .rows
             .iter()
-            .filter(|row| row.starts_with("> "))
+            .filter(|row| row.contains("Search host"))
             .count();
-        let hints = frame
-            .rows
-            .iter()
-            .filter(|row| row.contains("esc quit"))
-            .count();
+        let hints = frame.rows.iter().filter(|row| row.contains('↵')).count();
         assert_eq!((prompts, hints), (1, 1), "{frame}");
-        assert!(frame.rows[ROUTE].contains("ubuntu@"), "{frame}");
+        assert!(footer(&frame).contains("ubuntu@"), "{frame}");
+        assert_eq!(
+            frame.has("╭"),
+            cols >= 60 && rows >= 10,
+            "a border where there is room for one: {frame}"
+        );
     }
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
@@ -395,17 +521,15 @@ fn a_resize_with_the_help_open_leaves_the_scrollback_alone() {
     let mut session = started();
     session.wait_for("the route", resolved);
     session.send("\x1bOP");
-    session.wait_for("the key help", |frame| {
-        frame.rows[HINT].contains("esc close")
-    });
+    session.wait_for("the key help", |frame| footer(frame).contains("Close esc"));
     session.resize(50, 24);
     let frame = session.wait_for("a narrower frame", |frame| {
-        frame.rows[0].chars().count() == 50 && frame.rows[HINT].contains("esc close")
+        footer(frame).contains("esc") && frame.cursor == (0, 2)
     });
-    assert!(frame.rows[0].starts_with("> type to filter"), "{frame}");
+    assert!(line(&frame, 0).starts_with(PROMPT), "{frame}");
     session.send("\x1b");
     session.wait_for("the key help to close", |frame| {
-        frame.rows[HINT].contains("esc quit")
+        footer(frame).contains('↵') && !footer(frame).contains("esc") && frame.cursor == (0, 2)
     });
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
@@ -413,22 +537,22 @@ fn a_resize_with_the_help_open_leaves_the_scrollback_alone() {
 }
 
 #[test]
-fn a_two_row_terminal_shows_the_prompt_and_one_host_and_enter_connects_to_it() {
+fn a_two_row_terminal_shows_the_prompt_and_the_selected_host_and_enter_connects_to_it() {
     let mut options = Options::new("ui");
     options.cols = 30;
     options.rows = 2;
     options.shell = &["$ sshpick"];
     let mut session = Session::start(options);
     let frame = session.wait_for("a two-row picker", |frame| {
-        frame.alternate && frame.rows[1].ends_with("lab-a")
+        frame.alternate && frame.rows[1].contains("lab-a")
     });
-    assert_eq!(
-        frame.rows,
-        ["> type to filter           5/5", "▌ LAB         lab-a"],
-        "{frame}"
+    assert!(frame.rows[0].contains("Search host"), "{frame}");
+    assert!(
+        frame.rows[1].contains("lab-a"),
+        "one line per host: {frame}"
     );
     session.send("\x0e");
-    session.wait_for("the next host", |frame| frame.rows[1].ends_with("lab-b"));
+    session.wait_for("the next host", |frame| frame.rows[1].contains("lab-b"));
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
     let frame = session.frame();
@@ -447,17 +571,18 @@ fn config_warnings_print_before_the_picker_and_are_still_there_after_it_closes()
     // repository is checked out.
     options.cols = 240;
     let mut session = Session::start(options);
-    let open = session.wait_for("the first frame", drawn);
-    assert!(open.rows[0].starts_with("> type to filter"), "{open}");
+    let first = |frame: &Frame| {
+        frame.alternate && footer(frame).contains("Keys") && frame.cursor == prompt_at(240, 0)
+    };
+    let open = session.wait_for("the first frame", first);
+    assert!(line(&open, 0).starts_with(PROMPT), "{open}");
 
     session.send("\x1bOP");
-    let help = session.wait_for("the key help", |frame| {
-        frame.rows[HINT].contains("esc close")
-    });
+    let help = session.wait_for("the key help", |frame| footer(frame).contains("Close esc"));
     assert!(!help.has("Warnings"), "{help}");
 
     session.send("\x1b");
-    session.wait_for("the key help to close", drawn);
+    session.wait_for("the key help to close", first);
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
     let frame = session.frame();
@@ -477,7 +602,7 @@ fn typing_before_the_first_frame_is_not_lost() {
     options.typed = "consul";
     let session = Session::start(options);
     session.wait_for("the typed query", |frame| {
-        frame.rows[0].starts_with("> consul") && frame.rows[0].ends_with("2/5")
+        line(frame, 0).starts_with("  consul") && line(frame, 3).starts_with("  newstg-consul2")
     });
 }
 
@@ -495,9 +620,7 @@ fn a_killed_picker_gives_the_shell_its_screen_back_and_dies_of_the_signal(signal
 fn a_picker_killed_with_the_help_open_gives_the_screen_back_too() {
     let mut session = started();
     session.send("\x1bOP");
-    session.wait_for("the key help", |frame| {
-        frame.rows[HINT].contains("esc close")
-    });
+    session.wait_for("the key help", |frame| footer(frame).contains("Close esc"));
     session.signal(Signal::SIGTERM);
     assert_eq!(session.exit(), Exit::Signal(Signal::SIGTERM));
     assert_restored(&session);
@@ -510,14 +633,12 @@ fn the_picker_never_asks_the_terminal_anything_or_sets_a_mode_of_its_own() {
     let mut session = started();
     session.wait_for("the route", resolved);
     session.send("\x1bOP");
-    session.wait_for("the key help", |frame| {
-        frame.rows[HINT].contains("esc close")
-    });
+    session.wait_for("the key help", |frame| footer(frame).contains("Close esc"));
     session.send("\x1b");
     session.wait_for("the key help to close", drawn);
     session.resize(50, 24);
     session.wait_for("a narrower frame", |frame| {
-        frame.rows[0].chars().count() == 50 && drawn(frame)
+        footer(frame).contains('↵') && frame.cursor == (0, 2)
     });
     session.send("\x1b");
     assert_eq!(session.exit(), Exit::Code(130));
@@ -572,7 +693,7 @@ fn a_dumb_terminal_never_gets_the_picker_or_an_escape_byte(
     assert_eq!(session.exit(), Exit::Code(code));
     let frame = session.frame();
     assert!(frame.has(said), "{frame}");
-    assert!(!frame.has("type to filter"), "{frame}");
+    assert!(!frame.has("Search host"), "{frame}");
     assert!(!session.output().contains(&0x1b), "{frame}");
 }
 
@@ -637,7 +758,7 @@ fn enter_records_the_host_it_ran_ssh_for() {
     let mut session = started();
     assert_eq!(session.history(), None, "nothing before a connection");
     session.send("'lab-b");
-    session.wait_for("one match", |frame| frame.rows[0].ends_with("1/5"));
+    session.wait_for("one match", one_match);
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
     assert_eq!(
@@ -685,20 +806,19 @@ fn the_host_used_last_is_the_first_row_and_one_enter_reconnects_to_it() {
     options.history = RECENT;
     let mut session = Session::start(options);
     let frame = session.wait_for("the first frame", drawn);
-    assert_eq!(
-        frame.rows[1], "  ENV         HOST           LAST WHAT",
+    assert!(line(&frame, 1).is_empty(), "{frame}");
+    assert!(
+        line(&frame, 2).starts_with("  newstg-consul2")
+            && line(&frame, 2).ends_with("2h  NEW STAGING"),
         "{frame}"
     );
     assert!(
-        frame.rows[2].starts_with("▌ NEW STAGING newstg-consul2   2h"),
-        "{frame}"
+        line(&frame, 3).starts_with("  lab-b")
+            && line(&frame, 3).contains("3d")
+            && line(&frame, 3).ends_with("  LAB"),
+        "LAST before ENV on the same line: {frame}"
     );
-    assert!(frame.rows[3].starts_with("  └ "), "{frame}");
-    assert!(
-        frame.rows[4].starts_with("  LAB         lab-b            3d"),
-        "{frame}"
-    );
-    assert!(frame.rows[5].starts_with("  LAB         lab-a "), "{frame}");
+    assert!(line(&frame, 4).starts_with("  lab-a"), "{frame}");
 
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
@@ -769,7 +889,7 @@ fn print_draws_on_the_terminal_while_stdout_gets_only_the_host() {
     let file = stdout_file("print");
     let mut session = printing(&file);
     session.send("lab-a");
-    session.wait_for("one match", |frame| frame.rows[0].ends_with("1/5"));
+    session.wait_for("one match", one_match);
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
     assert_restored(&session);
@@ -816,7 +936,7 @@ fn print_on_a_terminal_prints_the_host_after_the_shell_lines() {
     let mut session = Session::start(options);
     session.wait_for("the first frame", drawn);
     session.send("build");
-    session.wait_for("one match", |frame| frame.rows[0].ends_with("1/5"));
+    session.wait_for("one match", one_match);
     session.send("\r");
     assert_eq!(session.exit(), Exit::Code(0));
     let frame = session.frame();

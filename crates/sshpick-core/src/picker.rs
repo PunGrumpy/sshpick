@@ -4,6 +4,7 @@ use std::ops::Range;
 use crate::config::{Entry, Host};
 use crate::history::Recents;
 use crate::rank::{Match, Ranker};
+use crate::window::{scroll_to_show, shown};
 
 pub struct Picker {
     ranker: Ranker,
@@ -52,23 +53,13 @@ pub struct View<'a> {
     pub query: &'a str,
     pub matched: usize,
     pub total: usize,
-    /// Matches scrolled off the top.
-    pub above: usize,
-    /// The rows that fit, top to bottom as drawn: the best visible match first (fzf's
+    /// The rows that fit whole, top to bottom as drawn: the best visible match first (fzf's
     /// `--layout=reverse`). Exactly one is `selected` unless nothing matched.
     pub rows: Vec<Row<'a>>,
     pub help: bool,
     /// Some host, matched or not, has a last use, so LAST has something to show. Fixed for the
     /// session: the column never appears or disappears as the query changes.
     pub recents: bool,
-}
-
-impl View<'_> {
-    /// The 1-based, inclusive window of matches on screen, only when it is not all of them.
-    pub fn range(&self) -> Option<(usize, usize)> {
-        (self.matched > self.rows.len() && !self.rows.is_empty())
-            .then(|| (self.above + 1, self.above + self.rows.len()))
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -184,21 +175,19 @@ impl Picker {
         None
     }
 
-    pub fn follow(&mut self, height: usize) {
-        self.scroll = scroll_to_show(
-            self.scroll,
-            self.matches.cursor(),
-            height,
-            self.matches.len(),
-        );
+    /// Scroll so that the selected host is in `room` lines.
+    pub fn follow(&mut self, room: usize) {
+        self.scroll = scroll_to_show(self.scroll, self.matches.cursor(), self.matches.len(), room);
     }
 
-    pub fn view(&self, height: usize) -> View<'_> {
+    /// The hosts that fit in `room` lines from the scroll. Every host is one row.
+    pub fn view(&self, room: usize) -> View<'_> {
+        let count = shown(self.scroll, self.matches.len(), room);
         let rows: Vec<_> = self
             .matches
             .ranked()
             .skip(self.scroll)
-            .take(height)
+            .take(count)
             .map(|(found, selected)| {
                 let entry = self.ranker.entry(found);
                 Row {
@@ -214,7 +203,6 @@ impl Picker {
             query: &self.query,
             matched: self.matches.len(),
             total: self.ranker.len(),
-            above: self.scroll,
             rows,
             help: self.help,
             recents: self.ranker.remembers(),
@@ -309,19 +297,6 @@ impl Matches {
     }
 }
 
-fn scroll_to_show(scroll: usize, cursor: usize, height: usize, len: usize) -> usize {
-    if height == 0 {
-        return scroll;
-    }
-    let scroll = scroll.min(cursor);
-    let scroll = if cursor >= scroll + height {
-        cursor + 1 - height
-    } else {
-        scroll
-    };
-    scroll.min(len.saturating_sub(height))
-}
-
 fn runs<'a>(text: &'a str, hits: &[Range<usize>]) -> Vec<Run<'a>> {
     let mut runs = Vec::new();
     let mut at = 0;
@@ -397,11 +372,6 @@ mod tests {
         for c in text.chars() {
             assert_eq!(picker.handle(Key::Char(c)), None);
         }
-    }
-
-    fn range(picker: &mut Picker, height: usize) -> Option<(usize, usize)> {
-        picker.follow(height);
-        picker.view(height).range()
     }
 
     fn picked(outcome: Option<Outcome>) -> Option<String> {
@@ -496,7 +466,6 @@ mod tests {
             (strings(&["c", "d"]), Some(1)),
             "the window follows the wrap to the bottom"
         );
-        assert_eq!(picker.view(2).range(), Some((3, 4)));
         picker.handle(Key::Down);
         assert_eq!(
             selected(&picker),
@@ -861,36 +830,32 @@ mod tests {
     }
 
     #[test]
-    fn view_gives_the_window_of_matches_on_screen_only_when_it_is_not_all_of_them() {
-        let mut picker = picker(&["a", "b", "c", "d", "e"]);
-        assert_eq!(range(&mut picker, 5), None, "all fit");
-        assert_eq!(range(&mut picker, 3), Some((1, 3)));
-        for _ in 0..3 {
-            picker.handle(Key::Down);
-        }
+    fn every_host_is_one_line_whatever_it_has() {
+        let mut picker = picker(&["a # build box", "b", "c # bastion", "d"]);
+        let drawn = |picker: &mut Picker, room| {
+            picker.follow(room);
+            let view = picker.view(room);
+            let hosts: Vec<String> = view
+                .rows
+                .iter()
+                .map(|row| row.host.iter().map(|run| run.text).collect())
+                .collect();
+            (hosts, view.rows.iter().position(|r| r.selected))
+        };
+        assert_eq!(drawn(&mut picker, 3), (strings(&["a", "b", "c"]), Some(0)));
+        picker.handle(Key::Down);
+        picker.handle(Key::Down);
         assert_eq!(
-            range(&mut picker, 3),
-            Some((2, 4)),
-            "the window followed the cursor"
+            drawn(&mut picker, 3),
+            (strings(&["a", "b", "c"]), Some(2)),
+            "c is still in view"
         );
         picker.handle(Key::Down);
-        picker.follow(3);
-        let view = picker.view(3);
         assert_eq!(
-            (view.above, view.matched, view.range()),
-            (2, 5, Some((3, 5))),
-            "scrolled to the end"
+            drawn(&mut picker, 3),
+            (strings(&["b", "c", "d"]), Some(2)),
+            "d is the last"
         );
-        assert_eq!(
-            range(&mut picker, 1),
-            Some((5, 5)),
-            "the cursor row is the last one"
-        );
-        picker.handle(Key::Up);
-        assert_eq!(range(&mut picker, 1), Some((4, 4)));
-        assert_eq!(range(&mut picker, 0), None, "no room, no window");
-        type_text(&mut picker, "zzzz");
-        assert_eq!(range(&mut picker, 3), None, "nothing matched");
     }
 
     #[test]
@@ -914,26 +879,12 @@ mod tests {
             before.rows.iter().all(|row| !row.selected),
             "view alone does not scroll to the cursor"
         );
-        assert_eq!((before.above, before.range()), (0, Some((1, 2))));
+        assert_eq!(before.rows.len(), 2);
         assert_eq!(
             drawn(&mut picker, 2),
             (strings(&["d", "e"]), Some(1)),
             "follow brings the cursor into view"
         );
-    }
-
-    #[test]
-    fn scrolling_keeps_the_cursor_in_view_like_fzf() {
-        let cases = [
-            ((0, 0, 5, 20), 0),
-            ((0, 5, 5, 20), 1),
-            ((3, 2, 5, 20), 2),
-            ((10, 11, 5, 12), 7),
-            ((4, 4, 0, 20), 4),
-        ];
-        for ((scroll, cursor, height, len), want) in cases {
-            assert_eq!(scroll_to_show(scroll, cursor, height, len), want);
-        }
     }
 
     #[test]

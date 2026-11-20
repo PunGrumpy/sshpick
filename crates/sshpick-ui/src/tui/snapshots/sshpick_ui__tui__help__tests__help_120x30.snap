@@ -1,34 +1,33 @@
 ---
 source: crates/sshpick-ui/src/tui/help.rs
-expression: frame(&lines)
+expression: shown(&t)
 ---
- 0|> consul                                                                                                             2/5
- 1|  ENV         HOST           WHAT
- 2|▌ NEW STAGING newstg-consul1 consul server 1 — mgmt
- 3|  └ ubuntu@10.11.212.191:22 via newstg-bastion
- 4|  NEW STAGING newstg-consul2
- 5|
- 6|
- 7|
- 8|
- 9|
-10|
-11|
-12|
-13|
-14|
-15|
-16|
-17|
-18|
-19|  Enter                       - ssh to the selected host
-20|  Esc, Ctrl-C, Ctrl-G, Ctrl-Q - quit (exit 130); Esc closes this help first
-21|  Up, Ctrl-P, Ctrl-K          - select the previous host; wraps to the last
-22|  Down, Ctrl-N, Ctrl-J        - select the next host; wraps to the first
-23|  type                        - filter; 'exact ^prefix suffix$ !not
-24|  Backspace, Ctrl-H           - delete the last character
-25|  Ctrl-U                      - clear the filter
-26|  Ctrl-W                      - delete the last word
-27|  Ctrl-D                      - quit when the filter is empty
-28|  ?, F1                       - toggle this help (? only on an empty filter)
-29|  ↑↓ move   enter ssh   esc close
+ 0|
+ 1|     ╭────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ 2|     │  consul                                                                                             2 / 5  │
+ 3|     │                                                                                                            │
+ 4|     │  newstg-consul1  consul server 1 — mgmt                                                       NEW STAGING  │
+ 5|     │  newstg-consul2                                                                               NEW STAGING  │
+ 6|     │                                                                                                            │
+ 7|     │                                                                                                            │
+ 8|     │                                                                                                            │
+ 9|     │                                                                                                            │
+10|     │                                                                                                            │
+11|     │                                                                                                            │
+12|     │                                                                                                            │
+13|     │                                                                                                            │
+14|     │                                                                                                            │
+15|     │                                                                                                            │
+16|     │  Enter                        ssh to the selected host                                                     │
+17|     │  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes the help first                                   │
+18|     │  Up, Ctrl-P, Ctrl-K           previous host; wraps to the last                                             │
+19|     │  Down, Ctrl-N, Ctrl-J         next host; wraps to the first                                                │
+20|     │  type                         filter; 'exact ^prefix suffix$ !not                                          │
+21|     │  Backspace, Ctrl-H            delete the last character                                                    │
+22|     │  Ctrl-U                       clear the filter                                                             │
+23|     │  Ctrl-W                       delete the last word                                                         │
+24|     │  Ctrl-D                       quit when the filter is empty                                                │
+25|     │  ?, F1                        toggle help; ? only on an empty filter                                       │
+26|     ├────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+27|     │  ubuntu@10.11.212.191:22 via newstg-bastion                                        Close esc    Connect ↵  │
+28|     ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯

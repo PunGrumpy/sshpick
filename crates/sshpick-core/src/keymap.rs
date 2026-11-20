@@ -11,15 +11,15 @@ pub const BINDINGS: &[Binding] = &[
     },
     Binding {
         keys: "Esc, Ctrl-C, Ctrl-G, Ctrl-Q",
-        does: "quit (exit 130); Esc closes this help first",
+        does: "quit (exit 130); Esc closes the help first",
     },
     Binding {
         keys: "Up, Ctrl-P, Ctrl-K",
-        does: "select the previous host; wraps to the last",
+        does: "previous host; wraps to the last",
     },
     Binding {
         keys: "Down, Ctrl-N, Ctrl-J",
-        does: "select the next host; wraps to the first",
+        does: "next host; wraps to the first",
     },
     Binding {
         keys: "type",
@@ -43,7 +43,7 @@ pub const BINDINGS: &[Binding] = &[
     },
     Binding {
         keys: "?, F1",
-        does: "toggle this help (? only on an empty filter)",
+        does: "toggle help; ? only on an empty filter",
     },
 ];
 

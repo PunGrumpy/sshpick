@@ -1,0 +1,18 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: shown(&t)
+---
+ 0|  con                                      2 / 5
+ 1|
+ 2|  newstg-consul1  consul server 1 …  NEW STAGING
+ 3|  newstg-consul2                     NEW STAGING
+ 4|
+ 5|
+ 6|
+ 7|
+ 8|
+ 9|
+10|
+11|
+12|
+13|  ubuntu@10.11.212.191:22…  Keys F1    Connect ↵

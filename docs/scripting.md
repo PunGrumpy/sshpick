@@ -6,7 +6,7 @@
     sshpick ls --recent         # the hosts you connected to last first, as the picker lists them
     sshpick --list | fzf        # the older spelling, still works
 
-On a terminal `ls` prints an aligned table with a dim header, the way the picker draws its rows,
+On a terminal `ls` prints an aligned table with a dim header,
 and a line on stderr such as `> 4 of 12 hosts match "consul"`. ENV is left out when no host has
 one, and WHAT is cut with `…` to the width of the terminal.
 
@@ -136,7 +136,7 @@ order:
 
 | Setting                                          | Effect                                       |
 |--------------------------------------------------|----------------------------------------------|
-| `--no-color`, or a non-empty `NO_COLOR`          | no colour; bold and dim stay on a terminal   |
+| `--no-color`, or a non-empty `NO_COLOR`          | no colour; bold, dim and reverse stay        |
 | `CLICOLOR_FORCE` set, not empty, not `0`         | colour even when output is not a terminal    |
 | `TERM=dumb`                                      | no colour                                    |
 | none of these                                    | colour when the stream is a terminal         |

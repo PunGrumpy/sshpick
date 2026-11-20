@@ -332,8 +332,8 @@ impl Ranker {
     }
 
     /// Every positive word matches inside one field of its scope, and no negative word matches
-    /// any. The score is the sum of each word's best field. The hits go to HOST whenever HOST
-    /// matched, since the host name is what a person types, and otherwise to the best field.
+    /// any. The score is the sum of each word's best field. The hits are the characters of every
+    /// drawn field the word matched in, so a word found in HOST is also shown in its WHAT.
     fn score(&mut self, index: usize, words: &[Word]) -> Option<(u32, Hits)> {
         let item = &self.items[index];
         let mut total = 0;
@@ -341,8 +341,7 @@ impl Ranker {
         let mut host = Vec::new();
         let mut what = Vec::new();
         for word in words {
-            let mut best: Option<(u16, Field, Vec<u32>)> = None;
-            let mut in_host: Option<Vec<u32>> = None;
+            let mut best: Option<u16> = None;
             for (field, text) in item.fields(word.scope) {
                 let (matcher, chars, indices) =
                     (&mut self.matcher, &mut self.chars, &mut self.indices);
@@ -352,25 +351,18 @@ impl Ranker {
                 if word.negative {
                     return None;
                 }
-                if field == Field::Host {
-                    in_host = Some(self.indices.clone());
-                }
-                if best.as_ref().is_none_or(|(best, _, _)| score > *best) {
-                    best = Some((score, field, self.indices.clone()));
+                best = best.max(Some(score));
+                match field {
+                    Field::Env => env.extend_from_slice(&self.indices),
+                    Field::Host => host.extend_from_slice(&self.indices),
+                    Field::What => what.extend_from_slice(&self.indices),
+                    Field::Alias | Field::Written => {}
                 }
             }
             if word.negative {
                 continue;
             }
-            let (score, field, indices) = best?;
-            total += u32::from(score);
-            let (field, indices) = in_host.map_or((field, indices), |host| (Field::Host, host));
-            match field {
-                Field::Env => env.extend(indices),
-                Field::Host => host.extend(indices),
-                Field::What => what.extend(indices),
-                Field::Alias | Field::Written => {}
-            }
+            total += u32::from(best?);
         }
         let entry = &item.entry;
         let hits = Hits {
@@ -599,7 +591,7 @@ mod tests {
     }
 
     #[test]
-    fn a_word_the_host_name_holds_is_highlighted_there() {
+    fn a_word_is_highlighted_in_every_drawn_field_it_matches() {
         let mut ranker = with_no_history(vec![entry(
             "PRODUCTION",
             "prod-db-primary",
@@ -609,7 +601,23 @@ mod tests {
         let found = ranker.rank("prod db");
         let hits = &found[0].hits;
         assert_eq!(spans(&hits.host), [(0, 4), (5, 7)]);
-        assert!(hits.env.is_empty() && hits.what.is_empty());
+        assert_eq!(spans(&hits.env), [(0, 4)], "prod is in ENV too");
+        assert_eq!(spans(&hits.what), [(0, 2)], "db is in WHAT too");
+    }
+
+    #[test]
+    fn a_word_in_the_host_is_also_bold_in_the_what_that_holds_it() {
+        let mut ranker = with_no_history(vec![entry(
+            "NEW STAGING",
+            "newstg-consul1",
+            "consul server 1 \u{2014} mgmt",
+            &[],
+        )]);
+        let found = ranker.rank("con");
+        let hits = &found[0].hits;
+        assert_eq!(spans(&hits.host), [(7, 10)]);
+        assert_eq!(spans(&hits.what), [(0, 3)]);
+        assert!(hits.env.is_empty());
     }
 
     #[test]

@@ -2,12 +2,15 @@ use std::ffi::OsString;
 use std::fmt::Display;
 use std::io::{self, IsTerminal, StdoutLock, Write};
 
+use sshpick_core::Surface;
+
 use crate::color::ColorConfig;
 
 #[derive(Debug)]
 pub struct Output {
     stdout: ColorConfig,
     stderr: ColorConfig,
+    no_color: bool,
     human: bool,
     columns: usize,
 }
@@ -21,6 +24,7 @@ impl Output {
         Output {
             stdout: ColorConfig::new(human, no_color, &var),
             stderr: ColorConfig::new(io::stderr().is_terminal(), no_color, &var),
+            no_color,
             human,
             columns: columns(human, &var),
         }
@@ -45,6 +49,15 @@ impl Output {
 
     pub fn stdout_colors(&self) -> ColorConfig {
         self.stdout
+    }
+
+    /// The colour decision for the stream the picker draws on. `/dev/tty` is a terminal: the
+    /// picker only opens on one.
+    pub fn picker_colors(&self, surface: Surface) -> ColorConfig {
+        match surface {
+            Surface::Stdout => self.stdout,
+            Surface::Tty => ColorConfig::new(true, self.no_color, &|name| std::env::var_os(name)),
+        }
     }
 
     /// Where results go. A reader that hangs up (`sshpick --help | head -1`) is not an error:

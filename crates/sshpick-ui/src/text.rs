@@ -9,18 +9,21 @@ pub(crate) const TITLES: [&str; 3] = ["ENV", "HOST", "WHAT"];
 pub(crate) struct ColumnWidths {
     pub(crate) env: Option<usize>,
     pub(crate) host: usize,
+    pub(crate) what: usize,
 }
 
 impl ColumnWidths {
     pub(crate) fn of<'a>(entries: impl IntoIterator<Item = &'a Entry>) -> ColumnWidths {
-        let (mut env, mut host) = (0, 0);
+        let (mut env, mut host, mut what) = (0, 0, 0);
         for entry in entries {
             env = env.max(columns(&entry.env));
             host = host.max(columns(entry.host.as_str()));
+            what = what.max(columns(&entry.what));
         }
         ColumnWidths {
             env: (env > 0).then(|| env.max(columns(TITLES[0]))),
             host: host.max(columns(TITLES[1])),
+            what,
         }
     }
 }
@@ -39,6 +42,15 @@ pub(crate) fn fit<'a>(runs: &[Run<'a>], limit: usize) -> Vec<Run<'a>> {
         .into_iter()
         .map(|(text, matched)| Run { text, matched })
         .collect()
+}
+
+/// `text` as one run, cut to `limit` columns with an ellipsis.
+pub(crate) fn cut(text: &str, limit: usize) -> String {
+    let whole = Run {
+        text,
+        matched: false,
+    };
+    fit(&[whole], limit).iter().map(|run| run.text).collect()
 }
 
 pub(crate) fn fit_parts<'a, T: Copy>(
@@ -80,7 +92,11 @@ mod tests {
     fn env_hides_when_empty_and_titles_set_the_minimum() {
         assert_eq!(
             ColumnWidths::of([]),
-            ColumnWidths { env: None, host: 4 },
+            ColumnWidths {
+                env: None,
+                host: 4,
+                what: 0,
+            },
             "HOST is never narrower than its title"
         );
     }

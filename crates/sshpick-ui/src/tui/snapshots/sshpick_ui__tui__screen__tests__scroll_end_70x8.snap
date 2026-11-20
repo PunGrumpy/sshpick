@@ -1,0 +1,12 @@
+---
+source: crates/sshpick-ui/src/tui/screen.rs
+expression: shown(&terminal)
+---
+ 0|  Search host, ENV or what                                   5 hosts
+ 1|
+ 2|  lab-a           LAB — personal VMs                             LAB
+ 3|  lab-b           build box                                      LAB
+ 4|  newstg-consul1  consul server 1 — mgmt                 NEW STAGING
+ 5|  newstg-consul2                                         NEW STAGING
+ 6|  newstg-bastion  bastion                                NEW STAGING
+ 7|  resolving…                                     Keys ?    Connect ↵

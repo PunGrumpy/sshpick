@@ -1015,7 +1015,7 @@ fn picker_layer(keys: &str, name: &str) -> (Exit, Option<Vec<String>>) {
     options.env = vec![("REX_RECORD".to_owned(), record.display().to_string())];
     let mut session = Session::start(options);
     session.wait_for("the picker", |frame| {
-        frame.alternate && frame.rows[23].contains("esc quit")
+        frame.alternate && frame.has("Connect ↵") && frame.has("╰")
     });
     session.send(keys);
     if keys.ends_with('\r') {
