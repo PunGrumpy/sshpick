@@ -5,6 +5,10 @@
 - Run `make quality` (fmt, taplo, `cargo lint`, cargo-deny, tests). Do not use `--no-verify`.
 - `unwrap()` and `expect()` are denied outside tests. Use `?`, `let ... else`, or a typed error.
 - Tests read `crates/*/tests/fixtures`, never the real `~/.ssh` (it changes under you).
+- A user-facing change adds a changeset (`bun run changeset`). The version lives in
+  `crates/sshpick/package.json`; never edit it or `Cargo.toml`'s by hand.
+- A change under `apps` or `scripts` runs `bun run check` (Ultracite: Oxlint and Oxfmt).
+  `bun run fix` fixes what it can. Rust, TOML and Markdown are outside its scope.
 
 ## Where code goes
 
