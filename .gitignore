@@ -4,3 +4,9 @@ target/
 rustc-ice-*.txt
 *.snap.new
 *.pending-snap
+node_modules/
+.turbo/
+.next/
+apps/*/out/
+next-env.d.ts
+*.tsbuildinfo

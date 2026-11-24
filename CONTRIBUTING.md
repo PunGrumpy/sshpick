@@ -14,6 +14,9 @@ You will need these installed to work on this repository:
   [`rust-toolchain.toml`](rust-toolchain.toml).
 - [taplo](https://taplo.tamasfe.dev) and [cargo-deny](https://github.com/EmbarkStudios/cargo-deny)
   for `make quality`. On macOS: `brew install taplo cargo-deny`.
+- [Bun](https://bun.com) 1.4.5, the version `package.json` names, for Changesets, Turborepo, the
+  scripts in `scripts` and the website. On macOS: `brew install oven-sh/bun/bun`, then
+  `bun install`.
 
 ## Structure of the repository
 
@@ -24,6 +27,15 @@ You will need these installed to work on this repository:
 - `crates/sshpick` is the `sshpick` and `sp` binaries, a few lines each, and the tests that run
   them.
 - `docs` is the user documentation.
+- `apps/web` is the website, a Next.js static export built from `README.md` and `docs`.
+- `scripts/sync-version.ts` copies the version from `crates/sshpick/package.json` into
+  `Cargo.toml`, `Cargo.lock` and `README.md`.
+
+The repository is also a [Turborepo](https://turborepo.dev) and Bun workspace:
+`bunx turbo run build lint test` runs the Rust tasks through `crates/sshpick/package.json` and
+builds the website. `bun run check` lints and checks the formatting of the website, `scripts` and
+the root JS/TS/JSON config with [Ultracite](https://www.ultracite.ai); `bun run fix` fixes what
+it can.
 
 Each crate has a `README.md` with its own layout. [AGENTS.md](AGENTS.md) has the rules for where
 new code goes.
@@ -50,11 +62,21 @@ change, run `INSTA_UPDATE=always cargo test` and read the `.snap` diffs before y
 
 ## Releasing
 
-1. Bump `version` in `Cargo.toml` and move the `Unreleased` entries in `CHANGELOG.md` under a new
-   `## [X.Y.Z] - YYYY-MM-DD` heading, in one PR.
-2. After it merges, tag the merge commit `vX.Y.Z` and push the tag. The Release workflow builds
-   Linux and macOS binaries, checks the tag against `Cargo.toml`, and publishes a GitHub release
-   with that CHANGELOG section as its notes.
+The version lives in `crates/sshpick/package.json`, and [Changesets](https://changesets.dev)
+writes it.
+
+1. A pull request that changes what users see runs `bun run changeset`, picks `sshpick` and the
+   bump, and commits the `.changeset/*.md` file it writes. Its text becomes the changelog entry.
+   Docs, CI and refactors need none.
+2. On `main`, the Release workflow keeps a `chore: Release sshpick` pull request open. It runs
+   `bun run version-packages`, which bumps `crates/sshpick/package.json`, writes
+   `crates/sshpick/CHANGELOG.md` and mirrors the version into `Cargo.toml`, `Cargo.lock` and the
+   install line in `README.md` with `scripts/sync-version.ts`.
+3. Merge that pull request. The Release workflow sees no tag for the new version, builds Linux and
+   macOS binaries, and publishes a GitHub release and its `vX.Y.Z` tag with that changelog
+   section as its notes.
+
+`make test` fails when `package.json` and `Cargo.toml` disagree.
 
 ## Opening a pull request
 

@@ -1,0 +1,35 @@
+{
+  "name": "sshpick-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "crates/sshpick"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck && tsc --noEmit -p scripts",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "changeset": "changeset",
+    "version-packages": "changeset version && bun scripts/sync-version.ts"
+  },
+  "devDependencies": {
+    "@changesets/cli": "3.0.3",
+    "@interfere/landmines": "0.1.1",
+    "@types/bun": "1.4.5",
+    "eslint-plugin-github": "6.1.2",
+    "eslint-plugin-sonarjs": "4.2.2",
+    "oxfmt": "0.79.0",
+    "oxlint": "1.94.0",
+    "oxlint-plugin-react-doctor": "0.9.23",
+    "oxlint-tsgolint": "7.0.2008",
+    "turbo": "2.11.13",
+    "typescript": "5.9.3",
+    "ultracite": "8.3.1"
+  },
+  "packageManager": "bun@1.4.5"
+}

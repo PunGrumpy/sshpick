@@ -1,0 +1,44 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "inputs": [
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock",
+        "$TURBO_ROOT$/rust-toolchain.toml",
+        "$TURBO_ROOT$/.cargo/config.toml",
+        "$TURBO_ROOT$/crates/**",
+        "!.turbo/**"
+      ],
+      "outputs": []
+    },
+    "lint": {
+      "inputs": [
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock",
+        "$TURBO_ROOT$/rust-toolchain.toml",
+        "$TURBO_ROOT$/.cargo/config.toml",
+        "$TURBO_ROOT$/clippy.toml",
+        "$TURBO_ROOT$/crates/**",
+        "!.turbo/**"
+      ],
+      "outputs": []
+    },
+    "test": {
+      "inputs": [
+        "$TURBO_ROOT$/Cargo.toml",
+        "$TURBO_ROOT$/Cargo.lock",
+        "$TURBO_ROOT$/rust-toolchain.toml",
+        "$TURBO_ROOT$/.cargo/config.toml",
+        "$TURBO_ROOT$/crates/**",
+        "$TURBO_ROOT$/docs/**",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/integrations/**",
+        "$TURBO_ROOT$/skills/**",
+        "!.turbo/**"
+      ],
+      "outputs": []
+    }
+  }
+}
