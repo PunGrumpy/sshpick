@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stands in for keyway: prints nothing and exits with $FAKE_EXIT, as a cancelled or failed pick.
+echo "keyway-exits $*" >&2
+exit "${FAKE_EXIT:-0}"

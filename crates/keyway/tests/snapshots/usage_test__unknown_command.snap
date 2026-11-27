@@ -1,0 +1,6 @@
+---
+source: crates/keyway/tests/usage_test.rs
+expression: stderr(&out)
+---
+Error: unknown command "lst"
+Fix: did you mean `keyway help list`? See all commands with `keyway --help`.

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import manifest from "../crates/sshpick/package.json";
+import manifest from "../crates/keyway/package.json";
 
 interface Rule {
   file: string;
@@ -17,11 +17,11 @@ const { version } = manifest;
 
 if (!/^\d+\.\d+\.\d+$/u.test(version)) {
   throw new Error(
-    `crates/sshpick/package.json: version ${version} is not X.Y.Z`
+    `crates/keyway/package.json: version ${version} is not X.Y.Z`
   );
 }
 
-const lockPackages = ["sshpick", "sshpick-cli", "sshpick-core", "sshpick-ui"];
+const lockPackages = ["keyway", "keyway-cli", "keyway-core", "keyway-ui"];
 
 const rules: Rule[] = [
   {
@@ -40,7 +40,7 @@ const rules: Rule[] = [
   {
     file: "README.md",
     pattern:
-      /(?<=--git https:\/\/github\.com\/PunGrumpy\/sshpick --tag v)\S+(?= sshpick)/gu,
+      /(?<=--git https:\/\/github\.com\/PunGrumpy\/keyway --tag v)\S+(?= keyway)/gu,
     expectedMatches: 1,
   },
 ];

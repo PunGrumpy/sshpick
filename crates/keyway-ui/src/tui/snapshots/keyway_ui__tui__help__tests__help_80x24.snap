@@ -1,0 +1,27 @@
+---
+source: crates/keyway-ui/src/tui/help.rs
+expression: shown(&terminal)
+---
+ 0|
+ 1|  ╭──────────────────────────────────────────────────────────────────────────╮
+ 2|  │  Search host, ENV or what                                       5 hosts  │
+ 3|  │                                                                          │
+ 4|  │  lab-a           LAB — personal VMs                                 LAB  │
+ 5|  │  lab-b           build box                                          LAB  │
+ 6|  │  newstg-consul1  consul server 1 — mgmt                     NEW STAGING  │
+ 7|  │  newstg-consul2                                             NEW STAGING  │
+ 8|  │  newstg-bastion  bastion                                    NEW STAGING  │
+ 9|  │                                                                          │
+10|  │  Enter                        ssh to the selected host                   │
+11|  │  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes the help first │
+12|  │  Up, Ctrl-P, Ctrl-K           previous host; wraps to the last           │
+13|  │  Down, Ctrl-N, Ctrl-J         next host; wraps to the first              │
+14|  │  type                         filter; 'exact ^prefix suffix$ !not        │
+15|  │  Backspace, Ctrl-H            delete the last character                  │
+16|  │  Ctrl-U                       clear the filter                           │
+17|  │  Ctrl-W                       delete the last word                       │
+18|  │  Ctrl-D                       quit when the filter is empty              │
+19|  │  ?, F1                        toggle help; ? only on an empty filter     │
+20|  ├──────────────────────────────────────────────────────────────────────────┤
+21|  │  ubuntu@10.11.212.191:22 via newstg-bastion      Close esc    Connect ↵  │
+22|  ╰──────────────────────────────────────────────────────────────────────────╯

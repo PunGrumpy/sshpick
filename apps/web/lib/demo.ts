@@ -71,7 +71,7 @@ const typing = (word: string, rows: HostName[], selected: HostName) =>
   }));
 
 /**
- * A scripted picker session over the hosts in crates/sshpick/tests/fixtures/ui, the fixture the
+ * A scripted picker session over the hosts in crates/keyway/tests/fixtures/ui, the fixture the
  * frame tests and the README picture use. Each step is one frame and how long it stays up.
  */
 export const script: Step[] = [

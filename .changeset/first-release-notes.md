@@ -1,5 +1,5 @@
 ---
-"sshpick": minor
+"keyway": minor
 ---
 
 The first release. Everything before it was installed from `main`.
@@ -13,7 +13,7 @@ The first release. Everything before it was installed from `main`.
 
 - A `candidates` array in `several_matches` JSON errors (#29).
 - A `timeout` reason when `ssh -G` gives no answer within 2 s; `doctor` reports it as `warn` (#28).
-- `skills/sshpick/SKILL.md`, a guide for coding agents (#31).
+- `skills/keyway/SKILL.md`, a guide for coding agents (#31).
 - Prebuilt binaries for Linux and macOS on each release, and `rust-version` in the manifest.
 
 ### Changed

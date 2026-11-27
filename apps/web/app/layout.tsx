@@ -15,7 +15,7 @@ const serif = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: { default: "sshpick", template: "%s · sshpick" },
+  title: { default: "keyway", template: "%s · keyway" },
   description: readme().intro.replaceAll("`", ""),
 };
 
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
 
 const links = [
   { href: "/docs/", label: "docs" },
-  { href: blobUrl("crates/sshpick/CHANGELOG.md"), label: "changelog" },
+  { href: blobUrl("crates/keyway/CHANGELOG.md"), label: "changelog" },
   { href: repoUrl, label: "source" },
 ];
 
@@ -58,7 +58,7 @@ export default function RootLayout({
         <header className="sticky top-0 z-10 border-b border-border bg-bg/85 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-[56rem] items-center justify-between px-4 sm:px-6">
             <Link href="/" className="font-medium">
-              sshpick
+              keyway
             </Link>
             <Nav className="text-[13px]" />
           </div>
@@ -66,7 +66,7 @@ export default function RootLayout({
         {children}
         <footer className="border-t border-border">
           <div className="mx-auto flex max-w-[56rem] flex-col gap-3 px-4 py-10 text-[13px] text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <span>sshpick</span>
+            <span>keyway</span>
             <Nav />
           </div>
         </footer>

@@ -1,14 +1,14 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-import manifest from "../../../crates/sshpick/package.json";
+import manifest from "../../../crates/keyway/package.json";
 
 const repoRoot = path.resolve(process.cwd(), "../..");
 const read = (file: string) => readFileSync(path.join(repoRoot, file), "utf-8");
 
 const joinLines = (text: string) => text.replaceAll(/\s*\n\s*/gu, " ");
 
-export const repoUrl = "https://github.com/PunGrumpy/sshpick";
+export const repoUrl = "https://github.com/PunGrumpy/keyway";
 export const blobUrl = (file: string) => `${repoUrl}/blob/main/${file}`;
 
 const expectMatch = (
@@ -54,7 +54,7 @@ export const readme = () => {
     expectMatch(
       file,
       "the intro",
-      /^sshpick is [\s\S]+?\n\n/mu.exec(text)
+      /^keyway is [\s\S]+?\n\n/mu.exec(text)
     )[0].trim()
   );
 
@@ -69,7 +69,7 @@ export const readme = () => {
   const [installLine] = expectMatch(
     file,
     "the install command",
-    /^cargo install .*--tag v\S+ sshpick$/mu.exec(text)
+    /^cargo install .*--tag v\S+ keyway$/mu.exec(text)
   );
 
   const install = installLine.replace(/--tag v\S+/u, `--tag v${version}`);
@@ -77,7 +77,7 @@ export const readme = () => {
   const [block] = expectMatch(
     file,
     "the command examples",
-    /(?<=```bash\n)(?:sshpick[^\n]*\n)+(?=```)/u.exec(text)
+    /(?<=```bash\n)(?:keyway[^\n]*\n)+(?=```)/u.exec(text)
   );
 
   const commands = block
@@ -147,7 +147,7 @@ export const docSource = (slug: string) =>
  * instead of leaving the site showing hosts the tests no longer use.
  */
 export const assertFixtureHosts = (names: string[]) => {
-  const dir = "crates/sshpick/tests/fixtures/ui/.ssh/config.d";
+  const dir = "crates/keyway/tests/fixtures/ui/.ssh/config.d";
 
   const declared = new Set(
     readdirSync(path.join(repoRoot, dir)).flatMap((name) =>

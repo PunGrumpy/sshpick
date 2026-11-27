@@ -1,0 +1,6 @@
+---
+source: crates/keyway/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: no host matches "inspekt stg-consul1 zzz"
+Fix: did you mean `keyway inspect stg-consul1 zzz`?

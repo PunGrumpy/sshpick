@@ -1,0 +1,26 @@
+---
+source: crates/keyway-ui/src/tui/screen.rs
+expression: styles(&con)
+---
+y1  DIM[2..77]
+y2  DIM[2..2] DIM[70..74] DIM[77..77]
+y3  DIM[2..2] DIM[77..77]
+y4  DIM[2..2] REV[4..75] BOLD[12..14] BOLD[21..23] DIM[77..77]
+y5  DIM[2..2] BOLD[12..14] DIM[64..74] DIM[77..77]
+y6  DIM[2..2] DIM[77..77]
+y7  DIM[2..2] DIM[77..77]
+y8  DIM[2..2] DIM[77..77]
+y9  DIM[2..2] DIM[77..77]
+y10 DIM[2..2] DIM[77..77]
+y11 DIM[2..2] DIM[77..77]
+y12 DIM[2..2] DIM[77..77]
+y13 DIM[2..2] DIM[77..77]
+y14 DIM[2..2] DIM[77..77]
+y15 DIM[2..2] DIM[77..77]
+y16 DIM[2..2] DIM[77..77]
+y17 DIM[2..2] DIM[77..77]
+y18 DIM[2..2] DIM[77..77]
+y19 DIM[2..2] DIM[77..77]
+y20 DIM[2..77]
+y21 DIM[2..2] DIM[5..46] DIM[55..58] BOLD[59..62] DIM[66..72] BOLD[73..75] DIM[77..77]
+y22 DIM[2..77]

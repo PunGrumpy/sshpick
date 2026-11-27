@@ -1,8 +1,8 @@
-Thank you for your interest in contributing to sshpick!
+Thank you for your interest in contributing to keyway!
 
 - [General dependencies](#general-dependencies)
 - [Structure of the repository](#structure-of-the-repository)
-- [Building sshpick](#building-sshpick)
+- [Building keyway](#building-keyway)
 - [Running tests](#running-tests)
 - [Opening a pull request](#opening-a-pull-request)
 
@@ -20,19 +20,19 @@ You will need these installed to work on this repository:
 
 ## Structure of the repository
 
-- `crates/sshpick-core` holds every rule: the config reader, ranking, the picker state and
+- `crates/keyway-core` holds every rule: the config reader, ranking, the picker state and
   `ssh -G`. It cannot depend on a terminal crate, and `cargo deny` enforces that.
-- `crates/sshpick-ui` is the terminal and everything sshpick prints.
-- `crates/sshpick-cli` is argv, help, errors, exit codes and one file per command.
-- `crates/sshpick` is the `sshpick` and `sp` binaries, a few lines each, and the tests that run
+- `crates/keyway-ui` is the terminal and everything keyway prints.
+- `crates/keyway-cli` is argv, help, errors, exit codes and one file per command.
+- `crates/keyway` is the `keyway` and `kw` binaries, a few lines each, and the tests that run
   them.
 - `docs` is the user documentation.
 - `apps/web` is the website, a Next.js static export built from `README.md` and `docs`.
-- `scripts/sync-version.ts` copies the version from `crates/sshpick/package.json` into
+- `scripts/sync-version.ts` copies the version from `crates/keyway/package.json` into
   `Cargo.toml`, `Cargo.lock` and `README.md`.
 
 The repository is also a [Turborepo](https://turborepo.dev) and Bun workspace:
-`bunx turbo run build lint test` runs the Rust tasks through `crates/sshpick/package.json` and
+`bunx turbo run build lint test` runs the Rust tasks through `crates/keyway/package.json` and
 builds the website. `bun run check` lints and checks the formatting of the website, `scripts` and
 the root JS/TS/JSON config with [Ultracite](https://www.ultracite.ai); `bun run fix` fixes what
 it can.
@@ -40,11 +40,11 @@ it can.
 Each crate has a `README.md` with its own layout. [AGENTS.md](AGENTS.md) has the rules for where
 new code goes.
 
-## Building sshpick
+## Building keyway
 
 ```bash
 make setup     # once per clone: a pre-push hook that runs cargo fmt and taplo
-make install   # builds and installs sshpick and sp to ~/.local/bin
+make install   # builds and installs keyway and kw to ~/.local/bin
 make fix       # cargo fmt and taplo format
 ```
 
@@ -62,15 +62,15 @@ change, run `INSTA_UPDATE=always cargo test` and read the `.snap` diffs before y
 
 ## Releasing
 
-The version lives in `crates/sshpick/package.json`, and [Changesets](https://changesets.dev)
+The version lives in `crates/keyway/package.json`, and [Changesets](https://changesets.dev)
 writes it.
 
-1. A pull request that changes what users see runs `bun run changeset`, picks `sshpick` and the
+1. A pull request that changes what users see runs `bun run changeset`, picks `keyway` and the
    bump, and commits the `.changeset/*.md` file it writes. Its text becomes the changelog entry.
    Docs, CI and refactors need none.
-2. On `main`, the Release workflow keeps a `chore: Release sshpick` pull request open. It runs
-   `bun run version-packages`, which bumps `crates/sshpick/package.json`, writes
-   `crates/sshpick/CHANGELOG.md` and mirrors the version into `Cargo.toml`, `Cargo.lock` and the
+2. On `main`, the Release workflow keeps a `chore: Release keyway` pull request open. It runs
+   `bun run version-packages`, which bumps `crates/keyway/package.json`, writes
+   `crates/keyway/CHANGELOG.md` and mirrors the version into `Cargo.toml`, `Cargo.lock` and the
    install line in `README.md` with `scripts/sync-version.ts`.
 3. Merge that pull request. The Release workflow sees no tag for the new version, builds Linux and
    macOS binaries, and publishes a GitHub release and its `vX.Y.Z` tag with that changelog

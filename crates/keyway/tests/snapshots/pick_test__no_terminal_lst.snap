@@ -1,0 +1,6 @@
+---
+source: crates/keyway/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: no host matches "lst zzz"
+Fix: did you mean `keyway list zzz`?

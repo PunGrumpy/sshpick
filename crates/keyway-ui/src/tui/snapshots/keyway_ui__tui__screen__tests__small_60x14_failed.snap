@@ -1,0 +1,17 @@
+---
+source: crates/keyway-ui/src/tui/screen.rs
+expression: shown(&terminal)
+---
+ 0|
+ 1|  ╭──────────────────────────────────────────────────────╮
+ 2|  │  Search host, ENV or what                   5 hosts  │
+ 3|  │                                                      │
+ 4|  │  lab-a           LAB — personal VMs             LAB  │
+ 5|  │  lab-b           build box                      LAB  │
+ 6|  │  newstg-consul1  consul server 1 — mg…  NEW STAGING  │
+ 7|  │  newstg-consul2                         NEW STAGING  │
+ 8|  │  newstg-bastion  bastion                NEW STAGING  │
+ 9|  │                                                      │
+10|  ├──────────────────────────────────────────────────────┤
+11|  │  ssh -G gave no answer within…  Keys ?    Connect ↵  │
+12|  ╰──────────────────────────────────────────────────────╯

@@ -1,0 +1,10 @@
+{
+  "name": "keyway",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cargo build --release --locked",
+    "lint": "cargo lint",
+    "test": "cargo test --workspace --locked"
+  }
+}

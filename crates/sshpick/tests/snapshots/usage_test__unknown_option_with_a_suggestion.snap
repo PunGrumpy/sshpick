@@ -1,6 +1,0 @@
----
-source: crates/sshpick/tests/usage_test.rs
-expression: stderr(&out)
----
-Error: unknown option "--lst"
-Fix: sshpick accepts --help, --json, --no-color, --non-interactive, --print, --version. Did you mean --list?

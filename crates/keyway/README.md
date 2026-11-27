@@ -1,0 +1,36 @@
+# keyway
+
+## Purpose
+
+The `keyway` binary and its short name `kw`. Each is one call into `keyway_cli::main`. The crate
+also holds the black-box tests that run the built binaries.
+
+## Architecture
+
+```
+keyway
+    ├── src/main.rs - keyway_cli::main() as an exit status
+    ├── src/bin/kw.rs - the same call, installed as `kw`
+    └── tests/ - tests against the real binary
+        ├── common/mod.rs - a fixture HOME, the fake ssh on PATH, a clean environment
+        ├── common/pty.rs - the binary on a pty, and a vt100 screen to read what it drew
+        ├── pick_test.rs - one match, no terminal, no hosts, unreadable config
+        ├── picker_test.rs - the picker on a pty: Esc, Enter, F1, keys typed before the first frame
+        │   and a kill by INT, TERM or HUP; `doctor` on a terminal
+        ├── list_test.rs - the tab-separated rows of ls and --list, and ls --json
+        ├── inspect_test.rs - inspect as text and as JSON, and how it fails
+        ├── doctor_test.rs - doctor as text and as JSON against fixtures that pass, warn and fail,
+        │   and the check names the docs list
+        ├── read_only_test.rs - ls, inspect and doctor on a read-only home and directory with an ssh
+        │   that refuses anything but -G and -V: the tree is the same afterwards
+        └── usage_test.rs - help, version, unknown options, that read-only commands leave stderr
+            empty, and `kw`
+```
+
+## Notes
+
+`main.rs` should not grow. New logic goes to `keyway-cli`. The tests put `tests/fixtures/bin`
+first on `PATH`, so nothing here runs the real `ssh`, and they read `tests/fixtures`, never
+`~/.ssh`. The pty tests wait for a condition on the emulator's screen, with a ten second ceiling,
+and never sleep. The fake `ssh` says `COOKED` or `RAW` on stderr when its stdin is a terminal, so a
+test can tell whether the picker restored the terminal before it ran.

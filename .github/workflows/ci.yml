@@ -79,7 +79,7 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - name: Check the version is mirrored from crates/sshpick/package.json
+      - name: Check the version is mirrored from crates/keyway/package.json
         run: bun scripts/sync-version.ts && git diff --exit-code
       - run: bun run check
       - run: bunx tsc --noEmit -p scripts

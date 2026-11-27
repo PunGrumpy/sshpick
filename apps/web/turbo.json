@@ -8,8 +8,8 @@
         "$TURBO_ROOT$/README.md",
         "$TURBO_ROOT$/Cargo.toml",
         "$TURBO_ROOT$/docs/**",
-        "$TURBO_ROOT$/crates/sshpick/package.json",
-        "$TURBO_ROOT$/crates/sshpick/tests/fixtures/ui/**"
+        "$TURBO_ROOT$/crates/keyway/package.json",
+        "$TURBO_ROOT$/crates/keyway/tests/fixtures/ui/**"
       ],
       "outputs": [".next/**", "!.next/cache/**", "out/**"]
     }

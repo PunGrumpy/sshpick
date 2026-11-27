@@ -1,0 +1,22 @@
+[package]
+name = "keyway-ui"
+description = "keyway's terminal: the ratatui picker, raw-mode handling and key mapping"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+crossterm = { workspace = true }
+keyway-core = { workspace = true }
+ratatui = { workspace = true }
+signal-hook = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+test-case = { workspace = true }

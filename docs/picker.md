@@ -7,7 +7,7 @@ back, scrollback included, when it closes. It is a panel nearly the whole window
 one blank row above and below it. With an empty filter, in a terminal of 80 by 24:
 
 ```text
-~/work $ sshpick
+~/work $ keyway
 ╭──────────────────────────────────────────────────────────────────────────╮
 │  Search host, ENV or what                                       5 hosts  │
 │                                                                          │
@@ -52,8 +52,8 @@ rule, taken from the list, and closing it gives them back. The panel itself does
 does not take over the keyboard: typing, moving and Enter still work while it is open, and Esc
 closes it before a second Esc quits. The footer says `Close esc` meanwhile. If the keys do not
 fit, the list keeps at least three lines and the last row of the help is
-`+N more · sshpick pick --help`. A key row is cut with `…` when the panel is too narrow to hold
-it; `sshpick pick --help` has the whole text. The arrow keys are in this list, not in the
+`+N more · keyway pick --help`. A key row is cut with `…` when the panel is too narrow to hold
+it; `keyway pick --help` has the whole text. The arrow keys are in this list, not in the
 footer.
 
 The list is top-down with the best match first and the selection on it, like fzf's
@@ -68,7 +68,7 @@ looks in the `HostName` and `User` written under each `Host` and in the target o
 `RemoteCommand`, so `10.13.1.9`, `ubuntu` and `ubuntu@10.13.1.9` find the host. Those, like aliases, are never bold. [Search](commands.md#search)
 has the full rules.
 
-Config warnings are not drawn in the picker. `sshpick` prints each one as a `! …` line on stderr
+Config warnings are not drawn in the picker. `keyway` prints each one as a `! …` line on stderr
 before the picker opens, once, on every path, so it is on the shell's screen when the picker
 closes.
 
@@ -83,7 +83,7 @@ to `newstg-consul1` two hours ago, to `lab-b` three days ago and to `newstg-cons
 ago:
 
 ```text
-~/work $ sp
+~/work $ kw
 ╭──────────────────────────────────────────────────────────────────────────╮
 │  Search host, ENV or what                                       5 hosts  │
 │                                                                          │
@@ -116,7 +116,7 @@ was: `now`, `5m`, `2h`, `3d`, `6w` or `1y`.
 |----------------------------------------------|---------------------------------------|
 | the host you used last                       | Enter                                 |
 | the second or third host you used            | Down, Enter. Down, Down, Enter        |
-| the consul host you used last, among many    | `sp consul`, then Enter               |
+| the consul host you used last, among many    | `kw consul`, then Enter               |
 
 History changes the order and nothing else. Which hosts match, how many, and whether a query
 connects at once are the same with or without it.
@@ -147,7 +147,7 @@ cursor is.
 The panel reads top-down. The first row is the prompt, a strip a little lighter than the panel, with
 the same margin at each side as the selection bar. On it, one column in, is the query, or the
 placeholder `Search host, ENV or what` while the query is empty — the same text as
-`integrations/rex/sshpick.lua` — and at its right end the count: `5 hosts` on an empty filter, `2 /
+`integrations/rex/keyway.lua` — and at its right end the count: `5 hosts` on an empty filter, `2 /
 5` of them matched on a query. The count is left out when the query — or, with an empty filter, the
 placeholder — would not fit beside it. A panel with no room for the selected host shows its name on
 the strip instead. A blank row follows, then the list, best match first. There is no header row.
@@ -162,7 +162,7 @@ The list scrolls by host and keeps the selected host in view.
 The last row is the footer, under a rule. At its left is where the selected host goes, as `ssh -G`
 resolves it: `ubuntu@192.0.2.11:22 via stg-bastion`, with `runs <command>` after it when the host
 sets a RemoteCommand. Until ssh answers it reads `resolving…`; if ssh fails it reads `ssh -G
-failed:` and the first line of what ssh said, and `sshpick inspect <host>` has the rest. The route
+failed:` and the first line of what ssh said, and `keyway inspect <host>` has the rest. The route
 runs from the row's indent to two columns before the keys and is cut with `…` when longer — the 45
 and the 24 include that indent and that gap — and there is none when nothing matches. At the right
 are the keys, each a label and then its key in a keycap, from left to right: `Keys ?`, `Quit esc`
@@ -173,7 +173,7 @@ and `F1` once it is not. With the help open the label reads `Close esc`. The arr
 the footer; the help lists them. With a query, in a terminal of 80 by 24:
 
 ```text
-~/work $ sshpick con
+~/work $ keyway con
 ╭──────────────────────────────────────────────────────────────────────────╮
 │  con                                                              2 / 5  │
 │                                                                          │

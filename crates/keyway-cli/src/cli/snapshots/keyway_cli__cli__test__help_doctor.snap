@@ -1,0 +1,24 @@
+---
+source: crates/keyway-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ keyway doctor [options]
+
+  Check the ssh config, ssh itself and this terminal. Changes nothing, and exits
+  2 when a check fails.
+
+  Options:
+       --json  Output as JSON
+
+  Global Options: See `keyway --help`
+
+  Examples:
+  Check the setup
+    keyway doctor
+
+  List what is not fine, in a script
+    keyway doctor --json | jq -r '.checks[] | select(.status != "ok") | .detail'
+
+  Connect only when the setup is sound
+    keyway doctor && keyway

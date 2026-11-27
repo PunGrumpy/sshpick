@@ -3,12 +3,12 @@ disallowed-types = [
 ]
 disallowed-methods = [
   { path = "std::collections::VecDeque::new", reason = "allocates; use with_capacity" },
-  { path = "ratatui::init", reason = "panics on terminal errors; the picker's terminal is sshpick-ui's Tty" },
-  { path = "ratatui::init::init_with_options", reason = "panics on terminal errors; the picker's terminal is sshpick-ui's Tty" },
-  { path = "ratatui::init::run", reason = "panics on terminal errors; the picker's terminal is sshpick-ui's Tty" },
-  { path = "ratatui::init::restore", reason = "swallows the error; sshpick-ui's Tty restores the terminal" },
-  { path = "ratatui::try_init", reason = "installs ratatui's own panic hook and restore; sshpick-ui's Tty owns the terminal and its one restore" },
-  { path = "ratatui::try_init_with_options", reason = "an inline viewport asks the terminal where the cursor is and waits up to 2 s; sshpick-ui's Tty opens a Fixed viewport" },
+  { path = "ratatui::init", reason = "panics on terminal errors; the picker's terminal is keyway-ui's Tty" },
+  { path = "ratatui::init::init_with_options", reason = "panics on terminal errors; the picker's terminal is keyway-ui's Tty" },
+  { path = "ratatui::init::run", reason = "panics on terminal errors; the picker's terminal is keyway-ui's Tty" },
+  { path = "ratatui::init::restore", reason = "swallows the error; keyway-ui's Tty restores the terminal" },
+  { path = "ratatui::try_init", reason = "installs ratatui's own panic hook and restore; keyway-ui's Tty owns the terminal and its one restore" },
+  { path = "ratatui::try_init_with_options", reason = "an inline viewport asks the terminal where the cursor is and waits up to 2 s; keyway-ui's Tty opens a Fixed viewport" },
   { path = "crossterm::cursor::position", reason = "asks the terminal where the cursor is and waits up to 2 s for the answer" },
   { path = "crossterm::terminal::supports_keyboard_enhancement", reason = "asks the terminal and waits for the answer" },
   { path = "ratatui::Terminal::get_cursor_position", reason = "asks the terminal where the cursor is and waits for an answer some terminals never send" },

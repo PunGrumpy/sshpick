@@ -21,7 +21,7 @@ the next time it is selected.
 The search reads ENV, HOST, WHAT and the other names on the `Host` line, then the `HostName` and
 `User` written inside the host's own `Host` block. The first one in the block wins, as in ssh.
 A value the host only inherits is not searched: one from `Host *`, from a pattern such as
-`Host prod-*`, or from a `Match` block. sshpick does not run `ssh -G` to find it.
+`Host prod-*`, or from a `Match` block. keyway does not run `ssh -G` to find it.
 
 ```text
 Host *
@@ -42,7 +42,7 @@ searched as well. [Search](commands.md#search) has the rules.
 
 ## Config conventions
 
-sshpick reads `~/.ssh/config` and follows its `Include` lines in the order ssh does; like ssh, a
+keyway reads `~/.ssh/config` and follows its `Include` lines in the order ssh does; like ssh, a
 wildcard such as `config.d/*` skips hidden files. An `Include` that uses a `%` token other than
 `%d` or `%%` is skipped with a warning, since most of those tokens depend on the host. Two comment
 conventions fill the columns. Nothing else in the config needs to change.
@@ -92,11 +92,11 @@ Host stg-consul1 consul1.stg
 
 ## Recent hosts
 
-The picker keeps one line per connection in `~/.local/state/sshpick/history`. A line is the time in
+The picker keeps one line per connection in `~/.local/state/keyway/history`. A line is the time in
 seconds since 1970, a tab and the host name. When `XDG_STATE_HOME` is an absolute path, the file is
-`$XDG_STATE_HOME/sshpick/history` instead. A relative or empty value is ignored.
+`$XDG_STATE_HOME/keyway/history` instead. A relative or empty value is ignored.
 
-The file is for sshpick, not an interface, and its format may change. A line that does not parse is
+The file is for keyway, not an interface, and its format may change. A line that does not parse is
 skipped. Past 64 KiB the file is renamed to `history.old` and a new one starts, so the two hold the
 last few thousand connections. A host you have not used since then goes back to the order of the
 config. A host that is renamed or removed leaves lines that match nothing, and they rotate out. A
@@ -107,14 +107,14 @@ name, or with a query that matches one host. It is not remembered under `--non-i
 pipe or with `TERM=dumb`. `inspect` and `doctor` neither read nor write the file, and `ls` does not
 unless you pass `--recent`, which reads it, wherever stdout goes, and never writes it.
 
-If sshpick cannot write the file, it prints `! cannot save recent hosts to <path>: <why>` and runs
+If keyway cannot write the file, it prints `! cannot save recent hosts to <path>: <why>` and runs
 ssh anyway.
 
 ```bash
-cat ~/.local/state/sshpick/history                 # one line per connection
-rm ~/.local/state/sshpick/history*                 # forget everything
-ln -sf /dev/null ~/.local/state/sshpick/history    # keep nothing from now on
+cat ~/.local/state/keyway/history                 # one line per connection
+rm ~/.local/state/keyway/history*                 # forget everything
+ln -sf /dev/null ~/.local/state/keyway/history    # keep nothing from now on
 ```
 
-The last line needs the directory to exist, so run `mkdir -p ~/.local/state/sshpick` first on a
+The last line needs the directory to exist, so run `mkdir -p ~/.local/state/keyway` first on a
 machine that has not recorded anything yet.

@@ -1,0 +1,6 @@
+---
+source: crates/keyway/tests/pick_test.rs
+expression: stderr(&out)
+---
+Error: no host is named "postgres"; "db-prod" matches loosely
+Fix: connect with `keyway --non-interactive db-prod`, or list candidates with `keyway ls postgres`.

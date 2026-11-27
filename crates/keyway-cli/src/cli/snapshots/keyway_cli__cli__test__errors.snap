@@ -1,0 +1,102 @@
+---
+source: crates/keyway-cli/src/cli/test.rs
+expression: text
+---
+$ keyway --lst
+Error: unknown option "--lst"
+Fix: keyway accepts --help, --json, --no-color, --non-interactive, --print, --version. Did you mean --list?
+
+$ keyway list --lsit
+Error: unknown option "--lsit"
+Fix: keyway list accepts --help, --json, --no-color, --non-interactive, --recent, --version. Did you mean --list?
+
+$ keyway --bogus
+Error: unknown option "--bogus"
+Fix: keyway accepts --help, --json, --no-color, --non-interactive, --print, --version.
+
+$ keyway help lst
+Error: unknown command "lst"
+Fix: did you mean `keyway help list`? See all commands with `keyway --help`.
+
+$ keyway help bogus
+Error: unknown command "bogus"
+Fix: see all commands with `keyway --help`.
+
+$ keyway consul < /dev/null
+Error: 4 hosts match "consul", and the picker needs an interactive terminal
+Fix: narrow the query to one host, or list them with `keyway ls consul`.
+
+$ TERM=dumb keyway consul
+Error: 4 hosts match "consul", and the picker needs a terminal that moves the cursor (TERM=dumb)
+Fix: narrow the query to one host, or list them with `keyway ls consul`.
+
+$ keyway --non-interactive
+Error: 12 hosts to choose from, and --non-interactive never opens the picker
+Fix: narrow the query to one host, or list them with `keyway ls`.
+
+$ keyway lst new < /dev/null
+Error: no host matches "lst new"
+Fix: did you mean `keyway list new`?
+
+$ keyway nope < /dev/null
+Error: no host matches "nope"
+Fix: list every host with `keyway ls`.
+
+$ keyway inspekt stg-consul1 < /dev/null
+Error: no host matches "inspekt stg-consul1"
+Fix: did you mean `keyway inspect stg-consul1`?
+
+$ keyway inspect
+Error: keyway inspect needs a query
+Fix: name a host, as in `keyway inspect stg-consul1`, or list them with `keyway ls`.
+
+$ keyway --json
+Error: keyway pick takes --json only with --print
+Fix: print the picked host as JSON with `keyway --print --json`, or list hosts with `keyway ls --json`.
+
+$ keyway ls --print
+Error: unknown option "--print"
+Fix: keyway list accepts --help, --json, --no-color, --non-interactive, --recent, --version.
+
+$ keyway --print  # stdout is full
+Error: cannot print the host: No space left on device (os error 28)
+
+$ keyway doctor extra
+Error: unexpected argument "extra" for keyway doctor
+Fix: keyway doctor accepts --help, --json, --no-color, --non-interactive, --version.
+
+$ keyway inspect consul
+Error: 3 hosts match "consul"; inspect needs exactly one
+Fix: name one of stg-consul1, stg-consul2, stg-consul3, or list them with `keyway ls consul`.
+
+$ keyway inspect web
+Error: 8 hosts match "web"; inspect needs exactly one
+Fix: name one of web1, web2, web3, web4, web5 and 3 more, or list them with `keyway ls web`.
+
+$ keyway inspect stg-broken
+Error: /home/me/.ssh/config: terminating, 1 bad configuration options
+
+$ keyway inspect stg-slow
+Error: ssh -G gave no answer within 2 s
+Fix: retry once; if it stays slow, time `ssh -G -- <host>` yourself: a `Match exec` or `ProxyCommand` in the config is probably waiting on something.
+
+$ keyway  # no Host lines
+Error: no hosts found in ~/.ssh/config or the files it Includes
+Fix: add `Host` lines; ENV and WHAT come from comments.
+Learn More: https://github.com/PunGrumpy/keyway/blob/main/docs/configuration.md#config-conventions
+
+$ keyway  # no ~/.ssh/config
+Error: cannot read /nonexistent-home/.ssh/config: No such file or directory (os error 2)
+
+$ keyway  # no HOME
+Error: cannot find the home directory
+
+$ keyway stg-consul1  # no ssh
+Error: cannot run ssh: No such file or directory (os error 2)
+Fix: install OpenSSH, or put `ssh` on your PATH.
+
+$ keyway stg-consul1  # ssh refused
+Error: cannot run ssh: Permission denied (os error 13)
+
+$ keyway ls  # stdout is full
+Error: cannot write the host list: No space left on device (os error 28)

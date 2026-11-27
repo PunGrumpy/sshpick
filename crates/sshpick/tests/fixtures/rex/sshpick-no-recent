@@ -1,5 +1,0 @@
-#!/bin/sh
-# Stands in for an sshpick that has --print but not `ls --recent`: the JSON usage error it writes
-# for any `ls` that is given the option.
-echo '{"status":"action_required","reason":"usage","message":"unknown option \"--recent\"","fix":"sshpick list accepts --help, --json, --no-color, --non-interactive, --version."}' >&2
-exit 2
