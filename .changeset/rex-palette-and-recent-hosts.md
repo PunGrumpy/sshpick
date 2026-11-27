@@ -1,25 +1,25 @@
 ---
-"sshpick": minor
+"keyway": minor
 ---
 
 Pick hosts from Rex's palette, list recent hosts first, and draw the picker as a Rex-style panel.
 
 ### Added
 
-- `sshpick --print` prints the picked host instead of connecting, and `--print --json` prints its
-  `{host, env, what, names}` object. The picker draws on `/dev/tty`, so `$(sshpick --print)`
+- `keyway --print` prints the picked host instead of connecting, and `--print --json` prints its
+  `{host, env, what, names}` object. The picker draws on `/dev/tty`, so `$(keyway --print)`
   captures only the host.
-- `integrations/rex/sshpick.lua` lists the hosts in Rex's command palette from a key and opens the
+- `integrations/rex/keyway.lua` lists the hosts in Rex's command palette from a key and opens the
   picked host in a new tab labelled `host · ENV`, the hosts you connected to last first. A Rex app
-  too old for prompts gets sshpick's picker in a floating layer. It needs an sshpick with
+  too old for prompts gets keyway's picker in a floating layer. It needs a keyway with
   `ls --recent`. See `docs/rex.md`.
 - A host with no comment of its own takes the heading of its section as its WHAT: the first line
   of a comment block after a blank line, up to the next blank line or the next host with its own
   comment.
 - The picker remembers the hosts you connect to at a terminal. It lists them first with an empty
   filter, breaks ties between equal matches by last use, and shows when in a LAST column.
-  `XDG_STATE_HOME` moves the history from `~/.local/state/sshpick`.
-- `sshpick ls --recent` lists hosts in the picker's order, the ones you connected to first, the
+  `XDG_STATE_HOME` moves the history from `~/.local/state/keyway`.
+- `keyway ls --recent` lists hosts in the picker's order, the ones you connected to first, the
   latest first. It reads the history and never writes it, and changes the order only. Plain `ls`
   is unchanged.
 - An address, part of one, a user or `user@address` from shell history finds a host, from the

@@ -54,14 +54,14 @@ export const TerminalDemo = () => {
 
   return (
     <figure
-      aria-label="A recorded sshpick session: typing consul narrows five hosts to two"
+      aria-label="A recorded keyway session: typing consul narrows five hosts to two"
       className="overflow-hidden rounded-[20px] border border-border bg-term text-[12px] leading-[1.7] text-term-fg sm:rounded-[24px] sm:text-[13px]"
     >
       <div className="flex items-center gap-1.5 border-b border-term-rule px-4 py-2.5">
         <span className="size-2.5 rounded-full bg-term-rule" />
         <span className="size-2.5 rounded-full bg-term-rule" />
         <span className="size-2.5 rounded-full bg-term-rule" />
-        <span className="ml-3 text-term-muted">~/work $ sshpick</span>
+        <span className="ml-3 text-term-muted">~/work $ keyway</span>
       </div>
       <div className="p-3 sm:p-4" aria-hidden>
         <div className="overflow-hidden rounded-lg border border-term-rule">

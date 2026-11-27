@@ -6,14 +6,14 @@
 | `list`, `ls [query]...`  | Print the hosts that match, best first                            |
 | `inspect <query>...`     | Show where the one matching host resolves, as `ssh -G` sees it    |
 | `doctor`                 | Check the config, ssh and this terminal; changes nothing          |
-| `help [command]`         | Show help for a command; `sshpick help ls` is `sshpick ls --help` |
+| `help [command]`         | Show help for a command; `keyway help ls` is `keyway ls --help` |
 
 `pick`, `list`, `ls`, `inspect`, `doctor` and `help` are command words when they come first. Any other
-first word is query text, so `sshpick consul` still searches. A host named exactly like a command
-word is reached with `sshpick pick list`, `sshpick pick doctor` or `sshpick -- list`; when `list`,
+first word is query text, so `keyway consul` still searches. A host named exactly like a command
+word is reached with `keyway pick list`, `keyway pick doctor` or `keyway -- list`; when `list`,
 `inspect` or `doctor` is also a host or an alias, a terminal gets a note saying so. `doctor` takes
-no query: `sshpick doctor extra` is a usage error, and `help` takes one command, so
-`sshpick help list extra` is too. `-h` and `--help` work anywhere and win over every other error.
+no query: `keyway doctor extra` is a usage error, and `help` takes one command, so
+`keyway help list extra` is too. `-h` and `--help` work anywhere and win over every other error.
 `--version` and `-V` work anywhere, after a command too, and lose only to `--help`; `-v` is the
 same flag.
 
@@ -27,19 +27,19 @@ Options go anywhere before a bare `--`:
 | `--json`            | Print one JSON document; `ls`, `inspect`, `doctor` and `pick --print` take it |
 | `--non-interactive` | Never open the picker: an exact host name or alias connects, a loose single match exits 1, none exits 1, several exit 2 |
 | `--recent`          | `ls` only: list the hosts you connected to last first, as the picker does. Reads the history; see [Scripting](scripting.md) |
-| `--print`           | `pick` only: print the picked host's name instead of connecting; with `--json`, its `{host, env, what, names}` object. The picker draws on the terminal, so `$(sshpick --print)` works |
+| `--print`           | `pick` only: print the picked host's name instead of connecting; with `--json`, its `{host, env, what, names}` object. The picker draws on the terminal, so `$(keyway --print)` works |
 
 ## Print instead of connect
 
-`sshpick --print` resolves a query exactly as `pick` does and prints the host instead of running
+`keyway --print` resolves a query exactly as `pick` does and prints the host instead of running
 ssh: the host's first name and a newline on stdout, exit 0. The `pick` word is not needed. An
 exact name or alias wins, one loose match prints on a terminal and exits 1 under
 `--non-interactive`, several open the picker (or exit 2 without one), and Esc exits 130 with
 stdout empty. The picker draws on the terminal (`/dev/tty`), not on stdout, so a command
 substitution captures only the host:
 
-    ssh "$(sshpick --print)" uptime
-    scp notes.txt "$(sshpick --print):"
+    ssh "$(keyway --print)" uptime
+    scp notes.txt "$(keyway --print):"
 
 With `--json` it prints the host as one JSON object, the same shape as one element of
 `ls --json`'s `hosts`. `--json` on `pick` without `--print` is a usage error.
@@ -82,15 +82,15 @@ Any other query that leaves one row connects on a terminal, and exits 1 under `-
 There is no `a | b` OR.
 
 An argument that starts with `-` is an option. To search for text that starts with `-`, put
-`--` before it: `sshpick -- -bastion`. Everything after `--` is query text.
+`--` before it: `keyway -- -bastion`. Everything after `--` is query text.
 
 ## Inspect
 
-`sshpick inspect` is a dry run of `pick`: it takes the same query, needs exactly one match, and
+`keyway inspect` is a dry run of `pick`: it takes the same query, needs exactly one match, and
 shows what `ssh -G` says about the host and the command that would connect. Nothing is
 connected.
 
-    $ sshpick inspect stg-consul1
+    $ keyway inspect stg-consul1
       General
 
         host   stg-consul1

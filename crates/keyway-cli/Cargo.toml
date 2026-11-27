@@ -1,0 +1,23 @@
+[package]
+name = "keyway-cli"
+description = "keyway's command line: argv, help, commands, errors and exit codes"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+keyway-core = { workspace = true }
+keyway-ui = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+test-case = { workspace = true }

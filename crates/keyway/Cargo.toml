@@ -1,0 +1,25 @@
+[package]
+name = "keyway"
+description = "Pick a host from ~/.ssh/config and ssh to it"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+keyway-cli = { workspace = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+insta = { workspace = true }
+mlua = { workspace = true }
+nix = { workspace = true }
+portable-pty = { workspace = true }
+serde_json = { workspace = true }
+test-case = { workspace = true }
+vt100 = { workspace = true }

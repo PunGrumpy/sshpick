@@ -1,10 +1,10 @@
 # Scripting
 
-    sshpick ls                  # every host, one per line
-    sshpick ls new consul       # only the hosts matching the query
-    sshpick ls | cut -f2        # just the host names
-    sshpick ls --recent         # the hosts you connected to last first, as the picker lists them
-    sshpick --list | fzf        # the older spelling, still works
+    keyway ls                  # every host, one per line
+    keyway ls new consul       # only the hosts matching the query
+    keyway ls | cut -f2        # just the host names
+    keyway ls --recent         # the hosts you connected to last first, as the picker lists them
+    keyway --list | fzf        # the older spelling, still works
 
 On a terminal `ls` prints an aligned table with a dim header,
 and a line on stderr such as `> 4 of 12 hosts match "consul"`. ENV is left out when no host has
@@ -25,16 +25,16 @@ It applies to the table, the tab-separated rows and `--json` alike, and adds no 
 It reads the history even when stdout is a pipe or you pass `--non-interactive`, because you asked
 for it, and it never writes it. With no history file, or one it cannot read, the order is the
 config's, byte for byte what plain `ls` prints. [Configuration](configuration.md#recent-hosts) says
-where the history is kept. An sshpick older than this option stops with `unknown option
+where the history is kept. A keyway older than this option stops with `unknown option
 "--recent"`.
 
 `--list` and `-l` stay as hidden spellings of `ls` that always print the tab-separated rows,
-even on a terminal, so `sshpick --list | fzf` keeps working.
+even on a terminal, so `keyway --list | fzf` keeps working.
 
 `ls --json` and `inspect --json` print one JSON object, indented by two spaces, and nothing else
 on stdout. Keys are fixed and an empty result still prints the object (and `ls` exits 1).
 
-    $ sshpick ls consul --json
+    $ keyway ls consul --json
     {
       "query": "consul",
       "total": 12,
@@ -52,7 +52,7 @@ on stdout. Keys are fixed and an empty result still prints the object (and `ls` 
       "warnings": []
     }
 
-`sshpick --print --json` prints the one host a pick lands on as the same object as one element of
+`keyway --print --json` prints the one host a pick lands on as the same object as one element of
 `hosts`, with no `query`, `total` or `warnings` around it, so `rex`, `jq` or a shell script reads
 the ENV and WHAT of the host the person picked. The picker, when it opens, draws on `/dev/tty`, so
 stdout holds only the object. Errors and exit codes are `pick`'s: no match and a loose match under
@@ -60,7 +60,7 @@ stdout holds only the object. Errors and exit codes are `pick`'s: no match and a
 `candidates`, and Esc exits 130 with nothing on stdout. Config warnings are left out; `ls --json`
 reports them.
 
-    $ sshpick --print --json --non-interactive -- consul1.stg
+    $ keyway --print --json --non-interactive -- consul1.stg
     {
       "host": "stg-consul1",
       "env": "STAGING",
@@ -84,8 +84,8 @@ When `--json` is on the command line and a command fails, stdout stays empty and
 line of JSON. Without `--json`, an error is text, as below. The exit status does not change.
 `--jsn` is not `--json`, so a misspelt flag gets the text error.
 
-    $ sshpick inspect zzz --json
-    {"status":"action_required","reason":"no_match","message":"no host matches \"zzz\"","fix":"list every host with `sshpick ls`."}
+    $ keyway inspect zzz --json
+    {"status":"action_required","reason":"no_match","message":"no host matches \"zzz\"","fix":"list every host with `keyway ls`."}
 
 `warnings` is shaped as in `ls --json` and is left out when there are none, and so is `fix` when
 there is no next step. A no-match from `ls` is not an error: it stays an empty document with exit 1.
@@ -94,8 +94,8 @@ When `reason` is `several_matches`, `candidates` lists every host the query matc
 with no cap. Each name resolves on its own, so a script can retry with one. It is left out for
 every other reason.
 
-    $ sshpick inspect consul --json
-    {"status":"action_required","reason":"several_matches","message":"2 hosts match \"consul\"; inspect needs exactly one","fix":"name one of stg-consul1, stg-consul2, or list them with `sshpick ls consul`.","candidates":["stg-consul1","stg-consul2"]}
+    $ keyway inspect consul --json
+    {"status":"action_required","reason":"several_matches","message":"2 hosts match \"consul\"; inspect needs exactly one","fix":"name one of stg-consul1, stg-consul2, or list them with `keyway ls consul`.","candidates":["stg-consul1","stg-consul2"]}
 
 | `reason`          | `status`          | Meaning                                                      |
 |-------------------|-------------------|--------------------------------------------------------------|
@@ -117,9 +117,9 @@ line go to stderr. When stdout is a terminal, `> ssh -- host` is printed before 
 error is an `Error:` line, then a `Fix:` line when there is a next step and a `Learn More:` line
 when the docs help; a warning is a `! message` line:
 
-    $ sshpick consul < /dev/null
+    $ keyway consul < /dev/null
     Error: 4 hosts match "consul", and the picker needs an interactive terminal
-    Fix: narrow the query to one host, or list them with `sshpick ls consul`.
+    Fix: narrow the query to one host, or list them with `keyway ls consul`.
 
 Control characters in an error become spaces, and a query inside a suggested command is quoted so
 the line can be pasted into a shell. A closed stderr is ignored: the exit status stays the
@@ -129,7 +129,7 @@ command's own.
 matches exit 2, none exit 1, and exactly one still connects.
 
 A near-miss gets one suggestion, only when it is a single edit from a command or option:
-`sshpick help lst` says ``did you mean `sshpick help list`?``.
+`keyway help lst` says ``did you mean `keyway help list`?``.
 
 A pipe gets no escape bytes unless `CLICOLOR_FORCE` is set. Colour is decided per stream, in this
 order:
@@ -149,11 +149,11 @@ reads it only with `--recent`.
 
 ## Doctor
 
-`sshpick doctor` checks the config, ssh and this terminal, and changes nothing. It reads the config,
+`keyway doctor` checks the config, ssh and this terminal, and changes nothing. It reads the config,
 runs `ssh -V` and one `ssh -G` for the first host, and prints a report on stdout. stderr stays
 empty, also when a check fails; a terminal gets one `>` note only when a host is named `doctor`.
 
-    $ sshpick doctor
+    $ keyway doctor
     [doctor] ok=5 warn=1 fail=0
     [doctor] config=/home/me/.ssh/config
     [ok] config: read /home/me/.ssh/config and 2 included files
@@ -164,15 +164,15 @@ empty, also when a check fails; a terminal gets one `>` note only when a host is
     [ok] terminal: 120x30, TERM=xterm-256color, colour on (stdout is a terminal); the picker can open here
 
 There is one line per check, `[ok]`, `[warn]` or `[fail]` and the check's name, so
-`sshpick doctor | grep '^\[fail\]'` finds what broke. A check that is not `ok` ends with a next
+`keyway doctor | grep '^\[fail\]'` finds what broke. A check that is not `ok` ends with a next
 step after `; `, with the command in backticks. `[doctor] config=` is left out when there is no
 home directory. Only the bracketed token is coloured, yellow or red, and only when stdout is a
 terminal with colour on.
 
 A `warn` is something the picker survives: an `Include` that was skipped, or a terminal where the
-picker would not open (`sshpick <query>` still connects when one host matches). A `fail` is
-something that stops sshpick from working. The exit status is 2 when any check is `fail`, after the
-report is printed, and 0 otherwise, so `sshpick doctor && sshpick` runs the picker only when the
+picker would not open (`keyway <query>` still connects when one host matches). A `fail` is
+something that stops keyway from working. The exit status is 2 when any check is `fail`, after the
+report is printed, and 0 otherwise, so `keyway doctor && keyway` runs the picker only when the
 setup is sound. `--non-interactive` is part of the terminal check: with it the picker is closed.
 
 ### `doctor --json`
@@ -181,7 +181,7 @@ setup is sound. `--non-interactive` is part of the terminal check: with it the p
 newline. `config` is left out when there is no home directory, and so is a check's `fix` when it
 has none. `status` is `ok`, `warn` or `fail`; `summary` counts them.
 
-    $ sshpick doctor --json
+    $ keyway doctor --json
     {
       "config": "/home/me/.ssh/config",
       "summary": {
@@ -211,7 +211,7 @@ has none. `status` is `ok`, `warn` or `fail`; `summary` counts them.
           "name": "terminal",
           "status": "warn",
           "detail": "TERM=xterm-256color, colour off (stdout is not a terminal); the picker needs an interactive terminal",
-          "fix": "`sshpick <query>` still connects when one host matches"
+          "fix": "`keyway <query>` still connects when one host matches"
         }
       ]
     }
@@ -233,7 +233,7 @@ scripts; `detail` and `fix` are for people and may be reworded.
 | Status      | Meaning                                                                     |
 |-------------|-----------------------------------------------------------------------------|
 | 0           | `ls`, `inspect`, `doctor`, `pick --print`, `--help` or `--version` succeeded |
-| `ssh`'s own | after a pick (sshpick becomes `ssh`)                                        |
+| `ssh`'s own | after a pick (keyway becomes `ssh`)                                        |
 | 1           | Enter with no match, or no match without the picker (`ls`, `inspect`)       |
 | 2           | config error, no hosts found, unknown option or command, a failed `ssh -G`, |
 |             | a failed `doctor` check, or several matches where one is needed             |

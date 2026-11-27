@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-[56rem] px-4 sm:px-6">
       <section className="pt-16 pb-12 sm:pt-24">
-        <h1 className="font-serif text-display tracking-[-0.02em]">sshpick</h1>
+        <h1 className="font-serif text-display tracking-[-0.02em]">keyway</h1>
         <p className="mt-8 max-w-[44rem] text-[15px] leading-relaxed sm:text-[17px]">
           <Inline text={intro} />
         </p>

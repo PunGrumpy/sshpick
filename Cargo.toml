@@ -7,7 +7,7 @@ version = "0.0.0"
 edition = "2024"
 rust-version = "1.99"
 license = "MIT"
-repository = "https://github.com/PunGrumpy/sshpick"
+repository = "https://github.com/PunGrumpy/keyway"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -17,7 +17,7 @@ expect_used = "deny"
 unwrap_used = "deny"
 
 # Dependencies build at -O2 in tests too. The terminal-size sweep tests in
-# sshpick-ui spend most of their time inside ratatui, and ran more than ten
+# keyway-ui spend most of their time inside ratatui, and ran more than ten
 # times slower with it at opt-level 0.
 [profile.dev.package."*"]
 opt-level = 2
@@ -28,9 +28,9 @@ codegen-units = 1
 strip = true
 
 [workspace.dependencies]
-sshpick-cli = { path = "crates/sshpick-cli" }
-sshpick-core = { path = "crates/sshpick-core" }
-sshpick-ui = { path = "crates/sshpick-ui" }
+keyway-cli = { path = "crates/keyway-cli" }
+keyway-core = { path = "crates/keyway-core" }
+keyway-ui = { path = "crates/keyway-ui" }
 
 assert_cmd = "2"
 crossterm = "0.29"

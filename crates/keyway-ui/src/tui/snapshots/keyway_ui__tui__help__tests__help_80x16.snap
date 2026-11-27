@@ -1,0 +1,19 @@
+---
+source: crates/keyway-ui/src/tui/help.rs
+expression: shown(&terminal)
+---
+ 0|
+ 1|  ╭──────────────────────────────────────────────────────────────────────────╮
+ 2|  │  Search host, ENV or what                                       5 hosts  │
+ 3|  │                                                                          │
+ 4|  │  lab-a           LAB — personal VMs                                 LAB  │
+ 5|  │  lab-b           build box                                          LAB  │
+ 6|  │  newstg-consul1  consul server 1 — mgmt                     NEW STAGING  │
+ 7|  │                                                                          │
+ 8|  │  Enter                        ssh to the selected host                   │
+ 9|  │  Esc, Ctrl-C, Ctrl-G, Ctrl-Q  quit (exit 130); Esc closes the help first │
+10|  │  Up, Ctrl-P, Ctrl-K           previous host; wraps to the last           │
+11|  │  +7 more · keyway pick --help                                            │
+12|  ├──────────────────────────────────────────────────────────────────────────┤
+13|  │  ubuntu@10.11.212.191:22 via newstg-bastion      Close esc    Connect ↵  │
+14|  ╰──────────────────────────────────────────────────────────────────────────╯

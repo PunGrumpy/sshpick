@@ -1,0 +1,52 @@
+# keyway-core
+
+## Purpose
+
+keyway's domain, with no terminal in it: which hosts `~/.ssh/config` defines, how a query ranks
+them, what each key does, and what `ssh -G` says about a host. This crate cannot name a terminal
+type because it does not depend on one, and `cargo deny` fails if `ratatui` or `crossterm` is ever
+added to it. `keyway-ui` owns the terminal (raw mode, drawing, reading keys); `keyway-cli`
+decides what to say.
+
+## Architecture
+
+```
+keyway-core
+    ├── config.rs - load(): ~/.ssh/config and every Include in ssh's read order, as Entry rows (with
+    │   the HostName and User written in each Host block, for search) plus Warnings and the number of files an Include read; Host, a literal alias, is the only thing that ever reaches ssh; printable():
+    │   control characters as spaces, for text that is shown
+    ├── doctor.rs - report(): the facts `keyway doctor` gathered (config, ssh -V, one ssh -G, the
+    │   terminal) judged into checks with a status, a detail and a fix; pure, so every check has a
+    │   table test
+    ├── history.rs - History: an append-only log of the hosts connected to, one line each, under
+    │   $XDG_STATE_HOME or ~/.local/state, kept only for a person at a terminal; Recents: the
+    │   latest use per host as of one instant, and how long ago, in at most three cells
+    ├── label.rs - env_label(): the ENV column, from line 1 of an included file or its file name
+    ├── rank.rs - Ranker: each query word matched inside one field (ENV, HOST, WHAT, an alias,
+    │   else HostName and User), as a substring or by word starts, with the matched ranges per
+    │   column; equal scores are told apart by last use, and an empty query lists used hosts first
+    ├── picker.rs - Picker: query, matches, cursor and scroll; resolve() settles a query before any
+    │   terminal, handle(Key) returns an Outcome, follow(height) scrolls to the cursor and view()
+    │   is the rows of one frame, with the scroll offset and whether the help is open
+    ├── hints.rs - hint(): the one hint row, the widest rung of keys that fits, accept and cancel
+    │   always kept, and the window range when it fits beside them
+    ├── interaction.rs - Finish (connect or print) and the Surface each draws on (stdout or
+    │   /dev/tty); refusal(): whether the picker may open, from --non-interactive, whether stdin
+    │   and the surface are terminals, and TERM=dumb, in that order
+    ├── keymap.rs - BINDINGS: every key Picker::handle acts on, which the help, `keyway pick
+    │   --help` and the docs/picker.md table read; tests tie it to the picker
+    ├── preview.rs - Previews: one worker thread that runs ssh -G, and a Slot per host
+    └── ssh.rs - resolve(): ssh -G with a timeout, as a Preview or a ResolveError; Preview::route()
+        and ResolveError::headline() are the one row the picker shows; version(): the first line
+        of ssh -V, with the same timeout; command() and exec(): ssh -- <host>
+```
+
+## Notes
+
+Only `ssh.rs` runs `ssh`, and only with a `Host`, never a string from the user. `Picker` owns the
+query, the cursor and the scroll; the UI keeps no picker state and builds each frame from
+`Picker::view`. A rule goes here with a unit test; anything that names a terminal type goes in
+`keyway-ui`.
+
+`tests/fixtures` holds synthetic configs (`home`, `deep`) and fake `ssh` programs (`bin`). Each
+crate reads its own fixtures, never the real `~/.ssh`.

@@ -2,14 +2,14 @@
 
 ## Purpose
 
-The sshpick website: a landing page and the user documentation, built from the files in this
+The keyway website: a landing page and the user documentation, built from the files in this
 repository so it never says something the README or `docs` do not. It is a static export and is
 not deployed from here.
 
 ## Architecture
 
 - `lib/repo.ts` reads the repository at build time: the version from
-  `crates/sshpick/package.json`, the license from `Cargo.toml`, the intro, install command and
+  `crates/keyway/package.json`, the license from `Cargo.toml`, the intro, install command and
   command examples from `README.md`, and the page list from `docs/README.md`. A missing piece
   fails the build.
 - `lib/markdown.ts` renders `docs/*.md` with `marked`, gives headings GitHub's anchors, and turns
@@ -18,7 +18,7 @@ not deployed from here.
   from `generateStaticParams`, and `app/docs/page.tsx` is `docs/README.md`.
 - `lib/demo.ts` is the terminal demo as a table of frames, each with how long it holds.
   `components/terminal-demo.tsx` replays it. Its hosts are those of
-  `crates/sshpick/tests/fixtures/ui`, and the build fails if one is missing there.
+  `crates/keyway/tests/fixtures/ui`, and the build fails if one is missing there.
 - `components/motion.tsx` turns on Lenis smooth scrolling and the scroll reveals.
 
 ## Notes

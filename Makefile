@@ -21,5 +21,5 @@ setup:
 	git config core.hooksPath .githooks
 
 install:
-	if [ -L "$(HOME)/.local/bin/sshpick" ]; then rm "$(HOME)/.local/bin/sshpick"; fi
-	cargo install --locked --path crates/sshpick --root $(HOME)/.local
+	if [ -L "$(HOME)/.local/bin/keyway" ]; then rm "$(HOME)/.local/bin/keyway"; fi
+	cargo install --locked --path crates/keyway --root $(HOME)/.local

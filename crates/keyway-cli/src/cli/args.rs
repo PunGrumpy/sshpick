@@ -1,0 +1,219 @@
+use std::ffi::OsString;
+
+use super::spec::{self, CommandSpec};
+use crate::commands::list::{ListFormat, Order};
+use crate::commands::pick::Landing;
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Args {
+    pub(crate) global: GlobalArgs,
+    pub(crate) command: Result<Command, UsageError>,
+    pub(crate) typed: Option<String>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct GlobalArgs {
+    pub(crate) no_color: bool,
+    pub(crate) non_interactive: bool,
+    pub(crate) json: bool,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Command {
+    Pick {
+        query: String,
+        landing: Landing,
+    },
+    List {
+        query: String,
+        format: ListFormat,
+        order: Order,
+    },
+    Inspect {
+        query: String,
+        json: bool,
+    },
+    Doctor {
+        json: bool,
+    },
+    Help {
+        topic: Option<&'static str>,
+    },
+    Version,
+}
+
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+pub(crate) enum UsageError {
+    #[error("unknown option \"{option}\"")]
+    Option {
+        option: String,
+        command: Option<&'static str>,
+    },
+    #[error("unknown command \"{0}\"")]
+    Command(String),
+    #[error("keyway {0} needs a query")]
+    MissingQuery(&'static str),
+    #[error("unexpected argument \"{word}\" for keyway {command}")]
+    Unexpected { command: &'static str, word: String },
+    /// `pick` prints JSON only when it prints: without `--print` it connects.
+    #[error("keyway pick takes --json only with --print")]
+    JsonWithoutPrint,
+}
+
+#[derive(Default)]
+struct Flags {
+    help: bool,
+    version: bool,
+    list: bool,
+    no_color: bool,
+    non_interactive: bool,
+}
+
+/// Options are accepted anywhere before a bare `--`. The first positional selects a command when
+/// it names one; otherwise every positional is `pick`'s query. Everything after `--` is query
+/// text. `--help` beats every other error, and `--version` beats everything but `--help`.
+pub(crate) fn parse(argv: impl IntoIterator<Item = OsString>) -> Args {
+    let mut argv = argv
+        .into_iter()
+        .map(|arg| keyway_core::printable(&arg.to_string_lossy()));
+    let mut flags = Flags::default();
+    let mut words = Vec::new();
+    let mut unknown = None;
+    let mut scoped = Vec::new();
+    for arg in argv.by_ref() {
+        if arg == "--" {
+            break;
+        }
+        if !arg.starts_with('-') || arg.len() == 1 {
+            words.push(arg);
+            continue;
+        }
+        match spec::option(&arg).map(|option| option.long) {
+            Some("help") => flags.help = true,
+            Some("version") => flags.version = true,
+            Some("list") => flags.list = true,
+            Some("no-color") => flags.no_color = true,
+            Some("non-interactive") => flags.non_interactive = true,
+            _ => match spec::command_option(&arg) {
+                Some(option) => scoped.push((arg, option.long)),
+                None => {
+                    unknown.get_or_insert(arg);
+                }
+            },
+        }
+    }
+    let tail: Vec<String> = argv.collect();
+
+    let named = words.first().and_then(|word| spec::command(word));
+    let typed = named.map(|_| words.remove(0));
+    words.extend(tail);
+
+    // With no command word the command is `pick`, and its options need no `pick` in front, as
+    // `keyway consul` needs none. `-l` turns that into `list`, which takes neither.
+    let owner = named.or((!flags.list).then_some(&spec::PICK));
+    let accepts =
+        |long: &str| owner.is_some_and(|spec| spec.options.iter().any(|o| o.long == long));
+    let asked_json = scoped.iter().any(|(_, long)| *long == "json");
+    let mut json = false;
+    let mut print = false;
+    let mut recent = false;
+    for (arg, long) in scoped {
+        if accepts(long) {
+            json |= long == "json";
+            print |= long == "print";
+            recent |= long == "recent";
+        } else {
+            unknown.get_or_insert(arg);
+        }
+    }
+
+    let global = GlobalArgs {
+        no_color: flags.no_color,
+        non_interactive: flags.non_interactive,
+        json: asked_json,
+    };
+    let command = if flags.help {
+        Ok(Command::Help {
+            topic: named.map(|spec| spec.name),
+        })
+    } else if flags.version {
+        Ok(Command::Version)
+    } else if let Some(option) = unknown {
+        Err(UsageError::Option {
+            option,
+            command: named.map(|spec| spec.name),
+        })
+    } else {
+        route(named, words, flags.list, json, print, recent)
+    };
+    Args {
+        global,
+        command,
+        typed,
+    }
+}
+
+fn route(
+    named: Option<&CommandSpec>,
+    words: Vec<String>,
+    list: bool,
+    json: bool,
+    print: bool,
+    recent: bool,
+) -> Result<Command, UsageError> {
+    if let Some(spec) = named.filter(|spec| !spec.arguments.iter().any(|a| a.multiple))
+        && let Some(word) = words.get(spec.arguments.len())
+    {
+        return Err(UsageError::Unexpected {
+            command: spec.name,
+            word: word.clone(),
+        });
+    }
+    let name = named.map_or(spec::PICK.name, |spec| spec.name);
+    if name == spec::HELP.name {
+        return match words.first() {
+            None => Ok(Command::Help { topic: None }),
+            Some(word) => spec::command(word)
+                .map(|spec| Command::Help {
+                    topic: Some(spec.name),
+                })
+                .ok_or_else(|| UsageError::Command(word.clone())),
+        };
+    }
+    if name == spec::DOCTOR.name {
+        return Ok(Command::Doctor { json });
+    }
+    let query = words.join(" ");
+    if name == spec::INSPECT.name {
+        if words.is_empty() {
+            return Err(UsageError::MissingQuery(spec::INSPECT.name));
+        }
+        return Ok(Command::Inspect { query, json });
+    }
+    if name == spec::LIST.name || list {
+        if print {
+            return Err(UsageError::Option {
+                option: "--print".to_owned(),
+                command: Some(spec::LIST.name),
+            });
+        }
+        let format = match (json, list) {
+            (true, _) => ListFormat::Json,
+            (false, true) => ListFormat::Tsv,
+            (false, false) => ListFormat::Auto,
+        };
+        let order = if recent { Order::Recent } else { Order::Config };
+        return Ok(Command::List {
+            query,
+            format,
+            order,
+        });
+    }
+    let landing = match (print, json) {
+        (false, false) => Landing::Connect,
+        (false, true) => return Err(UsageError::JsonWithoutPrint),
+        (true, false) => Landing::Print,
+        (true, true) => Landing::PrintJson,
+    };
+    Ok(Command::Pick { query, landing })
+}

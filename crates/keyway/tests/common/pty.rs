@@ -1,0 +1,447 @@
+//! The harness never answers a terminal query, so a picker that asks the terminal something and
+//! waits shows up as a missed deadline, not as a hang the harness papers over. Every wait is a
+//! condition with a deadline, never a sleep.
+//!
+//! The child writes a frame in several chunks, so a screen can be caught half drawn. ratatui
+//! emits cells row by row: a condition that holds only once the last row a change touches is
+//! on the screen means the whole change is.
+
+use std::fmt;
+use std::fs;
+use std::io::{ErrorKind, Read, Write};
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{self, Receiver};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use nix::errno::Errno;
+use nix::sys::signal::{Signal, kill};
+use nix::sys::termios::LocalFlags;
+use nix::sys::wait::{WaitStatus, waitpid};
+use nix::unistd::Pid;
+use portable_pty::{CommandBuilder, MasterPty, PtySize, native_pty_system};
+
+const WITHIN: Duration = Duration::from_secs(10);
+const SCROLLBACK: usize = 1000;
+
+pub struct Options {
+    pub home: &'static str,
+    pub cols: u16,
+    pub rows: u16,
+    pub term: &'static str,
+    pub args: &'static [&'static str],
+    /// Lines already on the screen when keyway starts: the context the picker must give back.
+    pub shell: &'static [&'static str],
+    /// Keys typed before keyway took the terminal. They wait in the pty's input queue.
+    pub typed: &'static str,
+    /// Hosts connected to before keyway starts, and how many seconds ago. They are written to
+    /// the history in the session's state directory.
+    pub history: &'static [(&'static str, u64)],
+    /// A file where the state directory should be, so that keyway cannot save anything there.
+    pub unwritable: bool,
+    /// Send stdout to this file instead of the pty, as `$(keyway --print)` does; the pty stays
+    /// stdin, stderr and the controlling terminal.
+    pub stdout_file: Option<PathBuf>,
+    /// Run this argv instead of keyway, with the same environment, such as the Rex hand-off.
+    pub program: Option<Vec<String>>,
+    /// More environment variables for the child.
+    pub env: Vec<(String, String)>,
+}
+
+impl Options {
+    pub fn new(home: &'static str) -> Options {
+        Options {
+            home,
+            cols: 80,
+            rows: 24,
+            term: "xterm-256color",
+            args: &[],
+            shell: &[],
+            typed: "",
+            history: &[],
+            unwritable: false,
+            stdout_file: None,
+            program: None,
+            env: Vec::new(),
+        }
+    }
+}
+
+/// A process killed by a signal has no exit code, and the shell reports it as 128 plus the
+/// signal, so the two are told apart here.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Exit {
+    Code(i32),
+    Signal(Signal),
+}
+
+pub struct Frame {
+    pub rows: Vec<String>,
+    /// Row and column of the cursor.
+    pub cursor: (u16, u16),
+    pub alternate: bool,
+    pub cursor_hidden: bool,
+}
+
+impl Frame {
+    fn of(parser: &vt100::Parser) -> Frame {
+        let screen = parser.screen();
+        let (_, cols) = screen.size();
+        Frame {
+            rows: screen
+                .rows(0, cols)
+                .map(|row| row.trim_end().to_owned())
+                .collect(),
+            cursor: screen.cursor_position(),
+            alternate: screen.alternate_screen(),
+            cursor_hidden: screen.hide_cursor(),
+        }
+    }
+
+    pub fn has(&self, text: &str) -> bool {
+        self.rows.iter().any(|row| row.contains(text))
+    }
+}
+
+impl fmt::Display for Frame {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (number, row) in self.rows.iter().enumerate() {
+            writeln!(out, "{number:2}|{row}")?;
+        }
+        write!(
+            out,
+            "cursor {:?}, alternate screen {}, cursor hidden {}",
+            self.cursor, self.alternate, self.cursor_hidden
+        )
+    }
+}
+
+struct Shared {
+    parser: vt100::Parser,
+    output: Vec<u8>,
+    /// The child closed its end of the pty: everything it wrote is on the grid.
+    closed: bool,
+}
+
+type Link = Arc<(Mutex<Shared>, Condvar)>;
+
+pub struct Session {
+    link: Link,
+    master: Box<dyn MasterPty + Send>,
+    writer: Box<dyn Write + Send>,
+    exited: Receiver<nix::Result<WaitStatus>>,
+    pid: Pid,
+    reaped: bool,
+    state: PathBuf,
+}
+
+impl Session {
+    pub fn start(options: Options) -> Session {
+        let Options {
+            home,
+            cols,
+            rows,
+            term,
+            args,
+            shell,
+            typed,
+            history,
+            unwritable,
+            stdout_file,
+            program,
+            env,
+        } = options;
+        let state = fresh_state();
+        seed(&state, history, unwritable);
+        let pair = ok(
+            native_pty_system().openpty(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            }),
+            "open a pty",
+        );
+        let mut reader = ok(pair.master.try_clone_reader(), "read from the pty");
+        let mut writer = ok(pair.master.take_writer(), "write to the pty");
+
+        let mut parser = vt100::Parser::new(rows, cols, SCROLLBACK);
+        for line in shell {
+            parser.process(line.as_bytes());
+            parser.process(b"\r\n");
+        }
+        let link: Link = Arc::new((
+            Mutex::new(Shared {
+                parser,
+                output: Vec::new(),
+                closed: false,
+            }),
+            Condvar::new(),
+        ));
+        let feed = Arc::clone(&link);
+        thread::spawn(move || {
+            let mut chunk = [0u8; 4096];
+            loop {
+                match reader.read(&mut chunk) {
+                    Ok(0) => break,
+                    Ok(count) => {
+                        let (shared, changed) = &*feed;
+                        let mut shared = lock(shared);
+                        shared.parser.process(&chunk[..count]);
+                        shared.output.extend_from_slice(&chunk[..count]);
+                        changed.notify_all();
+                    }
+                    Err(error) if error.kind() == ErrorKind::Interrupted => {}
+                    Err(_) => break,
+                }
+            }
+            let (shared, changed) = &*feed;
+            lock(shared).closed = true;
+            changed.notify_all();
+        });
+
+        ok(writer.write_all(typed.as_bytes()), "type ahead");
+        ok(writer.flush(), "type ahead");
+
+        let keyway = env!("CARGO_BIN_EXE_keyway");
+        let mut command = match (&program, &stdout_file) {
+            (Some(argv), _) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
+            (None, None) => CommandBuilder::new(keyway),
+            // `exec` keeps the pid, so signals and the exit status are keyway's own.
+            (None, Some(_)) => {
+                let mut command = CommandBuilder::new("/bin/sh");
+                command.args(["-c", "exec \"$0\" \"$@\" >\"$STDOUT_FILE\"", keyway]);
+                command
+            }
+        };
+        command.args(args);
+        command.env_clear();
+        if let Some(file) = &stdout_file {
+            command.env("STDOUT_FILE", file);
+        }
+        command.env("HOME", fixtures().join(home));
+        command.env(
+            "PATH",
+            format!(
+                "{}:{}",
+                fixtures().join("bin").display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        );
+        command.env("TERM", term);
+        command.env("XDG_STATE_HOME", &state);
+        for (name, value) in &env {
+            command.env(name, value);
+        }
+        let child = ok(pair.slave.spawn_command(command), "start keyway");
+        drop(pair.slave);
+
+        let Some(pid) = child
+            .process_id()
+            .and_then(|id| i32::try_from(id).ok())
+            .map(Pid::from_raw)
+        else {
+            panic!("the child has no process id");
+        };
+        // `waitpid` rather than `Child::wait`, whose status names a signal only by its
+        // locale-dependent description.
+        let (sender, exited) = mpsc::channel();
+        thread::spawn(move || {
+            let status = loop {
+                match waitpid(pid, None) {
+                    Err(Errno::EINTR) => {}
+                    status => break status,
+                }
+            };
+            let _ = sender.send(status);
+        });
+
+        Session {
+            link,
+            master: pair.master,
+            writer,
+            exited,
+            pid,
+            reaped: false,
+            state,
+        }
+    }
+
+    /// The directory keyway was told to keep its state in. It does not exist until something
+    /// puts a file there.
+    pub fn state(&self) -> &Path {
+        &self.state
+    }
+
+    /// The history as keyway left it, or `None` when there is no file.
+    pub fn history(&self) -> Option<String> {
+        fs::read_to_string(self.state.join("keyway").join("history")).ok()
+    }
+
+    pub fn send(&mut self, keys: &str) {
+        ok(self.writer.write_all(keys.as_bytes()), "send keys");
+        ok(self.writer.flush(), "send keys");
+    }
+
+    /// Not through the pty: a Ctrl-C typed into a raw terminal is a key, not a signal.
+    pub fn signal(&self, signal: Signal) {
+        ok(kill(self.pid, signal), "signal keyway");
+    }
+
+    pub fn frame(&self) -> Frame {
+        let (shared, _) = &*self.link;
+        Frame::of(&lock(shared).parser)
+    }
+
+    /// The emulator takes the new size first, as a terminal window would, then the child gets
+    /// SIGWINCH.
+    pub fn resize(&self, cols: u16, rows: u16) {
+        let (shared, _) = &*self.link;
+        lock(shared).parser.screen_mut().set_size(rows, cols);
+        let size = PtySize {
+            rows,
+            cols,
+            pixel_width: 0,
+            pixel_height: 0,
+        };
+        ok(self.master.resize(size), "resize the pty");
+    }
+
+    pub fn scrollback(&self) -> Vec<String> {
+        let (shared, _) = &*self.link;
+        let mut shared = lock(shared);
+        let screen = shared.parser.screen_mut();
+        let cols = screen.size().1;
+        screen.set_scrollback(SCROLLBACK);
+        let depth = screen.scrollback();
+        let mut rows = Vec::new();
+        for offset in (1..=depth).rev() {
+            screen.set_scrollback(offset);
+            let first = screen.rows(0, cols).next().unwrap_or_default();
+            rows.push(first.trim_end().to_owned());
+        }
+        screen.set_scrollback(0);
+        rows
+    }
+
+    pub fn output(&self) -> Vec<u8> {
+        let (shared, _) = &*self.link;
+        lock(shared).output.clone()
+    }
+
+    pub fn wait_for(&self, what: &str, ready: impl Fn(&Frame) -> bool) -> Frame {
+        let deadline = Instant::now() + WITHIN;
+        let (shared, changed) = &*self.link;
+        let mut guard = lock(shared);
+        loop {
+            let frame = Frame::of(&guard.parser);
+            if ready(&frame) {
+                return frame;
+            }
+            let left = deadline.saturating_duration_since(Instant::now());
+            assert!(
+                !left.is_zero(),
+                "gave up after {WITHIN:?} waiting for {what}; the screen is:\n{frame}"
+            );
+            guard = changed
+                .wait_timeout(guard, left)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
+        }
+    }
+
+    pub fn exit(&mut self) -> Exit {
+        let status = match self.exited.recv_timeout(WITHIN) {
+            Ok(status) => ok(status, "wait for keyway"),
+            Err(_) => panic!(
+                "keyway did not exit within {WITHIN:?}; the screen is:\n{}",
+                self.frame()
+            ),
+        };
+        self.reaped = true;
+        let deadline = Instant::now() + WITHIN;
+        let (shared, changed) = &*self.link;
+        let mut guard = lock(shared);
+        while !guard.closed {
+            let left = deadline.saturating_duration_since(Instant::now());
+            assert!(!left.is_zero(), "the pty never closed after keyway exited");
+            guard = changed
+                .wait_timeout(guard, left)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
+        }
+        match status {
+            WaitStatus::Exited(_, code) => Exit::Code(code),
+            WaitStatus::Signaled(_, signal, _) => Exit::Signal(signal),
+            other => panic!("keyway stopped without exiting: {other:?}"),
+        }
+    }
+
+    pub fn cooked(&self) -> bool {
+        let Some(termios) = self.master.get_termios() else {
+            panic!("cannot read the pty's termios");
+        };
+        termios
+            .local_flags
+            .contains(LocalFlags::ICANON | LocalFlags::ECHO)
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        if !self.reaped {
+            let _ = kill(self.pid, Signal::SIGKILL);
+        }
+        let _ = fs::remove_dir_all(&self.state);
+    }
+}
+
+/// A state directory of its own, so that no test reads the history of another or of the person
+/// running the tests.
+fn fresh_state() -> PathBuf {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    std::env::temp_dir().join(format!(
+        "keyway-pty-state-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ))
+}
+
+fn seed(state: &Path, history: &[(&str, u64)], unwritable: bool) {
+    let dir = state.join("keyway");
+    if unwritable {
+        ok(fs::create_dir_all(state), "create the state directory");
+        ok(fs::write(&dir, "in the way"), "block the history directory");
+    }
+    if history.is_empty() {
+        return;
+    }
+    let now = ok(
+        SystemTime::now().duration_since(UNIX_EPOCH),
+        "read the clock",
+    )
+    .as_secs();
+    let lines: String = history
+        .iter()
+        .map(|(host, ago)| format!("{}\t{host}\n", now - ago))
+        .collect();
+    ok(fs::create_dir_all(&dir), "create the history directory");
+    ok(fs::write(dir.join("history"), lines), "seed the history");
+}
+
+fn fixtures() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+}
+
+fn lock(shared: &Mutex<Shared>) -> MutexGuard<'_, Shared> {
+    shared.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn ok<T, E: fmt::Debug>(result: Result<T, E>, what: &str) -> T {
+    match result {
+        Ok(value) => value,
+        Err(error) => panic!("cannot {what}: {error:?}"),
+    }
+}

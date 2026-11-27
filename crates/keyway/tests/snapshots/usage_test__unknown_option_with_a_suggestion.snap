@@ -1,0 +1,6 @@
+---
+source: crates/keyway/tests/usage_test.rs
+expression: stderr(&out)
+---
+Error: unknown option "--lst"
+Fix: keyway accepts --help, --json, --no-color, --non-interactive, --print, --version. Did you mean --list?

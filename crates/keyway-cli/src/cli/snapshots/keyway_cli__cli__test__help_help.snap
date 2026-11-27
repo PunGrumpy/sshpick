@@ -1,0 +1,14 @@
+---
+source: crates/keyway-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ keyway help [command]
+
+  Show help for a command.
+
+  Global Options: See `keyway --help`
+
+  Examples:
+  Show the usage information for the command `list`
+    keyway help list

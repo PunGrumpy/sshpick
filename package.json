@@ -1,9 +1,9 @@
 {
-  "name": "sshpick-monorepo",
+  "name": "keyway-monorepo",
   "private": true,
   "workspaces": [
     "apps/*",
-    "crates/sshpick"
+    "crates/keyway"
   ],
   "type": "module",
   "scripts": {

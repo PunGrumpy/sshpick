@@ -1,0 +1,55 @@
+# keyway-ui
+
+## Purpose
+
+The terminal side of keyway: the colour decision for each output stream, console output, the `ls`
+host table and the picker. The text of the help pages and of `inspect` is written in `keyway-cli`,
+with a `ColorConfig` from here. The picker owns raw mode and the alternate screen, draws with
+ratatui through crossterm and maps crossterm key events to `keyway_core::Key`. This is the only crate that names a ratatui or crossterm type. What a key does
+and which rows match live in `keyway-core`; what to say lives in `keyway-cli`.
+
+## Architecture
+
+```
+keyway-ui
+    ├── color.rs - ColorConfig: colour and attributes for one stream, from --no-color, NO_COLOR,
+    │   CLICOLOR_FORCE and TERM, plus bold, dim, cyan, red, yellow and gray; Reason is the rule
+    │   that decided, which `doctor` prints
+    ├── output.rs - Output: results on a stdout that forgives a closed pipe; Error, Fix and Learn More
+    │   lines and `!` warnings on stderr; the terminal's size; built once per run and passed down
+    ├── listing.rs - the host table `keyway ls` prints on a terminal
+    ├── text.rs - display-width helpers: columns, fit, plural
+    └── tui/ - the picker
+        ├── app.rs - the event loop: fit the screen, draw, poll, hand a key to the Picker
+        ├── plan.rs - plan(): which rows the screen gives to what, from the terminal's size, the
+        │   number of hosts and the open help; one ladder of what goes first on a short terminal,
+        │   at any width
+        ├── input.rs - crossterm key event to Key, one to one, no policy
+        ├── screen.rs - lays out the screen: prompt, header, list with the route under the selected
+        │   host, help, hint row
+        ├── signals.rs - a thread that restores the terminal on SIGINT, SIGTERM, SIGHUP or SIGQUIT,
+        │   then ends the process by that signal
+        ├── table.rs - the prompt row, the header, the host rows and the hint row; LAST, when some host
+        │   has history, is dropped before WHAT is
+        ├── route.rs - where the selected host goes, `resolving…` or why ssh -G failed: one `└` line
+        │   under the selected host, cut with `…`
+        ├── help.rs - the key help as rows just above the hint row, from the blank rows first:
+        │   rows from BINDINGS, cut with a `+N more · keyway pick --help` pointer
+        ├── style.rs - DIM, BOLD, REVERSED, and runs of matched text as styled spans
+        ├── terminal.rs - Tty: raw mode, the alternate screen and synchronized frames on the
+        │   Surface (stdout, or /dev/tty under --print), the only writer to the terminal while the
+        │   picker is open, and the one idempotent restore, on that same device, that `leave`,
+        │   `Drop`, the panic hook and the signal thread all end in
+        └── testing.rs - test helpers: a TestBackend screen for a terminal size, render(), frame()
+```
+
+## Notes
+
+The screen's rows come from `plan.rs` and its layout is a pure function of that plan. A resize
+clears the screen and draws it again whole. Widths are display columns, never `str::len`. `tui/snapshots` holds
+the text of each frame per size, plus a text dump of where `REVERSED`, `BOLD` and `DIM` are for the
+two reference screens; the other styles are asserted cell by cell. The picker uses no colour at
+all, so `NO_COLOR` has nothing to turn off.
+
+`tests/fixtures` holds copies of the `ui`, `flat` and `home` configs that the frame tests
+read. Each crate reads its own fixtures, never the real `~/.ssh`.

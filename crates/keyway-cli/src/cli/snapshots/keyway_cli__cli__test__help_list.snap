@@ -1,0 +1,25 @@
+---
+source: crates/keyway-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ keyway list [query]... [options]
+
+  List the hosts that match a query. With --recent the hosts you connected to
+  last come first, as in the picker.
+
+  Options:
+       --json    Output as JSON
+       --recent  Put the hosts you connected to last first, as the picker does
+
+  Global Options: See `keyway --help`
+
+  Examples:
+  List the hosts matching both words
+    keyway list new consul
+
+  Print only the host names
+    keyway list | cut -f2
+
+  List the hosts as JSON
+    keyway list --json

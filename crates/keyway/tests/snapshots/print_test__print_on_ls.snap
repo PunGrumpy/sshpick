@@ -1,0 +1,6 @@
+---
+source: crates/keyway/tests/print_test.rs
+expression: stderr(&out)
+---
+Error: unknown option "--print"
+Fix: keyway list accepts --help, --json, --no-color, --non-interactive, --recent, --version.

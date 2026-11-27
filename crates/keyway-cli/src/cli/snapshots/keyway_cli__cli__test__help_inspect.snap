@@ -1,0 +1,23 @@
+---
+source: crates/keyway-cli/src/cli/test.rs
+expression: "page(topic, 80)"
+---
+
+  ▌ keyway inspect <query>... [options]
+
+  Show where a host resolves, as ssh sees it (ssh -G).
+
+  Options:
+       --json  Output as JSON
+
+  Global Options: See `keyway --help`
+
+  Examples:
+  Show where a host resolves
+    keyway inspect stg-consul1
+
+  Inspect the one host that a query matches
+    keyway inspect new consul
+
+  Read one field in a script
+    keyway inspect stg-consul1 --json | jq -r .resolved.hostname

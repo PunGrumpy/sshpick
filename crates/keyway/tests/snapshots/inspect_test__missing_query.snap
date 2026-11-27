@@ -1,0 +1,6 @@
+---
+source: crates/keyway/tests/inspect_test.rs
+expression: stderr(&out)
+---
+Error: keyway inspect needs a query
+Fix: name a host, as in `keyway inspect stg-consul1`, or list them with `keyway ls`.
