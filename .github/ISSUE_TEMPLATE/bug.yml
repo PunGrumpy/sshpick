@@ -1,0 +1,34 @@
+name: Bug
+description: keyway did something other than what the docs say
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, what you expected, and what you got.
+      placeholder: |
+        keyway inspect stg-db
+        Expected stg-db to resolve through stg-bastion; it printed "no host matches".
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: keyway --version, and your OS
+      placeholder: keyway 0.1.0 on macOS 15.2
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: keyway doctor --json
+      description: Its output names the config it read and checks ssh and the terminal.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: The part of ~/.ssh/config that matters
+      description: The Host blocks involved, with real names and addresses replaced.
+      render: ssh-config
