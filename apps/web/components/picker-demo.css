@@ -1,0 +1,224 @@
+/* The hero demo's terminal. The picker's colours are fixed by its design: the neutrals are the
+   xterm grey ramp (233, 236, 239, 245, 250, 253) and the accent is ANSI 4 drawn reversed, so the
+   selected row is blue with the terminal's own background as its ink. The page's palette never
+   reaches in here. Every width is in characters and every row is one line, because the picker
+   lays out in cells: the box is box-drawing characters, not a border. */
+
+.kw-stage .ss-stage {
+  --ss-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --kw-bg: #121212;
+  --kw-fg: #dadada;
+  --kw-muted: #8a8a8a;
+  --kw-stroke: #4e4e4e;
+  --kw-strip: #303030;
+  --kw-typed: #eee;
+  --kw-cap: #bcbcbc;
+  --kw-blue: #2472c8;
+  --kw-size: 13px;
+  --kw-line: 18px;
+  /* The terminal is thirteen rows: a blank one, the eleven the box takes, and a blank one. */
+  --kw-rows: 13;
+  background: none;
+  overflow: hidden;
+}
+
+.kw-stage .kw-term {
+  --ss-term-bg: var(--kw-bg);
+  /* One hairline and one long, faint fall, so the window sits on the page rather than hovering
+     in a grey halo. */
+  --ss-shadow-hero:
+    0 1px 2px rgb(0 0 0 / 8%), 0 18px 40px -16px rgb(0 0 0 / 30%);
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 968px;
+  /* Fixed, so the window keeps its size when ssh takes the terminal over. */
+  height: calc(var(--kw-rows) * var(--kw-line) + 38px);
+  border-radius: 10px;
+}
+
+/* One blank terminal row above the box and one below it, as the picker leaves. */
+.kw-stage .kw-body {
+  display: block;
+  padding: var(--kw-line) 0;
+  color: var(--kw-fg);
+  font: var(--kw-size) / var(--kw-line) var(--ss-mono);
+  font-variant-ligatures: none;
+}
+
+.kw-panel {
+  width: 110ch;
+  margin: 0 auto;
+}
+
+.kw-edge {
+  color: var(--kw-stroke);
+  white-space: pre;
+}
+
+/* A row: the two sides of the box, and between them the bar, one blank column in from each side
+   (MARGIN) with its words one column inside that (PADDING). */
+.kw-line {
+  display: grid;
+  grid-template-columns: 1ch minmax(0, 1fr) 1ch;
+  height: var(--kw-line);
+}
+
+.kw-side {
+  color: var(--kw-stroke);
+}
+
+.kw-bar {
+  display: grid;
+  align-items: center;
+  margin: 0 1ch;
+  padding: 0 1ch;
+}
+
+.kw-field {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2ch;
+  background: var(--kw-strip);
+  color: var(--kw-typed);
+}
+
+.kw-typed {
+  white-space: pre;
+}
+
+.kw-route {
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+}
+
+.kw-placeholder,
+.kw-count {
+  color: var(--kw-muted);
+}
+
+/* The block cursor, drawn the way a terminal draws it: the cell under it is inverted. */
+.kw-cursor {
+  background: var(--kw-fg);
+  color: var(--kw-bg);
+}
+
+.kw-field .kw-cursor {
+  background: var(--kw-typed);
+  color: var(--kw-strip);
+}
+
+.kw-row {
+  grid-template-columns: var(--kw-host) minmax(0, 1fr) var(--kw-last) var(
+      --kw-env
+    );
+  gap: 2ch;
+  color: var(--kw-fg);
+}
+
+.kw-cell {
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+}
+
+.kw-what,
+.kw-last,
+.kw-env {
+  color: var(--kw-muted);
+}
+
+.kw-last,
+.kw-env {
+  text-align: right;
+}
+
+.kw-hit {
+  font-weight: 700;
+}
+
+.kw-row[data-on] {
+  background: var(--kw-blue);
+  color: var(--kw-bg);
+}
+
+.kw-row[data-on] .kw-cell {
+  color: inherit;
+}
+
+.kw-hint {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4ch;
+  color: var(--kw-muted);
+}
+
+.kw-caps {
+  display: flex;
+  gap: 4ch;
+}
+
+.kw-caps kbd {
+  margin-left: 1ch;
+  padding: 0;
+  background: var(--kw-strip);
+  color: var(--kw-cap);
+  font: inherit;
+}
+
+/* The shell the picker hands the terminal back to: its last lines sit at the foot of the
+   terminal, where a shell leaves them, with the work from before the picker above. */
+.kw-shell {
+  display: flex;
+  min-height: calc((var(--kw-rows) - 2) * var(--kw-line));
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 2ch;
+}
+
+.kw-shell .ss-term__path {
+  color: var(--kw-muted);
+}
+
+.kw-shell .ss-term__sigil {
+  color: var(--kw-blue);
+}
+
+.kw-shell .ss-term__cmd,
+.kw-remote {
+  color: var(--kw-fg);
+}
+
+.kw-shell .dim {
+  color: var(--kw-muted);
+}
+
+/* Narrow enough that the picker drops its box and takes the whole terminal, as it does under
+   sixty columns: no sides, no rule, and WHAT cut to the columns that are left. */
+.kw-stage .ss-stage[data-layout="compact"] {
+  --kw-size: 11px;
+  --kw-line: 15px;
+  --kw-rows: 8;
+}
+
+.kw-stage .ss-stage[data-layout="compact"] .kw-term {
+  width: 326px;
+  border-radius: 8px;
+}
+
+.kw-stage .ss-stage[data-layout="compact"] .kw-body {
+  padding: 0;
+}
+
+.kw-stage .ss-stage[data-layout="compact"] .kw-panel {
+  width: auto;
+  margin: 0;
+}
+
+.kw-stage .ss-stage[data-layout="compact"] .kw-edge,
+.kw-stage .ss-stage[data-layout="compact"] .kw-side {
+  display: none;
+}
+
+.kw-stage .ss-stage[data-layout="compact"] .kw-line {
+  grid-template-columns: minmax(0, 1fr);
+}

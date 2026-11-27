@@ -16,17 +16,21 @@ not deployed from here.
   `foo.md#x` links into `/docs/foo/#x`. Other relative links go to the file on GitHub.
 - `app/page.tsx` is the landing page. `app/docs/[slug]/page.tsx` is one page per `docs/*.md`,
   from `generateStaticParams`, and `app/docs/page.tsx` is `docs/README.md`.
-- `lib/demo.ts` is the terminal demo as a table of frames, each with how long it holds.
-  `components/terminal-demo.tsx` replays it. Its hosts are those of
-  `crates/keyway/tests/fixtures/ui`, and the build fails if one is missing there.
-- `components/motion.tsx` turns on Lenis smooth scrolling and the scroll reveals.
+- `lib/demo.ts` is the hero demo's content: the hosts, how a query narrows them, the footer's
+  keys and the shell session. Its hosts are those of `crates/keyway/tests/fixtures/ui`, and the
+  build fails if one is missing there.
+- `components/picker-demo.tsx` plays that session on a Stageshow stage from `vendor/stageshow`.
+  `components/REHEARSAL.md` records what was filmed.
+- `components/motion.tsx` turns on Lenis smooth scrolling and the scroll reveals, and does
+  nothing under `prefers-reduced-motion`.
 
 ## Notes
 
 - `bunx turbo run build --filter=web` writes the site to `out/`; any static file server can serve
   it. `bun run --filter web dev` runs it locally.
 - Under `prefers-reduced-motion` there is no smooth scrolling, no reveal and no replay: the demo
-  shows one still frame.
-- The colours are tokens in `app/globals.css`, light and dark from the system. The accent is the
-  picker's selection blue.
+  shows one still frame, and nothing is hidden waiting to be scrolled to.
+- The page is one family, Geist Mono, two inks and hairlines, light and dark from the system;
+  the tokens are in `app/globals.css`. The terminal keeps the picker's own colours instead: the
+  xterm grey ramp and ANSI blue, in `components/picker-demo.css`.
 - The site is private and Changesets ignores it; it has no version of its own.

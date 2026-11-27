@@ -4,18 +4,17 @@ import Lenis from "lenis";
 import { useEffect } from "react";
 
 /**
- * Smooth scrolling, and reveals that only fade under prefers-reduced-motion. Content is visible
- * until this runs, so a page without script shows everything at once.
+ * Smooth scrolling and the scroll reveals. Content is visible until this runs, and stays visible
+ * under prefers-reduced-motion, so a page without script, or for someone who asked for no motion,
+ * shows everything at once.
  */
 export const Motion = () => {
   useEffect(() => {
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
+    const moves = !window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches;
 
-    const lenis = reduced ? null : new Lenis({ autoRaf: true, anchors: true });
+    const lenis = moves ? new Lenis({ autoRaf: true, anchors: true }) : null;
     const root = document.documentElement;
-    root.classList.add("reveal-ready");
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -31,8 +30,12 @@ export const Motion = () => {
       { rootMargin: "0px 0px -10% 0px" }
     );
 
-    for (const element of document.querySelectorAll("[data-reveal]")) {
-      observer.observe(element);
+    if (moves) {
+      root.classList.add("reveal-ready");
+
+      for (const element of document.querySelectorAll("[data-reveal]")) {
+        observer.observe(element);
+      }
     }
 
     return () => {

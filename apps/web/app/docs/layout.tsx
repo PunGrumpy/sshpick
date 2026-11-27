@@ -10,11 +10,11 @@ export default function DocsLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <div className="mx-auto grid max-w-[72rem] gap-10 px-4 py-10 sm:px-6 md:grid-cols-[12rem_minmax(0,1fr)] md:py-14">
-      <aside className="md:sticky md:top-24 md:self-start">
+    <div className="mx-auto grid max-w-[64rem] gap-10 px-[var(--frame)] py-12 md:grid-cols-[13rem_minmax(0,1fr)] md:py-16">
+      <aside className="md:sticky md:top-20 md:self-start">
         <DocsNav pages={pages} />
       </aside>
-      <main className="max-w-[48rem] min-w-0">{children}</main>
+      <main className="max-w-[44rem] min-w-0">{children}</main>
     </div>
   );
 }

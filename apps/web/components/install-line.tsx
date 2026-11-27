@@ -25,20 +25,20 @@ export const InstallLine = ({ command }: { command: string }) => {
   };
 
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3 text-[13px]">
+    <div className="flex items-start gap-3 rounded-[10px] border border-hair bg-card px-4 py-3 text-[13px]">
       <code className="min-w-0 flex-1 break-all">
         <span className="text-muted select-none">$ </span>
         {command}
       </code>
       <button
-        type="button"
+        aria-live="polite"
+        className="press -my-1 -mr-2 min-w-[7ch] shrink-0 cursor-pointer rounded-full px-2.5 py-1 text-right text-muted transition-colors hover:text-fg focus-visible:text-fg"
         onClick={() => {
           void copy();
         }}
-        className="press -my-1.5 -mr-2 min-w-[6ch] shrink-0 cursor-pointer rounded-md px-2 py-1.5 text-right text-muted hover:text-fg focus-visible:text-fg"
-        aria-live="polite"
+        type="button"
       >
-        {copied ? "copied" : "copy"}
+        {copied ? "Copied" : "Copy"}
       </button>
     </div>
   );

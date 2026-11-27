@@ -4,6 +4,7 @@ import ultracite from "ultracite/oxfmt";
 export const outOfScope = [
   "/.changeset/",
   "/.github/",
+  "/apps/web/vendor/",
   "/assets/",
   "/crates/",
   "/docs/",
