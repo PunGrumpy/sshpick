@@ -20,7 +20,7 @@ that defines one action, `sshpick`.
 
 ## Install
 
-1. Install an sshpick that has `--print` and `ls --recent` (newer than 0.2.0): `make install` puts
+1. Install an sshpick that has `--print` and `ls --recent` (0.1.0 or newer): `make install` puts
    it in `~/.local/bin`. The palette needs both.
 2. Copy or link the file next to your `init.lua`:
 
