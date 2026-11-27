@@ -1,38 +1,39 @@
 @import "tailwindcss";
 @import "lenis/dist/lenis.css";
 
+/* One family, Geist Mono, and two inks on a near-white page: the type is small, the rules are
+   hairlines, and the only colour on the page is inside the terminal, which keeps the picker's
+   own. Sizes step 13 / 14 / 17 / 26 / 56, so a heading never shouts. */
 :root {
   color-scheme: light dark;
-  /* fx.sh's neutral ramp: no hue anywhere, contrast does the work. */
   --bg: #fff;
-  --fg: #171717;
-  --muted: #666;
-  --border: #e5e5e5;
-  --card: #fafafa;
-  --accent: #171717;
+  --fg: #0a0a0a;
+  --muted: #71757c;
+  --border: color-mix(in srgb, var(--fg) 11%, transparent);
+  --hair: color-mix(in srgb, var(--fg) 5%, transparent);
+  --card: #f8f7f5;
+  --accent: #0a0a0a;
   --accent-fg: #fff;
-  --term: #fafafa;
-  --term-fg: #171717;
-  --term-muted: #767676;
-  --term-rule: #e5e5e5;
-  --term-strip: #f2f2f2;
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --frame: 20px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #000;
-    --fg: #ededed;
-    --muted: #a1a1a1;
-    --border: #262626;
-    --card: #0a0a0a;
-    --accent: #ededed;
-    --accent-fg: #000;
-    --term: #0a0a0a;
-    --term-fg: #ededed;
-    --term-muted: #8a8a8a;
-    --term-rule: #262626;
-    --term-strip: #171717;
+    --bg: #0a0a0a;
+    --fg: #d6dae4;
+    --muted: #7d8189;
+    --border: color-mix(in srgb, var(--fg) 14%, transparent);
+    --hair: color-mix(in srgb, var(--fg) 7%, transparent);
+    --card: #141518;
+    --accent: #d6dae4;
+    --accent-fg: #0a0a0a;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --frame: 16px;
   }
 }
 
@@ -41,22 +42,22 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-hair: var(--hair);
   --color-card: var(--card);
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
-  --color-term: var(--term);
-  --color-term-fg: var(--term-fg);
-  --color-term-muted: var(--term-muted);
-  --color-term-rule: var(--term-rule);
-  --color-term-strip: var(--term-strip);
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-serif: var(--font-instrument-serif), Georgia, serif;
-  --text-display: clamp(6.5rem, 15vw, 11.5rem);
-  --text-display--line-height: 0.86;
-  --text-headline: 2.625rem;
-  --text-headline--line-height: 1.05;
-  --text-title: 1.625rem;
-  --text-title--line-height: 1.15;
+  --text-hero: clamp(2.5rem, 7.5vw, 3.5rem);
+  --text-hero--line-height: 1;
+  --text-hero--letter-spacing: -0.045em;
+  --text-head: clamp(1.5rem, 4.2vw, 1.75rem);
+  --text-head--line-height: 1.12;
+  --text-head--letter-spacing: -0.03em;
+  --text-lead: clamp(0.9375rem, 2.6vw, 1.0625rem);
+  --text-lead--line-height: 1.55;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.3;
+  --text-label--letter-spacing: 0.06em;
 }
 
 html {
@@ -73,29 +74,25 @@ body {
   color: var(--accent-fg);
 }
 
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--fg) 35%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 .press {
-  transition: transform 100ms var(--ease-out);
+  transition: transform 0.12s var(--ease);
 }
 .press:active {
-  transform: scale(0.97);
-}
-
-.caret {
-  animation: caret 1.1s steps(1) infinite;
-}
-
-@keyframes caret {
-  50% {
-    opacity: 0;
-  }
+  transform: scale(0.98);
 }
 
 .reveal-ready [data-reveal] {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(10px);
   transition:
-    opacity 600ms var(--ease-out),
-    transform 600ms var(--ease-out);
+    opacity 0.5s var(--ease),
+    transform 0.5s var(--ease);
 }
 
 .reveal-ready [data-reveal].revealed {
@@ -104,34 +101,33 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .caret {
-    animation: none;
-  }
   .reveal-ready [data-reveal] {
     transform: none;
-    transition: opacity 300ms ease;
+    transition: opacity 0.3s ease;
   }
   .press:active {
     transform: none;
   }
 }
 
+/* The documentation pages, rendered from docs/*.md. Same two inks, same hairlines, one step of
+   weight for hierarchy. */
 .prose-docs {
   font-size: 14px;
   line-height: 1.75;
 }
 .prose-docs h1 {
-  font-family: var(--font-serif);
-  font-size: var(--text-headline);
-  line-height: 1.05;
-  margin-bottom: 1.5rem;
+  font-size: 1.625rem;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  margin-bottom: 1.25rem;
 }
 .prose-docs h2 {
-  font-family: var(--font-serif);
-  font-size: var(--text-title);
-  margin: 3rem 0 1rem;
+  font-size: 1.0625rem;
+  letter-spacing: -0.02em;
+  margin: 2.75rem 0 1rem;
   padding-top: 1.5rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--hair);
 }
 .prose-docs h3 {
   font-weight: 600;
@@ -167,6 +163,7 @@ body {
   text-decoration: underline;
   text-decoration-color: var(--border);
   text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s var(--ease);
 }
 @media (hover: hover) {
   .prose-docs a:hover {
@@ -175,19 +172,20 @@ body {
 }
 .prose-docs :not(pre) > code {
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--hair);
   border-radius: 4px;
   padding: 0.05rem 0.3rem;
   font-size: 0.92em;
+  white-space: nowrap;
 }
 .prose-docs pre {
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 1px solid var(--hair);
   border-radius: 8px;
   padding: 1rem;
   overflow-x: auto;
   font-size: 12.5px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 .prose-docs table {
   font-variant-numeric: tabular-nums;
@@ -198,8 +196,8 @@ body {
 }
 .prose-docs th,
 .prose-docs td {
-  border-bottom: 1px solid var(--border);
-  padding: 0.4rem 0.9rem 0.4rem 0;
+  border-bottom: 1px solid var(--hair);
+  padding: 0.45rem 1rem 0.45rem 0;
   text-align: left;
   vertical-align: top;
 }

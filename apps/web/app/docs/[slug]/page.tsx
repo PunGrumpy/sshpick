@@ -29,11 +29,11 @@ export default async function DocPage({ params }: Props) {
         className="prose-docs"
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      <p className="mt-14 border-t border-border pt-6 text-[13px] text-muted">
+      <p className="mt-14 border-t border-hair pt-6 text-[13px] text-muted">
         <a
+          className="transition-colors hover:text-fg"
           href={blobUrl(`docs/${slug}.md`)}
           rel="noreferrer"
-          className="hover:text-fg"
         >
           Edit docs/{slug}.md on GitHub
         </a>

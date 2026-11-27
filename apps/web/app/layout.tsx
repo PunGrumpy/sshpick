@@ -1,18 +1,11 @@
 import { GeistMono } from "geist/font/mono";
 import type { Metadata, Viewport } from "next";
-import { Instrument_Serif } from "next/font/google";
 import Link from "next/link";
 
 import { Motion } from "@/components/motion";
-import { blobUrl, readme, repoUrl } from "@/lib/repo";
+import { blobUrl, license, readme, repoUrl, version } from "@/lib/repo";
 
 import "./globals.css";
-
-const serif = Instrument_Serif({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-instrument-serif",
-});
 
 export const metadata: Metadata = {
   title: { default: "keyway", template: "%s · keyway" },
@@ -22,29 +15,32 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#fff" },
-    { media: "(prefers-color-scheme: dark)", color: "#000" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
   ],
 };
 
 const links = [
-  { href: "/docs/", label: "docs" },
-  { href: blobUrl("crates/keyway/CHANGELOG.md"), label: "changelog" },
-  { href: repoUrl, label: "source" },
+  { href: "/docs/", label: "Docs" },
+  { href: blobUrl("crates/keyway/CHANGELOG.md"), label: "Changelog" },
+  { href: repoUrl, label: "GitHub" },
 ];
 
-const Nav = ({ className }: { className?: string }) => (
-  <nav className={`flex gap-5 text-muted ${className ?? ""}`}>
-    {links.map(({ href, label }) =>
-      href.startsWith("/") ? (
-        <Link key={label} href={href} className="hover:text-fg">
+const Nav = () => (
+  <nav className="flex items-center gap-1">
+    {links.map(({ href, label }) => {
+      const className =
+        "rounded-full px-3 py-1.5 text-[13px] text-muted transition-colors hover:text-fg";
+
+      return href.startsWith("/") ? (
+        <Link className={className} href={href} key={label}>
           {label}
         </Link>
       ) : (
-        <a key={label} href={href} rel="noreferrer" className="hover:text-fg">
+        <a className={className} href={href} key={label} rel="noreferrer">
           {label}
         </a>
-      )
-    )}
+      );
+    })}
   </nav>
 );
 
@@ -52,22 +48,32 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${GeistMono.variable} ${serif.variable}`}>
+    <html className={GeistMono.variable} lang="en">
       <body className="min-h-dvh bg-bg font-mono text-[14px] text-fg antialiased">
         <Motion />
-        <header className="sticky top-0 z-10 border-b border-border bg-bg/85 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-[56rem] items-center justify-between px-4 sm:px-6">
-            <Link href="/" className="font-medium">
+        <header className="fixed inset-x-0 top-0 z-50">
+          <div className="absolute inset-0 -z-10 bg-bg/85 backdrop-blur-[12px]" />
+          <div className="mx-auto flex h-14 max-w-[64rem] items-center justify-between px-[var(--frame)]">
+            <Link
+              className="-ml-1 rounded-full px-1 py-1 font-medium tracking-[-0.02em]"
+              href="/"
+            >
               keyway
             </Link>
-            <Nav className="text-[13px]" />
+            <div className="-mr-3">
+              <Nav />
+            </div>
           </div>
         </header>
-        {children}
-        <footer className="border-t border-border">
-          <div className="mx-auto flex max-w-[56rem] flex-col gap-3 px-4 py-10 text-[13px] text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <span>keyway</span>
-            <Nav />
+        <div className="pt-14">{children}</div>
+        <footer className="mt-24 border-t border-hair">
+          <div className="mx-auto flex max-w-[64rem] flex-col gap-4 px-[var(--frame)] py-10 text-[13px] text-muted sm:flex-row sm:items-center sm:justify-between">
+            <span className="tabular-nums">
+              keyway v{version} · {license()}
+            </span>
+            <div className="-mx-3">
+              <Nav />
+            </div>
           </div>
         </footer>
       </body>

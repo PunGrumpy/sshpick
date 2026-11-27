@@ -12,7 +12,8 @@ export const DocsNav = ({
 
   return (
     <nav aria-label="Documentation">
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 text-[13px] md:flex-col">
+      <p className="mb-3 text-[13px] text-muted">Documentation</p>
+      <ul className="-ml-3 flex flex-wrap gap-x-1 gap-y-0.5 text-[13px] md:flex-col">
         {pages.map(({ slug, title }) => {
           const href = slug ? `/docs/${slug}/` : "/docs/";
           const current = pathname === href || pathname === href.slice(0, -1);
@@ -20,9 +21,11 @@ export const DocsNav = ({
           return (
             <li key={slug || "overview"}>
               <Link
-                href={href}
                 aria-current={current ? "page" : undefined}
-                className={current ? "text-fg" : "text-muted hover:text-fg"}
+                className={`block rounded-full px-3 py-1.5 transition-colors ${
+                  current ? "bg-card text-fg" : "text-muted hover:text-fg"
+                }`}
+                href={href}
               >
                 {title}
               </Link>
