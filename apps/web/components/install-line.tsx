@@ -26,7 +26,7 @@ export const InstallLine = ({ command }: { command: string }) => {
 
   return (
     <div className="flex items-start gap-3 rounded-[10px] border border-hair bg-card px-4 py-3 text-[13px]">
-      <code className="min-w-0 flex-1 break-all">
+      <code className="min-w-0 flex-1 overflow-x-auto whitespace-pre">
         <span className="text-muted select-none">$ </span>
         {command}
       </code>
