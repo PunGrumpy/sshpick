@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "keyway"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "insta",
@@ -445,7 +445,7 @@ dependencies = [
 
 [[package]]
 name = "keyway-cli"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "insta",
  "keyway-core",
@@ -458,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "keyway-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "glob",
  "nix",
@@ -469,7 +469,7 @@ dependencies = [
 
 [[package]]
 name = "keyway-ui"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "crossterm",
  "insta",
