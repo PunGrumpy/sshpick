@@ -2,6 +2,7 @@ import { GeistMono } from "geist/font/mono";
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 
+import { Mark } from "@/components/mark";
 import { Motion } from "@/components/motion";
 import { blobUrl, license, readme, repoUrl, version } from "@/lib/repo";
 
@@ -55,9 +56,10 @@ export default function RootLayout({
           <div className="absolute inset-0 -z-10 bg-bg/85 backdrop-blur-[12px]" />
           <div className="mx-auto flex h-14 max-w-[64rem] items-center justify-between px-[var(--frame)]">
             <Link
-              className="-ml-1 rounded-full px-1 py-1 font-medium tracking-[-0.02em]"
+              className="-ml-1 flex items-center gap-2 rounded-full px-1 py-1 font-medium tracking-[-0.02em]"
               href="/"
             >
+              <Mark className="size-[18px]" />
               keyway
             </Link>
             <div className="-mr-3">
