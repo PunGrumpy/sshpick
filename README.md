@@ -23,7 +23,7 @@ Download the archive for your platform from the
 cargo (Rust 1.99 or newer):
 
 ```bash
-cargo install --locked --git https://github.com/PunGrumpy/keyway --tag v0.0.0 keyway
+cargo install --locked --git https://github.com/PunGrumpy/keyway --tag v0.1.0 keyway
 ```
 
 `keyway --version` prints the version you have. To upgrade, download the new archive, or run the
